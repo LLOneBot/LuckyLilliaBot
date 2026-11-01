@@ -2,6 +2,17 @@
 
 LuckyLillia Bot 的插件就是一个 [cordis 4](https://github.com/cordiverse/cordis) 插件，和 Bot 自己的各个模块跑在同一个 `Context` 上。Bot 侧的加载机制见 [plugin-system.md](plugin-system.md)。
 
+## 新建插件
+
+```sh
+npx -p @luckylillia/plugin-sdk luckylillia-plugin create my-plugin
+cd my-plugin
+npm install
+npm test
+```
+
+生成的包来自 SDK 的 `template/`：`package.json`（包名默认 `luckylillia-plugin-my-plugin`，`--name` 换一个，`--description` 写一句说明）、`tsconfig.json`、带配置、一条指令和一个中间件的 `src/index.ts`、用测试工具（见"测试"）写的 `test/index.test.ts`。`npm run dev` 边改边构建到 `lib/`；在 Bot 里试见"开发"，发布见"发布"。
+
 ## 包结构
 
 ```
@@ -17,8 +28,9 @@ luckylillia-plugin-foo/
   "version": "1.0.0",
   "type": "module",                     // 缺了它 .js 会按 CommonJS 加载
   "main": "lib/index.js",               // 也认 exports["."]
+  "keywords": ["luckylillia-plugin"],   // 插件市场按它搜
   "peerDependencies": {
-    "@luckylillia/plugin-sdk": "^1.0.0" // Bot 用它判断兼容性，不满足就不加载
+    "@luckylillia/plugin-sdk": "^1.0.0" // Bot 用它判断兼容性，不满足就不加载；市场装能跑的最新版
   },
   "llbot": {                            // 有这个字段才算插件
     "description": { "zh": "...", "en": "..." },
@@ -49,7 +61,7 @@ luckylillia-plugin-foo/
 
 不认识的值扫描时会给一条警告，插件照常加载、归到"其他"。
 
-装插件 = 把这个目录放进 Bot 的 `data/plugins/`（可以有一层 `@scope/`），然后在 WebUI 插件页里启用。新放进去的插件默认是停用状态。
+装插件 = 把这个目录放进 Bot 的 `data/plugins/`（可以有一层 `@scope/`），然后在 WebUI 插件页里启用；也可以在 WebUI 的「插件市场」里从 npm 装（见"发布"）。新装的插件默认是停用状态。第三方插件第一次启用时，WebUI 会先问用户信不信任它，并列出它要用的服务（`llbot.service.required`，模块加载过的还有 `inject`），所以 `required` 要写全。
 
 ## 模块形状
 
@@ -107,7 +119,7 @@ export function apply(ctx: Context, config: Config) {
 
 `.hidden()` 的字段不显示（值照样保存、照样生效，只能改 `plugins.json`）；`.deprecated()` / `.experimental()` 会显示成小标签。`role('secret')` 的字段已经存过值时，表单里是掩码，旁边有「清空」：直接留空或原样提交都是保留原值，点了「清空」再保存才删掉。
 
-`llbot.icon` 目前支持：`bell` `book` `book-open` `bot` `brain` `calendar` `clock` `cloud` `code` `cpu` `database` `dice-5` `file-text` `gamepad-2` `gift` `globe` `hand` `heart` `image` `info` `languages` `layout-dashboard` `mail` `message-square` `milk` `music` `network` `puzzle` `radio` `repeat` `search` `send` `settings` `shield-ban` `sliders` `smartphone` `smile` `sparkles` `star` `terminal` `timer` `trophy` `users` `wrench` `zap`，其它名字显示为拼图图标。
+`llbot.icon` 目前支持：`bell` `book` `book-open` `bot` `brain` `calendar` `clock` `cloud` `code` `cpu` `database` `dice-5` `file-text` `gamepad-2` `gift` `globe` `hand` `heart` `image` `info` `languages` `layout-dashboard` `mail` `message-square` `milk` `music` `network` `puzzle` `radio` `repeat` `search` `send` `settings` `shield-ban` `sliders` `smartphone` `smile` `sparkles` `star` `store` `terminal` `timer` `trophy` `users` `wrench` `zap`，其它名字显示为拼图图标。
 
 ## 生命周期与清理
 
@@ -131,8 +143,9 @@ ctx.effect(() => {                                 // 其它资源：返回清�
 插件自己的文件（缓存、下载的资源、自带的 sqlite……）放在 `ctx.storage` 给的目录里，不要自己拼 `data/` 下的路径：
 
 ```ts
-const dir = await ctx.storage.dir()             // data/instances/<实例>/plugin-data/<包名>/shared/，这个实例里所有账号共用
-const mine = await ctx.storage.dir('account')   // data/instances/<实例>/plugin-data/<包名>/<QQ号>/，每个账号一份
+const dir = await ctx.storage.dir()                       // data/instances/<实例>/plugin-data/<包名>/shared/，这个实例里所有账号共用
+const mine = await ctx.storage.dir('account')             // data/instances/<实例>/plugin-data/<包名>/<QQ号>/，扫码登录的账号一份
+const perBot = await ctx.storage.dir('bot', session.bot)  // .../<包名>/bots/<平台>+<selfId>/，每个 bot 一份，官方机器人也有
 ```
 
 - 第一次调用时创建；同一个包的多个实例共用一个目录（多个实例、甚至同一个数据目录下的多个 Bot 进程可能同时写，需要的话自己处理并发）；卸载插件不会删它
@@ -140,7 +153,9 @@ const mine = await ctx.storage.dir('account')   // data/instances/<实例>/plugi
 - **`dir('account')` 只能在登录后的代码里用**：插件的 `inject` 里有 `account`，或者在 `ctx.inject(['account'], ctx => { ... })` 里调用。其它地方调用一律 reject —— 哪怕此刻正好已经登录：否则插件在登录后才启用时一切正常，下次 Bot 重启、插件先于登录启动时却报错，这种问题很难查
 - `ctx.baseUrl` 指向共用目录（带结尾斜杠的 `file:` URL）。用 `new URL(path, ctx.baseUrl)` 解析相对路径的生态插件会把文件放到这里，比如在插件里 `ctx.plugin(SQLiteDriver, { path: 'my.db' })`。在 `apply` 或构造函数里读它：服务的方法被别的插件调用时，`ctx.baseUrl` 读到的是调用方的（`ctx.storage` 没有这个问题，总是归定义代码的插件）
 - 这个目录不在插件代码目录里，写文件不会触发热重载
-- 按账号的结构化数据也可以用 `ctx.database`
+- `dir('bot', bot)` 收 `Bot` 或它的 `sid`（`luckylillia:12345`），不用等登录，跨平台的插件按 bot 分数据用它
+- 结构化数据也可以用 `ctx.database`（见"依赖与提供的服务"）
+- **按用户存数据时用 `平台:用户 id` 做键**（`` `${session.platform}:${session.userId}` ``）：QQ 号和官方机器人的 openid 是两套 id，同一个人在两边是两个用户，只用 `userId` 做键，两边的数据会混在一起，而且 id 可能撞上
 
 ## 依赖与提供的服务
 
@@ -159,7 +174,9 @@ const mine = await ctx.storage.dir('account')   // data/instances/<实例>/plugi
 
 `inject` 里列的服务都就绪后插件才会运行。等待中的插件在 WebUI 显示为"等待依赖"，并列出还缺哪些服务 —— 比如登录后才存在的服务，登录前就会一直等着，登录后自动启动。
 
-只想"登录后再运行"的插件可以 inject `account`：它在第一次登录成功后才可用（`ctx.account.uin` / `uid` / `nick`），之后断线重连也不会撤销，插件不会被反复重启。`database` 也是登录后才有（数据库文件按账号区分）。
+只想"登录后再运行"的插件可以 inject `account`：它在第一次登录成功后才可用（`ctx.account.uin` / `uid` / `nick` / `online`，类型是 SDK 的 `Account`），之后断线重连也不会撤销，插件不会被反复重启。`account` 只是扫码登录的 NTQQ 账号，只开官方机器人时没有它：跨平台的插件别 inject 它，从 `ctx.bots` 拿账号。
+
+`database`（内置插件「数据库」）不用等登录：数据在实例目录的 `database.db` 里，这个实例的所有账号、官方机器人共用，表里按用户存的数据用 `平台:用户 id` 做键（见"数据目录"）。NTQQ 协议自己的消息库按 QQ 号另外存，插件看不到。
 
 ## 收发消息
 
@@ -192,9 +209,49 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 | `bot/before-send` | waterfall | 只拦截插件经 `bot.sendMessage` / `session.send` 发出的消息，OneBot / Milky / Satori 客户端发的不经过这里 |
 | `bot/status` | parallel | bot 注册、上线、离线 |
 
-`Session` 常用字段：`type`、`userId`、`channelId`、`guildId`（私聊为空）、`messageId`、`isDirect`、`content`（元素标记字符串）、`elements`（解析后的元素，取 @ 可以用 `h.select(session.elements, 'at')`）、`event`（原始 Satori 事件，snake_case），以及 `send()` / `reply()`（引用回复）。两者都带上事件的 `referrer`（Satori 的被动回复信息）：QQ 官方机器人只能被动回复，靠它回复触发的那条消息；自己调 `bot.sendMessage()` 时可以传 `{ referrer: session.event.referrer }` 达到同样效果。
+`Session` 常用字段：`type`、`userId`、`channelId`、`guildId`（私聊为空）、`messageId`、`isDirect`、`content`（元素标记字符串）、`elements`（解析后的元素，取 @ 可以用 `h.select(session.elements, 'at')`）、`event`（原始 Satori 事件，snake_case，常用字段有类型：`user`、`member`、`guild`、`channel`、`message`、`operator`、`button`），以及 `send()` / `reply()`（引用回复）。两者都带上事件的 `referrer`（Satori 的被动回复信息）：QQ 官方机器人只能被动回复，靠它回复触发的那条消息；自己调 `bot.sendMessage()` 时可以传 `{ referrer: session.event.referrer }` 达到同样效果。
+
+```ts
+// 问一句，等同一个人在同一个会话里的下一条消息（它的 stripped.content），这条消息不再交给任何插件
+await session.send('1 + 1 = ?')
+const answer = await session.prompt(30_000)   // 超时是 undefined，默认 60 秒
+// 一次发很多条：和这个会话里排在前面的隔开 1 秒再发，免得刷屏、被风控
+for (const line of lines) await session.sendQueued(line)
+```
+
+官方机器人在群里只收得到 @ 它的消息，所以群里的回答也得 @ 它。
 
 `ctx.bots` 里是已登录的账号（`Bot`）。`sendMessage` 一定有，其它能力（`deleteMessage`、`getGuild`、`getGuildMember`、`muteGuildMember`、`kickGuildMember`、`handleGuildMemberRequest`、`createReaction`……）按平台支持情况提供，用之前先判断 `if (bot.muteGuildMember)`。这些可选方法和 Satori 的 API 同名、参数顺序也一样（好友、群、成员、角色、消息列表、表态……，见 SDK 的 `Bot`）。QQ 账号的 `platform` 是 `luckylillia`（外部 Satori 客户端看到的是 `llonebot`，由 Satori 适配器换），私聊的 channelId 形如 `private:<QQ号>`，群的 channelId 就是群号。
+
+### 指令
+
+`inject` 里加上 `commands`，用 `ctx.command()` 注册，不用自己在中间件里解析：
+
+```ts
+ctx.command('签到 [days:posint]', '签到', { cooldown: 5_000 })
+  .alias('qd')
+  .option('quiet', '-q 不 @ 我')
+  .action(({ session, options }, days = 1) => {
+    return `${options.quiet ? '' : h.at(session.userId!)}签到成功，连续 ${days} 天`
+  })
+```
+
+- 定义是指令名加参数：`<name>` 必填、`[name]` 可选，`name:类型` 指定类型。参数不对时用户收到哪里不对和用法，action 不运行
+- 类型：`string`（默认，一个词）、`text`（剩下的整段，放在最后）、`number`、`integer`、`posint`（正整数）、`natural`（0 和正整数）、`user`（@ 的人或直接写的 id，得到 id）。词按空白分开，引号（"…" '…' “…” 「…」）里的空白不分
+- 参数和 `text` 都是元素标记字符串（@ 是 `<at id="..."/>`），原样发回去显示得一样；要元素就 `h.parse()`
+- 选项：`.option('name', '-n <value:number> 说明', { fallback })`，`--name` 总能用；没有参数的是开关，给了就是 `true`
+- action 返回的字符串或元素发回这个会话；也可以自己 `session.send()`，什么都不返回。`.usage()` / `.example()` 写进 `help <指令>`
+- 怎么触发：消息开头（@ Bot 之后也行）是前缀加指令名或别名。前缀在 WebUI 的「指令」页设置，默认是 `/` 或不写前缀；`help`（`帮助`）列出能用的指令
+- `config`：`cooldown` 每个用户两次之间至少隔多少毫秒；`authority` 是 `everyone`（默认）、`admin`（群主和群管理员）或 `owner`（只有「指令」页里填的主人，主人能用所有指令，写成 `平台:用户 id`）；`hidden: true` 不出现在 help 和官方机器人的菜单里
+- 两个插件注册了同名的指令时，「指令」页和插件卡片上会提示；两个插件都收得到的消息由先注册的那个处理
+- 官方机器人设置里打开「单聊菜单 / 群聊指令面板由插件提供」后，「指令」把指令同步成它的菜单
+- action 抛错时用户收到「执行指令时出错了。」，错误记在插件卡片上
+
+### 生效范围和处理顺序
+
+用户在插件的配置弹窗里给每个实例设「生效范围」（平台、账号、群、用户、要不要私聊），在插件页「消息处理」里排各插件处理消息的先后。插件不用为此写代码：范围外的事件（`bot/message`、`bot/event`、`bot/session`）不交给它，它的指令在范围外不响应，`bot/before-send` 也只经手范围内的会话；排在前面的不调 `next()`，后面的就收不到。`{ prepend: true }` 只在没排过的插件之间起作用。
+
+一个监听器抛错不影响别的插件：在 `next()` 之前抛的，消息照常往后传；错误记日志，插件卡片上标出最近一次（用户点「知道了」清掉）。
 
 ### 跨平台写法
 
@@ -272,7 +329,16 @@ QQ 账号只有经 `internal` 才有的（Satori 没有对应方法的 75 个 ac
 
 另外 Satori 已有对应的 29 个（发消息、撤回、群和成员信息、踢人、禁言……）和 OneBot 协议自己的辅助接口（版本、状态、缓存、配置等）也都在 `internal` 里；只有 OneBot 连接专用的 `.handle_quick_operation`、`get_event` 不在。能用 Satori 方法的就别用 `internal`：Satori 方法在官方机器人上也能用。
 
-一条消息在某个中间件里抛错，会让这条消息的整条链中止（错误会记日志）。
+要类型就用 SDK 的 `internalOf(bot, platform)`：平台对得上时给出那个平台带类型的 `internal`（QQ 账号的每个方法注释了它是哪个 OneBot action），对不上是 `undefined`。
+
+```ts
+import { internalOf } from '@luckylillia/plugin-sdk'
+
+const internal = internalOf(session.bot, 'luckylillia')
+if (internal) await internal.setGroupCard({ group_id: session.guildId!, user_id: session.userId!, card: '新名片' })
+```
+
+`LuckyLilliaInternal` 由 `scripts/gen-sdk-internal.mts` 从 OneBot 的 action 表生成（`--check` 检查是否过期），加了 action 要重新生成。
 
 ## 扩展 WebUI
 
@@ -429,6 +495,35 @@ ctx.declareSlot('my-plugin.item.actions', { title: '条目按钮', description: 
 - 数据走 SDK 和自己的接口：账号用 `useBots()`，插件状态用 `usePluginStatus()` / `usePlugins()`，其余调自己挂的后端接口（`ctx.api()`）。轮询不要快于 5 秒，几个组件读同一份数据时共用一个轮询（NTQQ 的两张 Dashboard 卡片共用 `/api/ntqq/stats` 的一个轮询）
 - 样式见上面的"样式"：用 WebUI 的语义 class 和 CSS 变量，暗色主题才跟得上
 
+## 测试
+
+`@luckylillia/plugin-sdk/testing` 是 Bot 自己的中立层（`ctx.bots`、Session、降级、指令）加一个只记录发了什么的假 bot，不用登录 QQ 就能测插件：
+
+```ts
+import { afterEach, beforeEach, expect, it } from 'vitest'
+import { createTestApp, type TestApp } from '@luckylillia/plugin-sdk/testing'
+import * as plugin from '../src/index.js'
+
+let app: TestApp
+beforeEach(async () => {
+  app = await createTestApp()
+  await app.ctx.plugin(plugin, { greeting: '早上好' })
+})
+afterEach(() => app.dispose())
+
+it('says hello', async () => {
+  const bot = app.bot()                                       // platform 默认 test，selfId 默认 bot
+  expect(await bot.receive('/hello 小明')).toEqual(['早上好，小明！'])
+  expect(await bot.receive('hi', { guildId: 'G1', userId: 'U1' })).toEqual([])
+})
+```
+
+- `receive(content, options?)` 模拟别人发来一条消息（`guildId` 给了是群消息，否则是私聊），等插件处理完，返回这期间 bot 发出的消息（元素标记，已经过 `bot/before-send` 和降级）；`bot.sent` 是发过的全部
+- `app.bot({ platform, selfId, features, internal })`：`features` 决定哪些扩展元素原样发、哪些降级，比如 `features: ['message.markdown']` 时 markdown 原样发出，不给时发出的是降级后的内容；`internal` 给要调 `bot.internal` 的插件
+- `emit(type, data)` 发其它事件，如 `emit('guild-member-added', { guild: { id: '1' }, user: { id: '2' } })`
+- `app.commands` 是指令设置（前缀、主人……），直接改；`ctx.storage` 指向临时目录 `app.dataDir`，`dispose()` 时删掉
+- `session.prompt()` 也能测：先 `receive` 问的那条（不 await），等它发出问题，再 `receive` 回答
+
 ## 构建
 
 **把下面这些包标为 external，不要打进产物：**
@@ -463,6 +558,16 @@ npx tsx watch --exclude "./data/**" --exclude "/path/to/plugins/**" src/main/mai
 **用发布版 Bot 开发**：先把插件构建成 JS（构建工具开 watch），再启动 Bot 时带上 `--plugin-dir` 和 `--plugin-hmr`。
 
 重载会重新导入整个插件包（包括子模块），但旧模块不会从内存里释放；频繁重载很多次后建议重启 Bot。
+
+## 发布
+
+插件就是普通的 npm 包，`npm publish` 即可。WebUI 的「插件市场」（内置插件）按 `keywords` 里的 `luckylillia-plugin` 搜，用户点一下就装进 `data/plugins/`，有新版本时插件卡片上出现「更新到 x.y.z」。市场怎么装：
+
+- 先看 `peerDependencies['@luckylillia/plugin-sdk']`，装这个 Bot 能跑的最新版本；最新版要更新的 Bot 时，「已安装」里会说明。没有 `llbot` 字段的包不装
+- `dependencies` 照 npm 的布局装进插件自己的 `node_modules/`，`optionalDependencies` 里不合平台（`os` / `cpu` / `libc`）或装不上的跳过，`bundleDependencies` 用包里带的。Bot 共用的那几个包（见"构建"）不装，用 Bot 的
+- **不运行安装脚本**（`install` / `postinstall`，Bot 发布版没有 npm 也没有编译工具）：要现场编译的原生模块装上了也加载不了，用带预编译文件的包（比如按平台拆成 `optionalDependencies` 的那种）。装的时候 WebUI 会列出带安装脚本的依赖
+- 只认 npm 源上的版本：git、本地路径、网址形式的依赖装不了；`npm:` 别名可以
+- 更新时整个包换成新的，正在运行的实例重新加载（ES 模块和 CommonJS 的依赖都换新）；卸载连同它的实例配置、信任和 WebUI 批准一起删掉，数据目录留着
 
 ## 多实例
 

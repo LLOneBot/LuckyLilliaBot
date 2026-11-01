@@ -31,11 +31,13 @@
    │  ├─ settings.json                  bot 自身设置:log / logLevel / ffmpeg / msgCacheExpire / musicCardSignUrl / webui ...
    │  ├─ plugins.json                   全部插件的条目和配置(含 builtin:onebot11 / satori / milky / email-notification)
    │  ├─ webui_token.txt                这个实例的 WebUI 密码
+   │  ├─ database.db                    插件的 ctx.database(builtin:database),这个实例的所有账号共用,不等登录
    │  └─ plugin-data/<key>/shared/      插件数据:ctx.storage.dir(),也是条目的 ctx.baseUrl
    │     plugin-data/<key>/<uin>/       ctx.storage.dir('account')
-   ├─ plugins/                          插件代码,所有实例共用,运行时只读
+   │     plugin-data/<key>/bots/<平台>+<selfId>/   ctx.storage.dir('bot', bot)
+   ├─ plugins/                          插件代码,所有实例共用;插件市场装到这里(装的时候先放在临时目录 .market-*)
    ├─ state/                            bot 私有、不要手改:实例锁 instances/<实例名>.lock、文件写锁
-   ├─ database/<uin>.v3.db              [QQ 号] 不动
+   ├─ database/<uin>.v3.db              [QQ 号] 不动;NTQQ 协议自己的消息库,插件用不到
    ├─ qq-session-<uin>[-<p>].json       [QQ 号 x 协议] 不动
    ├─ auth_token[.dev].txt  machine_guid.bin  macos_device.json   [设备] 不动
    ├─ logs/  temp/  packets/            所有实例共用;日志文件名带 pid
@@ -43,7 +45,7 @@
 ```
 
 - 实例名:`[A-Za-z0-9][A-Za-z0-9_-]{0,63}`,QQ 号也是合法实例名,原样作为目录名。
-- 插件数据跟实例走:两个实例启用同一个插件,数据互不相干。`<key>`:第三方插件用包名把 `/` 换成 `+`;内置条目用 `_builtin+<名字>`(冒号在 Windows 路径里非法,`_` 开头不会撞真实包名)。`dir('account')` 要求调用链上 inject 了 `account`;卸载插件不删数据。按 QQ 号的结构化数据继续用 `ctx.database`。
+- 插件数据跟实例走:两个实例启用同一个插件,数据互不相干。`<key>`:第三方插件用包名把 `/` 换成 `+`;内置条目用 `_builtin+<名字>`(冒号在 Windows 路径里非法,`_` 开头不会撞真实包名)。`dir('account')` 要求调用链上 inject 了 `account`;卸载插件不删数据。插件的结构化数据用 `ctx.database`(实例的 `database.db`,`configPaths.database()`;原来插件用的是 NTQQ 的 `<uin>.v3.db`,登录后才有,只开官方机器人时没有)。
 
 ## 4. 选实例与实例锁
 
@@ -70,9 +72,15 @@
 { "version": 1, "entries": [
   { "id": "7f3a9c21", "name": "luckylillia-plugin-keyword-reply", "config": { "rules": [] } },
   { "id": "1c0e5b7a", "name": "builtin:onebot11", "config": { "connect": [] } },
-  { "id": "9a41d2e3", "name": "builtin:satori", "disabled": true }
-] }
+  { "id": "9a41d2e3", "name": "builtin:satori", "disabled": true },
+  { "id": "b1d4e880", "name": "luckylillia-plugin-echo", "scope": { "guilds": { "mode": "allow", "ids": ["123456"] } } }
+],
+  "messageOrder": ["b1d4e880"],          // 处理消息的先后,没列的按注册顺序排在后面
+  "trusted": ["luckylillia-plugin-echo"] // 用户信任过的第三方包
+}
 ```
+
+- 条目的 `scope`(生效范围)、顶层的 `messageOrder` / `trusted` / `ui`(插件界面的批准和偏好)都由插件服务读写,含义见 [plugin-system.md](plugin-system.md)"插件包与条目"。
 
 - **只有一层**:生效值 = schema 默认值 + 条目的 `config`。落盘只存相对 schema 默认值的差异,差异由服务端算,`PUT` 收完整值。合并和差异沿用已实施的 schema 感知规则:只有 `object` 逐 key 递归,`dict` / `array` / `union` / 标量整体替换。
 - **开关一律是条目的 `disabled`**,内置插件也一样。`ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled` 不再存在,迁移时转成 `disabled`。

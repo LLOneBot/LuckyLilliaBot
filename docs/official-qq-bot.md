@@ -173,13 +173,13 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 
 - `privateMenu`（最多 10 项：发送 / 链接 / 开关 / 子菜单，子菜单最多 5 项）READY 后同步到 `GET` / `PUT /v2/menu`，和平台上的一样就不写
 - `groupPanels`（最多 20 项：指令 / 链接）同步成一个 `target_type: all` 的群聊面板：有就改，没有先删掉别的面板腾配额再建，多余的删掉。面板接口约 6.5 秒才能写一次，写操作排队；配额满（40030013）只记警告，已删（40030006）跳过
-- `privateSlash` / `groupSlash` 打开时菜单改由 `bot.updateCommands(commands)` 提供（Koishi 是指令系统自动调用；这里没有指令系统，给有指令列表的插件用）：单聊菜单是一级指令，有子指令的做成子菜单；群聊面板只放一级指令
+- `privateSlash` / `groupSlash` 打开时菜单改由 `bot.updateCommands(commands)` 提供：单聊菜单是一级指令，有子指令的做成子菜单；群聊面板只放一级指令。调用它的是指令系统（`builtin:commands`，见 plugin-system.md"中立层"）：bot 上线时、指令增删后（2 秒内合并）把不 hidden 的指令同步过来，和上次一样就不写
 - crack 把同步过的指令存到 `menu-state-<appid>.json` 但从不读，没照搬
 
 ## 9. 没做的
 
 - webhook（owner 决定只走 WebSocket）
-- 纯官方进程里没有数据库：`database` 在扫码协议条目里、按 QQ 号建库，依赖它的插件（如 keyword-reply）只在扫码账号登录后才跑
+- （已解决）纯官方进程原来没有数据库：`database` 在扫码协议条目里、按 QQ 号建库，依赖它的插件（如 keyword-reply）只在扫码账号登录后才跑。现在插件的 `database` 是实例级的 `builtin:database`，不等登录
 
 ## 10. 测试
 
