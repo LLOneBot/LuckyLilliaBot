@@ -1,14 +1,15 @@
 import h from '@satorijs/element'
 import { Channel } from '@satorijs/protocol'
-import type { Bot, NeutralEvent, Session as SessionApi } from '@luckylillia/plugin-sdk'
+import type { Bot, EventName, NeutralEvent, NeutralResource, Session as SessionApi } from '@luckylillia/plugin-sdk'
+import type BotsService from './bots'
 
 export class Session implements SessionApi {
   private parsed?: h[]
   private strippedCache?: { content: string; atSelf: boolean }
 
-  constructor(readonly bot: Bot, readonly event: NeutralEvent) {}
+  constructor(readonly bot: Bot, readonly event: NeutralEvent, private readonly bots?: BotsService) {}
 
-  get type(): string {
+  get type(): EventName {
     return this.event.type
   }
 
@@ -73,6 +74,17 @@ export class Session implements SessionApi {
 
   reply(content: h.Fragment) {
     return this.bot.sendMessage(this.requireChannel(), content, { quote: this.messageId, referrer: this.event.referrer })
+  }
+
+  sendQueued(content: h.Fragment, delay?: number): Promise<NeutralResource[]> {
+    if (!this.bots) return this.send(content)
+    return this.bots.sendQueued(this.bot, this.requireChannel(), content, { referrer: this.event.referrer }, delay)
+  }
+
+  async prompt(timeout?: number): Promise<string | undefined> {
+    this.requireChannel()
+    if (!this.bots || !this.userId) return
+    return (await this.bots.prompt(this, timeout))?.stripped.content
   }
 
   private requireChannel(): string {

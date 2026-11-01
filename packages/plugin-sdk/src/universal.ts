@@ -1,13 +1,50 @@
 import type h from '@satorijs/element'
 import type * as Universal from '@satorijs/protocol'
 
+/** A user in an event, snake_case as on the wire. */
+export interface NeutralUser {
+  id: string
+  name?: string
+  nick?: string
+  avatar?: string
+  is_bot?: boolean
+}
+
+/** The event types the bots dispatch; plugins and other sources may add their own. */
+export type EventName =
+  | 'message-created' | 'message-deleted' | 'message-updated'
+  | 'guild-added' | 'guild-removed' | 'guild-updated' | 'guild-request'
+  | 'guild-member-added' | 'guild-member-removed' | 'guild-member-updated' | 'guild-member-request'
+  | 'friend-request' | 'friend-added' | 'friend-deleted'
+  | 'reaction-added' | 'reaction-removed'
+  | 'channel-added' | 'channel-updated' | 'channel-deleted'
+  | 'interaction/button'
+  /** The platform's own event, as it is: `_type` and `_data` */
+  | 'internal'
+  | (string & {})
+
 /** A Satori event exactly as it goes over the wire (snake_case). Prefer the Session accessors. */
 export interface NeutralEvent {
   sn: number
-  type: string
+  type: EventName
   self_id: string
   platform: string
   timestamp: number
+  user?: NeutralUser
+  member?: { user?: NeutralUser; nick?: string; avatar?: string; roles?: { id: string; name?: string }[]; joined_at?: number }
+  guild?: { id: string; name?: string; avatar?: string }
+  channel?: { id: string; type?: number; name?: string; parent_id?: string }
+  message?: { id?: string; content?: string; created_at?: number; quote?: NeutralResource }
+  /** Who did it, e.g. the admin who removed a member */
+  operator?: NeutralUser
+  /** An `interaction/button` event's button */
+  button?: { id: string; data?: string }
+  /** What the source wants back to reply to this event; see SendOptions.referrer */
+  referrer?: unknown
+  /** An `internal` event: `<platform>/<the platform's event name>`, e.g. `qq/group-msg-receive` */
+  _type?: string
+  /** An `internal` event: the platform's data, as it came */
+  _data?: unknown
   [field: string]: any
 }
 
@@ -148,6 +185,8 @@ export interface Bot {
   getGuildRoleList?(guildId: string, next?: string): Promise<NeutralList>
   setGuildMemberRole?(guildId: string, userId: string, roleId: string): Promise<void>
   unsetGuildMemberRole?(guildId: string, userId: string, roleId: string): Promise<void>
+  /** Puts the commands on the platform's command menu, where it has one (the QQ official bot's slash menus). */
+  updateCommands?(commands: Universal.Command[]): Promise<void>
   createReaction?(channelId: string, messageId: string, emoji: string): Promise<void>
   deleteReaction?(channelId: string, messageId: string, emoji: string): Promise<void>
   getReactionList?(channelId: string, messageId: string, emoji: string, next?: string): Promise<NeutralList>
@@ -162,7 +201,7 @@ export interface NeutralList {
 export interface Session {
   readonly bot: Bot
   readonly event: NeutralEvent
-  readonly type: string
+  readonly type: EventName
   readonly platform: string
   readonly selfId: string
   readonly timestamp: number
@@ -182,6 +221,17 @@ export interface Session {
   send(content: h.Fragment): Promise<NeutralResource[]>
   /** Sends to the same channel, quoting the message that triggered the session. */
   reply(content: h.Fragment): Promise<NeutralResource[]>
+  /**
+   * Sends after what the channel has queued before, then holds the queue for `delay` ms (default 1000): for several
+   * messages in a row, which QQ takes for spam when they come too fast.
+   */
+  sendQueued(content: h.Fragment, delay?: number): Promise<NeutralResource[]>
+  /**
+   * The next message the same user sends in this channel, as its `stripped.content`; undefined after `timeout` ms
+   * (default 60000). That message reaches no plugin. In groups the QQ official bot only gets messages that @ it, so
+   * the answer has to @ it as well.
+   */
+  prompt(timeout?: number): Promise<string | undefined>
 }
 
 export interface Bots extends Iterable<Bot> {
