@@ -10,6 +10,8 @@ export const INSTANCE_FILES = {
   email: 'email.json',
   webuiToken: 'webui_token.txt',
   pluginData: 'plugin-data',
+  /** The plugins' database (builtin:database); the QQ account's own tables are per account under data/database/ */
+  database: 'database.db',
 } as const
 
 // Worked out on every call rather than held in module constants: suites that mock globalVars only have to
@@ -21,6 +23,7 @@ export const configPaths = {
   email: (name?: string) => path.join(configPaths.instance(name), INSTANCE_FILES.email),
   webuiToken: (name?: string) => path.join(configPaths.instance(name), INSTANCE_FILES.webuiToken),
   pluginData: (name?: string) => path.join(configPaths.instance(name), INSTANCE_FILES.pluginData),
+  database: (name?: string) => path.join(configPaths.instance(name), INSTANCE_FILES.database),
 }
 
 /** Where things lived before instances: read once by the startup migration, then renamed to *.bak. */

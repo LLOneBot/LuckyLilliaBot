@@ -22,6 +22,15 @@ export function dataKey(name: string): string {
   return key
 }
 
+/** `platform:selfId` as one directory name, `platform+selfId`; what could leave the directory is refused. */
+export function botKey(sid: string): string {
+  const key = sid.replace(':', '+')
+  if (!/^[\w.~@-]+\+[\w.~@-]+$/.test(key) || key.endsWith('.') || WINDOWS_RESERVED.test(key)) {
+    throw new Error(`cannot derive a data directory from bot ${JSON.stringify(sid)}`)
+  }
+  return key
+}
+
 export class PluginDataDirs {
   private entries = new WeakMap<Fiber, string>()
   private storages = new WeakMap<Fiber, PluginStorage>()
@@ -63,7 +72,7 @@ export class PluginDataDirs {
       if ('account' in fiber.inject) afterLogin = true
       const name = this.entries.get(fiber)
       if (name !== undefined) {
-        const storage: PluginStorage = { dir: scope => this.dir(name, scope, afterLogin) }
+        const storage = { dir: (scope?: unknown, bot?: unknown) => this.dir(name, scope, afterLogin, bot) } as PluginStorage
         this.storages.set(caller, storage)
         return storage
       }
@@ -71,7 +80,7 @@ export class PluginDataDirs {
     }
   }
 
-  private async dir(name: string, scope: unknown = 'global', afterLogin: boolean): Promise<string> {
+  private async dir(name: string, scope: unknown = 'global', afterLogin: boolean, bot?: unknown): Promise<string> {
     let dir: string
     if (scope === 'global') {
       dir = this.sharedDir(name)
@@ -82,8 +91,12 @@ export class PluginDataDirs {
       const uin = this.uin()
       if (!uin) throw new Error(`ctx.storage.dir('account'): no account is logged in`)
       dir = path.join(this.root, dataKey(name), uin)
+    } else if (scope === 'bot') {
+      const sid = typeof bot === 'string' ? bot : (bot as { sid?: unknown } | undefined)?.sid
+      if (typeof sid !== 'string') throw new TypeError(`ctx.storage.dir('bot', bot): expected a bot or its sid`)
+      dir = path.join(this.root, dataKey(name), 'bots', botKey(sid))
     } else {
-      throw new TypeError(`ctx.storage.dir(): unknown scope ${JSON.stringify(scope)}, expected 'global' or 'account'`)
+      throw new TypeError(`ctx.storage.dir(): unknown scope ${JSON.stringify(scope)}, expected 'global', 'account' or 'bot'`)
     }
     await mkdir(dir, { recursive: true })
     return dir

@@ -9,6 +9,11 @@ export interface PluginStorage {
    *   happens to be online already.
    */
   dir(scope?: 'global' | 'account'): Promise<string>
+  /**
+   * `plugin-data/<package>/bots/<platform>+<selfId>/`, one per bot, the QQ official bot's too; `bot` is the bot or
+   * its sid. Needs no login, unlike `'account'`.
+   */
+  dir(scope: 'bot', bot: string | { sid: string }): Promise<string>
 }
 
 declare module 'cordis' {

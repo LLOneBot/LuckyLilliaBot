@@ -66,8 +66,8 @@ class MockConfig extends Service {
 
 // `account` is there too, but its check holds what injects it back until the login
 const BEFORE_LOGIN = ['qqProtocol', 'account', 'ntFriendApi', 'ntGroupApi', 'ntLoginApi', 'ntSystemApi']
-// What needs the per-account database
-const AFTER_LOGIN = ['database', 'store', 'app', 'ntMsgApi', 'ntUserApi', 'ntFileApi', 'ntWebApi']
+// What needs the per-account database, which is the protocol's own: the plugins' ctx.database is builtin:database
+const AFTER_LOGIN = ['store', 'app', 'ntMsgApi', 'ntUserApi', 'ntFileApi', 'ntWebApi']
 
 // Not the service itself: printing a service on a failed assertion trips cordis's inject check
 const has = (ctx: Context, name: string) => ctx.get(name) !== undefined
@@ -111,6 +111,7 @@ describe('builtin:nt-protocol', () => {
     await login(ctx)
     await vi.waitFor(() => expect(dependent).toEqual(['up']))
     for (const name of AFTER_LOGIN) expect(has(ctx, name), name).toBe(true)
+    expect(has(ctx, 'database')).toBe(false)
     await vi.waitFor(() => expect(email.state).toBe(FiberState.ACTIVE))
 
     await entry.dispose()

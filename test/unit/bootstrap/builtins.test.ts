@@ -138,12 +138,14 @@ describe('builtin plugins', () => {
     for (const plugin of [MockConfig, MockProtocol, BotsService, NTFileApi, NTFriendApi, NTGroupApi, NTLoginApi, NTMsgApi, NTUserApi, NTWebApi, NTSystemApi]) {
       ctx.plugin(plugin)
     }
-    // As in main.ts: the database is per account, so the core services wait for the login
+    // As builtin:nt-protocol does: the account's database is per account and its own, so the core services wait for
+    // the login, and the plugins' database is builtin:database
     mounted.push(ctx.inject(['account', 'config'], (ctx) => {
-      ctx.plugin(Database)
-      ctx.plugin(SQLiteDriver, { path: pathToFileURL(path.join(tmp, 'builtins.db')).href })
-      ctx.plugin(Core, config)
-      ctx.plugin(Store, { msgCacheExpire: config.msgCacheExpire! })
+      const own = ctx.isolate('database').isolate('model')
+      own.plugin(Database)
+      own.plugin(SQLiteDriver, { path: pathToFileURL(path.join(tmp, 'builtins.db')).href })
+      own.plugin(Core, config)
+      own.plugin(Store, { msgCacheExpire: config.msgCacheExpire! })
     }))
     mounted.push(await ctx.plugin(PluginService, { file, roots: [], resolver: false, builtins: builtinPlugins }))
 
@@ -152,9 +154,10 @@ describe('builtin plugins', () => {
     const allIn = (state: PluginState) => Object.fromEntries(builtinPlugins.map(builtin => [builtin.name, state]))
 
     // The WebUI and what needs nothing but it run from the start (webui.enable is off above, so it does not listen),
-    // Satori, which serves whatever bots there are, and the commands. Email notification and the official bot start
-    // switched off (their initial settings), the NT protocol by the file above; nothing else runs before the first login
-    const shell = ['builtin:webui', 'builtin:dashboard', 'builtin:logs', 'builtin:satori', 'builtin:commands']
+    // Satori, which serves whatever bots there are, the commands and the plugins' database. Email notification and the
+    // official bot start switched off (their initial settings), the NT protocol by the file above; nothing else runs
+    // before the first login
+    const shell = ['builtin:webui', 'builtin:dashboard', 'builtin:logs', 'builtin:satori', 'builtin:commands', 'builtin:database']
     await vi.waitFor(() => expect(shell.map(name => states()[name])).toEqual(shell.map(() => 'active')))
     const off = { 'builtin:email-notification': 'disposed', 'builtin:qq-official': 'disposed', 'builtin:nt-protocol': 'disposed' }
     for (const status of ctx.plugins.list()) {

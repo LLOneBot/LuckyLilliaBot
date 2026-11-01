@@ -68,15 +68,17 @@ export function apply(ctx: Context, config: NTProtocolConfig) {
   ctx.plugin(NTLoginRoutes)
   ctx.plugin(NTStatsRoutes)
 
-  // The database is per account, so this waits for the first login; `account` survives reconnects, so it runs once
+  // The account's own tables are per account, so this waits for the first login; `account` survives reconnects, so
+  // it runs once. Its database is isolated: the plugins' ctx.database is the instance's (builtin:database)
   ctx.inject(['account', 'config'], (ctx) => {
     const config = ctx.config.get()
-    ctx.plugin(Database)
-    ctx.plugin(SQLiteDriver, {
+    const own = ctx.isolate('database').isolate('model')
+    own.plugin(Database)
+    own.plugin(SQLiteDriver, {
       path: pathToFileURL(path.join(dbDir, `${ctx.account.uin}.v3.db`)).href,
     })
-    ctx.plugin(Core, config)
-    ctx.plugin(Store, {
+    own.plugin(Core, config)
+    own.plugin(Store, {
       msgCacheExpire: config.msgCacheExpire!,
     })
   })

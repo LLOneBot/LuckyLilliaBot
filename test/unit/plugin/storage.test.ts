@@ -197,6 +197,23 @@ describe("ctx.storage.dir('account')", () => {
     expect(existsSync(path.join(dataDir, 'acct', '10001'))).toBe(true)
   })
 
+  it('gives a directory per bot without a login, and refuses a sid that would leave it', async () => {
+    writePlugin('perbot', `
+      export async function apply(ctx) {
+        globalThis.__storage.push(['perbot', await ctx.storage.dir('bot', 'qq:1905402647')])
+        globalThis.__storage.push(['perbot', await ctx.storage.dir('bot', { sid: 'luckylillia:10001' })])
+        await ctx.storage.dir('bot', 'qq:../escape').catch(e => globalThis.__storage.push(['perbot', e.message]))
+      }
+    `)
+    const plugins = await boot()
+    await plugins.enable(byName('perbot').id)
+    await expect.poll(() => recorded('perbot')).toEqual([
+      ['perbot', path.join(dataDir, 'perbot', 'bots', 'qq+1905402647')],
+      ['perbot', path.join(dataDir, 'perbot', 'bots', 'luckylillia+10001')],
+      ['perbot', 'cannot derive a data directory from bot "qq:../escape"'],
+    ])
+  })
+
   it('works inside a ctx.inject([\'account\']) block of a plugin that runs before login', async () => {
     writePlugin('late', `
       export async function apply(ctx) {

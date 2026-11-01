@@ -11,6 +11,7 @@ import { builtin as webqq } from './tool/webqq/builtin'
 import { builtin as emailNotification } from './tool/email-notification/builtin'
 import { builtin as ntqqUniversal } from './service/ntqq-universal/builtin'
 import { builtin as commands } from './service/commands/builtin'
+import { builtin as database } from './service/database/builtin'
 
 /**
  * The builtin entries, each defined next to its code in `<category>/<name>/builtin.ts`: the category is the one its
@@ -18,5 +19,5 @@ import { builtin as commands } from './service/commands/builtin'
  * entries get in plugins.json.
  */
 export const builtinPlugins: BuiltinPlugin[] = [
-  webui, dashboard, logs, ntProtocol, onebot11, satori, milky, qqOfficial, webqq, emailNotification, ntqqUniversal, commands,
+  webui, dashboard, logs, ntProtocol, onebot11, satori, milky, qqOfficial, webqq, emailNotification, ntqqUniversal, commands, database,
 ]
