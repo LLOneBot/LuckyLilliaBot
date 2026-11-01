@@ -18,6 +18,9 @@ import {
 } from './store'
 import { watchPluginRoots } from './watcher'
 import { PluginDataDirs } from './storage'
+import { acceptsScope, EntryScope, normalizeScope } from './scope'
+import type BotsService from '../../universal/bots'
+import type { ListenerPolicy } from '../../universal/bots'
 
 declare module 'cordis' {
   interface Context {
@@ -73,6 +76,22 @@ export interface PluginStatus {
   webuiApproved?: boolean
   /** What an enabled builtin says about its settings, e.g. that something still has to be filled in. */
   notice?: string
+  /** Where it takes events from; absent: everywhere. */
+  scope?: EntryScope
+  /** Its place in the message order; absent: after the ordered ones, as it registered. */
+  rank?: number
+  /** It listens to bot/message, so it has a place in the message order. */
+  messages?: boolean
+  /** Its listeners or commands threw: the last error, and how often since it started. */
+  listenerError?: ListenerError
+  /** A third-party package the user agreed to run. */
+  trusted?: boolean
+}
+
+export interface ListenerError {
+  at: number
+  message: string
+  count: number
 }
 
 export interface DependencyInfo {
@@ -155,6 +174,16 @@ export class PluginNotFoundError extends Error {}
 /** The action does not apply to this entry, e.g. disabling a core builtin. */
 export class PluginForbiddenError extends Error {}
 
+/**
+ * A third-party package runs its code with the bot's rights: the user has to agree before its first start. Starting
+ * again with `trust: true` records that.
+ */
+export class PluginTrustRequiredError extends Error {
+  constructor(readonly pkg: string) {
+    super(`${pkg} has not been trusted to run yet`)
+  }
+}
+
 /** The config changed since the client read it, so the write would clobber someone else's edit. */
 export class PluginRevConflictError extends Error {
   constructor(readonly rev: string) {
@@ -186,7 +215,12 @@ interface Runtime {
   /** Import failures, or a failed reload while the previous fiber keeps running. */
   error?: string
   reloadCount: number
+  listenerError?: ListenerError
+  /** When a listener error last went out as a change: a plugin failing on every message must not flood the WebUI */
+  listenerNoticed?: number
 }
+
+const LISTENER_NOTICE_INTERVAL = 1_000
 
 const SCAN_LOCK = '#scan'
 
@@ -250,9 +284,25 @@ class PluginService extends Service {
     if (error) this.ctx.logger.error(`invalid plugins.json, keeping the file and starting from defaults: ${error}`)
     this.data = data
     for (const entry of data.entries) this.runtimes.set(entry.id, { entry, reloadCount: 0 })
-    if (this.reconcileBuiltins() && !error) await this.save()
+    // What already ran before trust was asked for keeps running without asking
+    const trustSet = !data.trusted
+    if (trustSet) data.trusted = [...new Set(data.entries.filter(entry => !entry.disabled && !this.builtins.has(entry.name)).map(entry => entry.name))]
+    const reconciled = this.reconcileBuiltins()
+    if ((reconciled || trustSet) && !error) await this.save()
 
     this.ctx.on('internal/status', fiber => this.onFiberStatus(fiber))
+    const policy: ListenerPolicy = {
+      owner: ctx => this.entryOfFiber(ctx.fiber),
+      accepts: (id, place) => acceptsScope(this.runtimes.get(id)?.entry.scope, place),
+      rank: (id) => {
+        const index = this.data.messageOrder?.indexOf(id) ?? -1
+        return index < 0 ? undefined : index
+      },
+      failed: (id, error) => this.noteListenerError(id, error),
+    }
+    this.home.inject(['bots'], (ctx) => {
+      ctx.effect(() => (ctx.bots as unknown as BotsService).usePolicy(policy))
+    })
     for (const builtin of this.builtins.values()) {
       if (builtin.standby) this.home.plugin(builtin.standby)
     }
@@ -290,9 +340,10 @@ class PluginService extends Service {
     return this.lock(SCAN_LOCK, () => this.rescan())
   }
 
-  async add(name: string, config?: unknown): Promise<PluginStatus> {
+  async add(name: string, config?: unknown, options: { trust?: boolean } = {}): Promise<PluginStatus> {
     if (this.builtins.has(name)) throw new PluginForbiddenError(`${name} is builtin and runs as a single instance`)
     if (!this.packages.has(name)) throw new PluginNotFoundError(`no plugin package named ${name}`)
+    this.assertTrusted(name, options.trust)
     const rt = this.createEntry(name, false, config)
     await this.save()
     this.changed()
@@ -308,13 +359,18 @@ class PluginService extends Service {
     await this.lock(rt.entry.name, () => this.stop(rt))
     this.runtimes.delete(id)
     this.data.entries = this.data.entries.filter(entry => entry.id !== id)
+    if (this.data.messageOrder?.includes(id)) this.data.messageOrder = this.data.messageOrder.filter(item => item !== id)
     await this.save()
     this.changed()
   }
 
-  /** `rules: false` skips a builtin's own rules (see updateConfig). */
-  async enable(id: string, options: { rules?: boolean } = {}): Promise<PluginStatus> {
+  /**
+   * `rules: false` skips a builtin's own rules (see updateConfig). A third-party package the user has not trusted yet
+   * throws PluginTrustRequiredError, unless `trust` says they just did.
+   */
+  async enable(id: string, options: { rules?: boolean; trust?: boolean } = {}): Promise<PluginStatus> {
     const rt = this.runtime(id)
+    this.assertTrusted(rt.entry.name, options.trust)
     return this.lock(rt.entry.name, async () => {
       if (this.isDisabled(rt)) {
         // A config saved while switched off must not get past a security rule this way
@@ -328,6 +384,53 @@ class PluginService extends Service {
       await this.start(rt)
       return this.status(rt)
     })
+  }
+
+  /** Where the entry takes events from; nothing (or a scope letting everything through) clears it. Applies at once. */
+  async setScope(id: string, scope: unknown): Promise<PluginStatus> {
+    const rt = this.runtime(id)
+    const normalized = normalizeScope(scope)
+    if (normalized) rt.entry.scope = normalized
+    else delete rt.entry.scope
+    await this.save()
+    this.changed(id)
+    return this.status(rt)
+  }
+
+  /** The entries whose message listeners run first, in this order; unknown ids are dropped. Applies at once. */
+  async setMessageOrder(order: unknown): Promise<string[]> {
+    const ids = Array.isArray(order) ? order.filter((id): id is string => typeof id === 'string' && this.runtimes.has(id)) : []
+    this.data.messageOrder = [...new Set(ids)]
+    await this.save()
+    this.changed()
+    return [...this.data.messageOrder]
+  }
+
+  clearListenerError(id: string): PluginStatus {
+    const rt = this.runtime(id)
+    rt.listenerError = undefined
+    this.changed(id)
+    return this.status(rt)
+  }
+
+  private noteListenerError(id: string, error: unknown) {
+    const rt = this.runtimes.get(id)
+    if (!rt) return
+    rt.listenerError = { at: Date.now(), message: errorText(error), count: (rt.listenerError?.count ?? 0) + 1 }
+    if (rt.listenerNoticed !== undefined && Date.now() - rt.listenerNoticed < LISTENER_NOTICE_INTERVAL) return
+    rt.listenerNoticed = Date.now()
+    this.changed(id)
+  }
+
+  private isTrusted(name: string): boolean {
+    return !this.config.trust || this.builtins.has(name) || !!this.data.trusted?.includes(name)
+  }
+
+  /** Records the trust when `trust` says the user just gave it. */
+  private assertTrusted(name: string, trust?: boolean) {
+    if (this.isTrusted(name)) return
+    if (!trust) throw new PluginTrustRequiredError(name)
+    this.data.trusted = [...this.data.trusted ?? [], name]
   }
 
   async disable(id: string): Promise<PluginStatus> {
@@ -753,7 +856,10 @@ class PluginService extends Service {
       })
       return
     }
-    if (fiber.state === FiberState.ACTIVE) rt.error = undefined
+    if (fiber.state === FiberState.ACTIVE) {
+      rt.error = undefined
+      rt.listenerError = undefined
+    }
     this.changed(rt.entry.id)
   }
 
@@ -776,6 +882,8 @@ class PluginService extends Service {
       service: this.serviceOf(rt),
       webui: pkg?.webui && webuiUrl(pkg, this.webuiVersions.get(pkg.name) ?? 0),
     }
+    if (entry.scope) status.scope = entry.scope
+    if (!builtin) status.trusted = this.isTrusted(entry.name)
     if (pkg?.webui) status.webuiApproved = this.webuiApproved(pkg.name)
     if (builtin) {
       Object.assign(status, { builtin: true, core: !!builtin.core, title: builtin.title })
@@ -786,6 +894,10 @@ class PluginService extends Service {
     }
     if (rt.error) status.error = rt.error
     if (builtin?.config?.notice && !status.disabled) status.notice = this.noticeOf(builtin, rt)
+    const rank = this.data.messageOrder?.indexOf(entry.id) ?? -1
+    if (rank >= 0) status.rank = rank
+    if (this.messageOwners().has(entry.id)) status.messages = true
+    if (rt.listenerError) status.listenerError = rt.listenerError
     if (!fiber) {
       if (status.error) status.state = 'failed'
       else if (!this.isDisabled(rt)) status.state = 'loading'
@@ -816,6 +928,16 @@ class PluginService extends Service {
   private isAvailable(name: string): boolean {
     const impl = this.ctx.reflect._getImpl(name)
     return !!impl && (impl.check === undefined || !!impl.check.call(impl.value))
+  }
+
+  /** Entries with a bot/message listener of their own. */
+  private messageOwners(): Set<string> {
+    const owners = new Set<string>()
+    for (const hook of (this.ctx.events._hooks as Record<string, { ctx: Context }[] | undefined>)['bot/message'] ?? []) {
+      const id = this.entryOfFiber(hook.ctx.fiber)
+      if (id !== undefined) owners.add(id)
+    }
+    return owners
   }
 
   /** The entry owning a fiber, found by walking up to the fiber the entry was mounted as. */
@@ -921,6 +1043,8 @@ namespace PluginService {
     resolver?: boolean
     /** Plugins bundled with the bot, listed next to the installed ones. */
     builtins?: BuiltinPlugin[]
+    /** Third-party packages start only once the user trusted them (PluginTrustRequiredError); the WebUI asks. */
+    trust?: boolean
   }
 }
 

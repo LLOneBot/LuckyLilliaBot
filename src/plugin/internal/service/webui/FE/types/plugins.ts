@@ -43,6 +43,30 @@ export interface PluginStatus {
   webuiApproved?: boolean
   /** What an enabled builtin says about its settings, e.g. that something still has to be filled in. */
   notice?: string
+  /** Where it takes events from; absent: everywhere. */
+  scope?: EntryScope
+  /** Its place in the message order; absent: after the ordered ones. */
+  rank?: number
+  /** It listens to messages, so it has a place in the message order. */
+  messages?: boolean
+  /** Its listeners or commands threw: the last error, and how often since it started. */
+  listenerError?: { at: number; message: string; count: number }
+  /** A third-party package the user agreed to run; enabling one that is not asks first. */
+  trusted?: boolean
+}
+
+/** Mirrors src/plugin/host/scope.ts */
+export interface IdFilter {
+  mode: 'allow' | 'deny'
+  ids: string[]
+}
+
+export interface EntryScope {
+  platforms?: string[]
+  bots?: string[]
+  guilds?: IdFilter
+  users?: IdFilter
+  direct?: boolean
 }
 
 /** What the user decided about plugins' parts of the WebUI (plugins.json `ui`). */

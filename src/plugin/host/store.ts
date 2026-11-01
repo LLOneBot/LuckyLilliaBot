@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { JsonFile } from '@/common/jsonFile'
+import { EntryScope, normalizeScope } from './scope'
 
 export interface PluginEntry {
   /** Stable across restarts. One package can back several entries, so the name is not a key. */
@@ -7,6 +8,8 @@ export interface PluginEntry {
   name: string
   disabled?: boolean
   config?: unknown
+  /** Where it takes events from; absent: everywhere */
+  scope?: EntryScope
 }
 
 /** What the user decided about plugins' parts of the WebUI; the plugin page edits it. */
@@ -24,6 +27,10 @@ export interface PluginsFile {
   hmr?: boolean
   ui?: UiPrefs
   entries: PluginEntry[]
+  /** Entries whose message listeners run first, in this order; the rest follow as they registered */
+  messageOrder?: string[]
+  /** Packages the user agreed to run, which have their code run with the bot's rights */
+  trusted?: string[]
 }
 
 export class PluginStore {
@@ -60,11 +67,16 @@ function normalize(value: unknown): PluginsFile {
   for (const entry of Array.isArray(input.entries) ? input.entries : []) {
     if (!entry || typeof entry.id !== 'string' || typeof entry.name !== 'string' || seen.has(entry.id)) continue
     seen.add(entry.id)
+    const scope = normalizeScope(entry.scope)
+    if (scope) entry.scope = scope
+    else delete entry.scope
     entries.push(entry)
   }
   const data: PluginsFile = { version: 1, entries }
   if (typeof input.hmr === 'boolean') data.hmr = input.hmr
   if (input.ui !== undefined) data.ui = normalizeUi(input.ui)
+  if (input.messageOrder !== undefined) data.messageOrder = strings(input.messageOrder).filter(id => seen.has(id))
+  if (input.trusted !== undefined) data.trusted = strings(input.trusted)
   return data
 }
 

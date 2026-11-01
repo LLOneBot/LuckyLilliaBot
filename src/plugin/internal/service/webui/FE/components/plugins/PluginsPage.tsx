@@ -6,7 +6,7 @@ import { SlotOutlet, useSettingsPages } from '../../plugin-host/views'
 import { ChevronLeft, ChevronRight, FolderSearch, Loader2, Puzzle, Search, X } from 'lucide-react'
 import { showToast } from '../common'
 import { PluginStatus } from '../../types/plugins'
-import { addPluginInstance, reloadPlugin, scanPlugins, setPluginEnabled } from '../../utils/pluginApi'
+import { addPluginInstance, reloadPlugin, scanPlugins, setPluginEnabled, TrustRequiredError } from '../../utils/pluginApi'
 import PluginCard from './PluginCard'
 import { findConflicts } from './meta'
 import {
@@ -16,6 +16,8 @@ import {
 import { webuiPackages } from './extensions'
 import PluginConfigDialog from './PluginConfigDialog'
 import WebuiExtensions from './WebuiExtensions'
+import MessageOrder from './MessageOrder'
+import TrustDialog from './TrustDialog'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -24,8 +26,8 @@ const PAGE_SIZE = 12
 const VIEW_KEY = 'llbot-plugins-view'
 
 interface View {
-  /** The plugins, or what they add to the WebUI */
-  mode: 'list' | 'ui'
+  /** The plugins, what they add to the WebUI, or the order messages pass them in */
+  mode: 'list' | 'ui' | 'messages'
   category: CategoryKey | 'all'
   status: StatusFilter
   search: string
@@ -63,6 +65,8 @@ const PluginsPage: React.FC = () => {
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const [scanning, setScanning] = useState(false)
   const [editing, setEditing] = useState<PluginStatus | null>(null)
+  // A third-party package about to run for the first time, and what to do once the user trusts it
+  const [trusting, setTrusting] = useState<{ plugin: PluginStatus; go: () => Promise<void> } | null>(null)
   const [view, setView] = useState<View>(loadView)
 
   const refresh = useCallback(async () => {
@@ -131,10 +135,23 @@ const PluginsPage: React.FC = () => {
     }
   }
 
-  const toggle = (plugin: PluginStatus, enabled: boolean) => withBusy(plugin.id, async () => {
-    const status = await setPluginEnabled(plugin.id, enabled)
-    if (enabled && status.state === 'failed') showToast(`启用后运行出错：${status.error ?? '未知错误'}`, 'error')
-  })
+  // A package not trusted yet asks first; the bot asks too (428), should the list be behind
+  const trustFirst = (plugin: PluginStatus, run: (trust: boolean) => Promise<void>) => {
+    const go = () => withBusy(plugin.id, () => run(true))
+    if (!plugin.builtin && plugin.trusted === false) return setTrusting({ plugin, go })
+    return withBusy(plugin.id, () => run(false).catch((e) => {
+      if (!(e instanceof TrustRequiredError)) throw e
+      setTrusting({ plugin, go })
+    }))
+  }
+
+  const toggle = (plugin: PluginStatus, enabled: boolean) => {
+    const run = async (trust: boolean) => {
+      const status = await setPluginEnabled(plugin.id, enabled, trust)
+      if (enabled && status.state === 'failed') showToast(`启用后运行出错：${status.error ?? '未知错误'}`, 'error')
+    }
+    return enabled ? trustFirst(plugin, run) : withBusy(plugin.id, () => run(false))
+  }
 
   const reload = (plugin: PluginStatus) => withBusy(plugin.id, async () => {
     const result = await reloadPlugin(plugin.id)
@@ -142,8 +159,8 @@ const PluginsPage: React.FC = () => {
     else showToast(`需要重启 Bot 才能生效：${result.reason}`, 'warning')
   })
 
-  const duplicate = (plugin: PluginStatus) => withBusy(plugin.id, async () => {
-    await addPluginInstance(plugin.name)
+  const duplicate = (plugin: PluginStatus) => trustFirst(plugin, async (trust) => {
+    await addPluginInstance(plugin.name, trust)
     showToast('已添加新实例', 'success')
   })
 
@@ -205,6 +222,9 @@ const PluginsPage: React.FC = () => {
           <button type="button" onClick={() => setView(previous => ({ ...previous, mode: 'ui' }))} className={tab(view.mode === 'ui')} title="插件往 WebUI 上加的页面、卡片和按钮">
             界面{attention > 0 && <span className="ml-1.5 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-amber-500 text-white text-[11px]">{attention}</span>}
           </button>
+          <button type="button" onClick={() => setView(previous => ({ ...previous, mode: 'messages' }))} className={tab(view.mode === 'messages')} title="消息经过各个插件的先后">
+            消息处理
+          </button>
         </div>
       </div>
 
@@ -213,6 +233,8 @@ const PluginsPage: React.FC = () => {
       )}
 
       {plugins !== null && view.mode === 'ui' && <WebuiExtensions />}
+
+      {plugins !== null && view.mode === 'messages' && <MessageOrder />}
 
       {plugins !== null && view.mode === 'list' && (
         <>
@@ -290,6 +312,17 @@ const PluginsPage: React.FC = () => {
             </div>
           )}
         </>
+      )}
+
+      {trusting && (
+        <TrustDialog
+          plugin={trusting.plugin}
+          onCancel={() => setTrusting(null)}
+          onConfirm={() => {
+            setTrusting(null)
+            trusting.go()
+          }}
+        />
       )}
 
       {editing && (

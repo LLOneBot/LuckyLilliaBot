@@ -85,6 +85,7 @@ async function onLoad() {
     roots: [pluginDir, ...getPluginDirs().map(dir => path.resolve(dir))],
     hmr: isPluginHmr(),
     builtins: builtinPlugins,
+    trust: true,
   })
 
   // The settings are the instance's, fixed at startup: applied now and watched from here on

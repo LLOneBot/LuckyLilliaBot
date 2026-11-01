@@ -1,7 +1,7 @@
 import { apiFetch, ApiError } from './api'
 import { getCookie } from './cookie'
 import {
-  ConfigIssue, DependencyReport, PluginDescription, PluginStatus, ReloadResult, UiPrefs, UiPrefsPatch,
+  ConfigIssue, DependencyReport, EntryScope, PluginDescription, PluginStatus, ReloadResult, UiPrefs, UiPrefsPatch,
 } from '../types/plugins'
 
 const BASE = '/api/plugins'
@@ -20,13 +20,36 @@ export const listPlugins = () => request<PluginStatus[]>('')
 export const scanPlugins = () =>
   request<{ added: string[]; changed: string[]; removed: string[] }>('/scan', { method: 'POST' })
 
-export const setPluginEnabled = (id: string, enabled: boolean) =>
-  request<PluginStatus>(`/${id}/${enabled ? 'enable' : 'disable'}`, { method: 'POST' })
+/** The package has to be trusted first: ask, then call again with `trust`. */
+export class TrustRequiredError extends Error {}
+
+async function trusting<T>(task: () => Promise<T>): Promise<T> {
+  try {
+    return await task()
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 428) throw new TrustRequiredError(e.message)
+    throw e
+  }
+}
+
+/** Rejects with TrustRequiredError for a third-party package not trusted yet, unless `trust` says it now is. */
+export const setPluginEnabled = (id: string, enabled: boolean, trust = false) => trusting(() =>
+  request<PluginStatus>(`/${id}/${enabled ? 'enable' : 'disable'}`, enabled && trust ? { method: 'POST', body: JSON.stringify({ trust }) } : { method: 'POST' }))
 
 export const reloadPlugin = (id: string) => request<ReloadResult>(`/${id}/reload`, { method: 'POST' })
 
-export const addPluginInstance = (name: string) =>
-  request<PluginStatus>('', { method: 'POST', body: JSON.stringify({ name }) })
+export const addPluginInstance = (name: string, trust = false) => trusting(() =>
+  request<PluginStatus>('', { method: 'POST', body: JSON.stringify({ name, trust }) }))
+
+/** Applies at once, without restarting the plugin. */
+export const setPluginScope = (id: string, scope: EntryScope | undefined) =>
+  request<PluginStatus>(`/${id}/scope`, { method: 'PUT', body: JSON.stringify({ scope: scope ?? null }) })
+
+/** Entry ids whose message listeners run first, in this order; [] goes back to the start order. */
+export const setMessageOrder = (order: string[]) =>
+  request<string[]>('/order', { method: 'PUT', body: JSON.stringify({ order }) })
+
+export const clearListenerError = (id: string) => request<PluginStatus>(`/${id}/listener-error`, { method: 'DELETE' })
 
 export const removePlugin = (id: string) => request<null>(`/${id}`, { method: 'DELETE' })
 

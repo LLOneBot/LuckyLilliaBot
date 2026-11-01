@@ -5,9 +5,11 @@ import { useRenderFailures } from '../../plugin-host/failures'
 import { useClientErrors } from '../../plugin-host/host'
 import { usePluginList } from '../../plugin-host/pluginList'
 import { SlotOutlet } from '../../plugin-host/views'
-import { patchUiPrefs } from '../../utils/pluginApi'
+import { clearListenerError, patchUiPrefs } from '../../utils/pluginApi'
 import { showToast } from '../common'
-import { Conflict, NEEDS_SETTINGS, pendingReason, pluginDescription, pluginIcon, pluginTitle, RELOAD_WARNING, STATE_LABEL } from './meta'
+import {
+  Conflict, NEEDS_SETTINGS, pendingReason, pluginDescription, pluginIcon, pluginTitle, RELOAD_WARNING, scopeSummary, STATE_LABEL,
+} from './meta'
 
 interface PluginCardProps {
   plugin: PluginStatus
@@ -37,6 +39,11 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
   const clientError = useClientErrors(state => state.errors[plugin.name])
   const failure = useRenderFailures(state => Object.values(state.failures).find(item => item.owner === plugin.name))
   const unapproved = !plugin.builtin && !!plugin.webui && !plugin.webuiApproved
+  const scope = scopeSummary(plugin.scope)
+  const dismissError = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    clearListenerError(plugin.id).catch(error => showToast(error instanceof Error ? error.message : String(error), 'error'))
+  }
   const approve = (e: React.MouseEvent) => {
     e.stopPropagation()
     patchUiPrefs({ approve: [plugin.name] })
@@ -107,6 +114,17 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
           )}
         </div>
       </div>
+
+      {scope && <p className="text-xs text-theme-muted mt-3">生效范围：{scope}</p>}
+
+      {plugin.listenerError && (
+        <div className="flex items-center gap-3 mt-3" onClick={stop}>
+          <p className="flex-1 text-xs text-red-500 truncate" title={plugin.listenerError.message}>
+            处理消息时出错 {plugin.listenerError.count} 次：{plugin.listenerError.message}
+          </p>
+          <button type="button" onClick={dismissError} className="btn-glass text-xs px-3 py-1.5 flex-shrink-0">知道了</button>
+        </div>
+      )}
 
       {conflicts?.map(conflict => (
         <p key={conflict.service} className="text-xs text-amber-600 dark:text-amber-400 mt-3">

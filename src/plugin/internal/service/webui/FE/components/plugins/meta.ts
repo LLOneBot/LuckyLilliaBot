@@ -4,7 +4,7 @@ import {
   Puzzle, Radio, Repeat, Search, Send, Settings, ShieldBan, Sliders, Smartphone, Smile, Sparkles, Star, Terminal, Timer,
   Trophy, Users, Wrench, Zap,
 } from 'lucide-react'
-import { PluginState, PluginStatus } from '../../types/plugins'
+import { EntryScope, PluginState, PluginStatus } from '../../types/plugins'
 
 // A fixed set instead of lucide's DynamicIcon, which would emit one chunk per icon (~1600 files) into the build
 const ICONS: Record<string, LucideIcon> = {
@@ -99,9 +99,26 @@ export const RELOAD_WARNING = 20
 /** The bot's own services plugins commonly inject, named for people rather than code; plugins name theirs. */
 export const SERVICE_LABEL: Record<string, string> = {
   bots: '收发消息',
+  commands: '指令',
   database: '数据库',
+  account: 'NTQQ 账号',
   timer: '定时器',
   webuiServer: 'WebUI',
+}
+
+/** The platforms of the bots, named for people */
+export const PLATFORM_LABEL: Record<string, string> = { luckylillia: 'QQ 号', qq: 'QQ 官方机器人', qqguild: 'QQ 频道' }
+
+/** What a scope leaves out, in a few words; undefined when it lets everything through. */
+export function scopeSummary(scope: EntryScope | undefined): string | undefined {
+  if (!scope) return
+  const parts: string[] = []
+  if (scope.platforms?.length) parts.push(`只在${scope.platforms.map(platform => PLATFORM_LABEL[platform] ?? platform).join('、')}`)
+  if (scope.bots?.length) parts.push(`只用 ${scope.bots.length} 个账号`)
+  if (scope.guilds) parts.push(`${scope.guilds.mode === 'allow' ? '只在' : '不在'} ${scope.guilds.ids.length} 个群`)
+  if (scope.users) parts.push(`${scope.users.mode === 'allow' ? '只理' : '不理'} ${scope.users.ids.length} 个人`)
+  if (scope.direct === false) parts.push('不在私聊')
+  return parts.length ? parts.join('，') : undefined
 }
 
 export interface Conflict {

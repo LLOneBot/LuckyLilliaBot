@@ -4,7 +4,7 @@ import { Context } from 'cordis'
 import { Context as HonoContext, Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import {
-  PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, UiPrefsPatch,
+  PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginTrustRequiredError, UiPrefsPatch,
 } from '../../../../../host'
 import { checkToken } from '../auth'
 
@@ -20,6 +20,7 @@ export function createPluginRoutes(ctx: Context): Hono {
       if (e instanceof PluginForbiddenError) return c.json({ success: false, message }, 403)
       if (e instanceof PluginConfigError) return c.json({ success: false, message, data: { issues: e.issues } }, 400)
       if (e instanceof PluginRevConflictError) return c.json({ success: false, message, data: { rev: e.rev } }, 409)
+      if (e instanceof PluginTrustRequiredError) return c.json({ success: false, message, data: { package: e.pkg } }, 428)
       ctx.logger('webui').warn(e)
       return c.json({ success: false, message }, 500)
     }
@@ -60,16 +61,30 @@ export function createPluginRoutes(ctx: Context): Hono {
   })
 
   router.post('/', async (c) => {
-    const { name, config } = await c.req.json<{ name: string; config?: unknown }>()
-    return respond(c, () => ctx.plugins.add(name, config))
+    const { name, config, trust } = await c.req.json<{ name: string; config?: unknown; trust?: boolean }>()
+    return respond(c, () => ctx.plugins.add(name, config, { trust: trust === true }))
+  })
+
+  router.put('/order', async (c) => {
+    const { order } = await c.req.json<{ order: unknown }>()
+    return respond(c, () => ctx.plugins.setMessageOrder(order))
   })
 
   router.delete('/:id', c => respond(c, () => ctx.plugins.remove(c.req.param('id'))))
-  router.post('/:id/enable', c => respond(c, () => ctx.plugins.enable(c.req.param('id'))))
+  router.post('/:id/enable', async (c) => {
+    const body = await c.req.json<{ trust?: boolean }>().catch(() => ({} as { trust?: boolean }))
+    return respond(c, () => ctx.plugins.enable(c.req.param('id'), { trust: body?.trust === true }))
+  })
   router.post('/:id/disable', c => respond(c, () => ctx.plugins.disable(c.req.param('id'))))
   router.post('/:id/reload', c => respond(c, () => ctx.plugins.reload(c.req.param('id'))))
   router.get('/:id/schema', c => respond(c, () => ctx.plugins.describe(c.req.param('id'))))
   router.get('/:id/dependencies', c => respond(c, () => ctx.plugins.dependencies(c.req.param('id'))))
+  router.delete('/:id/listener-error', c => respond(c, () => ctx.plugins.clearListenerError(c.req.param('id'))))
+
+  router.put('/:id/scope', async (c) => {
+    const { scope } = await c.req.json<{ scope: unknown }>()
+    return respond(c, () => ctx.plugins.setScope(c.req.param('id'), scope))
+  })
 
   router.put('/:id/config', async (c) => {
     const { config, ifRev, clear } = await c.req.json<{ config: unknown; ifRev?: string; clear?: string[] }>()

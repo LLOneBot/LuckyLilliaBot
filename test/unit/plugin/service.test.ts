@@ -2,10 +2,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import path from 'node:path'
 import { Context, Fiber, Service } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
-import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Schema from 'schemastery'
+import type { Bot, NeutralEvent } from '@luckylillia/plugin-sdk'
+import BotsService from '@/universal/bots'
 import PluginService, {
-  BuiltinConfig, BuiltinPlugin, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginStatus, SECRET_MASK,
+  BuiltinConfig, BuiltinPlugin, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginStatus,
+  PluginTrustRequiredError, SECRET_MASK,
   UiPrefs,
 } from '@/plugin/host'
 
@@ -602,5 +605,97 @@ describe('PluginService webui', () => {
     await boot()
     expect(ctx.plugins.uiPrefs().hidden).toEqual(['ui|dashboard.cards|x'])
     expect(byName('ui').webuiApproved).toBe(false)
+  })
+})
+
+describe('trust in third-party packages', () => {
+  async function bootTrusting() {
+    ctx = new Context()
+    await ctx.plugin(TimerService)
+    service = await ctx.plugin(PluginService, { file, roots: [pluginRoot], trust: true })
+  }
+
+  it('starts one only once the user trusted it, and remembers that', async () => {
+    await bootTrusting()
+    const { id } = byName('alpha')
+    await expect(ctx.plugins.enable(id)).rejects.toBeInstanceOf(PluginTrustRequiredError)
+    await expect(ctx.plugins.add('alpha')).rejects.toBeInstanceOf(PluginTrustRequiredError)
+    expect(byName('alpha')).toMatchObject({ disabled: true, trusted: false })
+    await ctx.plugins.enable(id, { trust: true })
+    expect(byName('alpha')).toMatchObject({ state: 'active', trusted: true })
+    await ctx.plugins.disable(id)
+    await ctx.plugins.enable(id)
+    expect(byName('alpha').state).toBe('active')
+    expect(JSON.parse(readFileSync(file, 'utf8')).trusted).toEqual(['alpha'])
+  })
+
+  it('trusts what already ran the first time it asks', async () => {
+    writeFileSync(file, JSON.stringify({ version: 1, entries: [{ id: 'e0000001', name: 'alpha' }] }))
+    await bootTrusting()
+    await vi.waitFor(() => expect(byName('alpha')).toMatchObject({ state: 'active', trusted: true }))
+    expect(JSON.parse(readFileSync(file, 'utf8')).trusted).toEqual(['alpha'])
+  })
+})
+
+describe('where and in which order plugins take messages', () => {
+  const bot: Bot = { platform: 'test', selfId: 'B', sid: 'test:B', status: 1, features: [], sendMessage: async () => [] }
+  const say = (channelId: string, content = 'hi') => ctx.bots.dispatch(bot, {
+    sn: 1, type: 'message-created', self_id: 'B', platform: 'test', timestamp: 0,
+    user: { id: 'U' }, channel: { id: channelId, type: 0 }, guild: { id: channelId }, message: { id: 'm', content },
+  } as NeutralEvent)
+
+  beforeEach(() => {
+    for (const name of ['one', 'two']) {
+      writePlugin(pluginRoot, name, {
+        'index.js': `
+          export const name = '${name}'
+          export const inject = ['bots']
+          export function apply(ctx) {
+            ctx.on('bot/message', (session, next) => {
+              globalThis.__pluginTest.push('${name}:' + session.channelId)
+              if (session.content === 'boom-${name}') throw new Error('boom')
+              return next()
+            })
+          }
+        `,
+      })
+    }
+  })
+
+  async function bootWithBots() {
+    writeFileSync(file, JSON.stringify({ version: 1, entries: [{ id: 'e0000001', name: 'one' }, { id: 'e0000002', name: 'two' }] }))
+    ctx = new Context()
+    await ctx.plugin(TimerService)
+    await ctx.plugin(BotsService)
+    service = await ctx.plugin(PluginService, { file, roots: [pluginRoot] })
+    await vi.waitFor(() => expect([byName('one').state, byName('two').state]).toEqual(['active', 'active']))
+  }
+
+  it('keeps what comes from outside its scope from a plugin, at once and on file', async () => {
+    await bootWithBots()
+    const scope = { guilds: { mode: 'allow', ids: ['G2'] } }
+    await ctx.plugins.setScope('e0000002', scope)
+    await say('G1')
+    await say('G2')
+    // The two start side by side, so either may have registered first
+    expect(globalThis.__pluginTest.sort()).toEqual(['one:G1', 'one:G2', 'two:G2'])
+    expect(byName('two').scope).toEqual(scope)
+    expect(JSON.parse(readFileSync(file, 'utf8')).entries[1].scope).toEqual(scope)
+    await ctx.plugins.setScope('e0000002', { guilds: { mode: 'deny', ids: [] } })
+    expect(byName('two').scope).toBeUndefined()
+  })
+
+  it('runs the message listeners in the order set, and notes against a plugin what its listeners threw', async () => {
+    await bootWithBots()
+    expect([byName('one').messages, byName('two').messages]).toEqual([true, true])
+    expect(await ctx.plugins.setMessageOrder(['e0000002', 'e0000001', 'nope'])).toEqual(['e0000002', 'e0000001'])
+    expect([byName('two').rank, byName('one').rank]).toEqual([0, 1])
+    await say('G1')
+    expect(globalThis.__pluginTest).toEqual(['two:G1', 'one:G1'])
+    await say('G1', 'boom-two')
+    expect(globalThis.__pluginTest.slice(2)).toEqual(['two:G1', 'one:G1'])
+    expect(byName('two').listenerError).toMatchObject({ message: 'boom', count: 1 })
+    ctx.plugins.clearListenerError('e0000002')
+    expect(byName('two').listenerError).toBeUndefined()
   })
 })

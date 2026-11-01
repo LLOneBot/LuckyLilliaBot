@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Loader2, Save, Trash2, X } from 'lucide-react'
 import { Portal, showToast } from '../common'
-import { PluginDescription, PluginStatus } from '../../types/plugins'
+import { EntryScope, PluginDescription, PluginStatus } from '../../types/plugins'
 import {
-  ConfigConflictError, ConfigRejectedError, describePlugin, patchUiPrefs, removePlugin, savePluginConfig,
+  ConfigConflictError, ConfigRejectedError, describePlugin, patchUiPrefs, removePlugin, savePluginConfig, setPluginScope,
 } from '../../utils/pluginApi'
 import { hydrate, SchemaNode } from './schema/model'
 import { SchemaField } from './schema/SchemaField'
 import { JsonInput, SecretClearContext } from './schema/inputs'
 import { pluginIcon, pluginTitle } from './meta'
 import DependencyList from './DependencyList'
+import ScopeEditor, { cleanScope } from './ScopeEditor'
 import { PluginBoundary } from '../../plugin-host/context'
 import { clientAllowed, ensureClient, useClientErrors } from '../../plugin-host/host'
 import { useConfigEditor } from '../../plugin-host/views'
@@ -48,6 +49,9 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
   // Dotted paths of stored secrets emptied in the form
   const cleared = useRef(new Set<string>())
   const Icon = pluginIcon(plugin)
+  // Applied on its own, without restarting the plugin
+  const [scope, setScope] = useState<EntryScope | undefined>(opened.scope)
+  const scopeChanged = JSON.stringify(cleanScope(scope) ?? null) !== JSON.stringify(plugin.scope ?? null)
 
   useEffect(() => {
     describePlugin(plugin.id)
@@ -80,13 +84,20 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
   const configurable = !!Editor || node !== null || plugin.hasConfig !== false
   const ready = !loading && clientReady
 
+  const configChanged = !!description && (JSON.stringify(value) !== JSON.stringify(formValue(description, node)) || cleared.current.size > 0)
+
   const save = async () => {
     setSaving(true)
     setErrors({})
     try {
-      // The complete value goes up; the server works out what differs from the defaults
-      await savePluginConfig(plugin.id, value, { ifRev: description?.rev, clear: [...cleared.current] })
-      showToast('配置已保存，插件已按新配置重启', 'success')
+      if (scopeChanged) await setPluginScope(plugin.id, cleanScope(scope))
+      if (configurable && !loadError && (configChanged || !scopeChanged)) {
+        // The complete value goes up; the server works out what differs from the defaults
+        await savePluginConfig(plugin.id, value, { ifRev: description?.rev, clear: [...cleared.current] })
+        showToast('配置已保存，插件已按新配置重启', 'success')
+      } else {
+        showToast('生效范围已保存，立刻生效', 'success')
+      }
       onClose()
     } catch (e) {
       if (e instanceof ConfigRejectedError) {
@@ -135,6 +146,15 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
 
           <div className="p-6 overflow-y-auto flex-1 space-y-6">
             <DependencyList plugin={plugin} plugins={plugins} />
+            {!plugin.builtin && (
+              <section className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-medium text-theme">生效范围</h4>
+                  <p className="text-xs text-theme-muted">范围外的消息和事件不交给这个插件，它的指令在范围外也不响应。保存后立刻生效，不用重启插件。</p>
+                </div>
+                <ScopeEditor value={scope} onChange={setScope} />
+              </section>
+            )}
             {plugin.webui && !plugin.webuiApproved && (
               <div className="flex items-center gap-3 p-3 rounded-xl bg-theme-item text-sm">
                 <p className="flex-1 text-theme-secondary">这个插件带着自己的界面（可能有专门的配置编辑器），批准后才会加载；现在用的是通用表单</p>
@@ -171,7 +191,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
             ) : <div />}
             <div className="flex items-center gap-3">
               <button onClick={onClose} className="px-6 py-2.5 text-theme-secondary hover:bg-theme-item rounded-xl font-medium transition-colors">取消</button>
-              {configurable && !loadError && (
+              {((configurable && !loadError) || !plugin.builtin) && (
                 <button onClick={save} disabled={!ready || saving} className="btn-primary flex items-center gap-2">
                   {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                   保存

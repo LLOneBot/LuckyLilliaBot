@@ -1,6 +1,8 @@
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError } from '@/plugin/host'
+import {
+  PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginTrustRequiredError,
+} from '@/plugin/host'
 import { createPluginRoutes } from '@/plugin/internal/service/webui/BE/routes/plugins'
 import { createTestApp } from '../helpers/testApp'
 
@@ -23,6 +25,9 @@ beforeEach(() => {
     updateConfig: vi.fn(async (id: string) => status(id)),
     uiPrefs: vi.fn(() => ({ approved: [], hidden: ['a|page|a:home'], order: {} })),
     updateUiPrefs: vi.fn(async () => ({ approved: ['pkg-a'], hidden: [], order: {} })),
+    setScope: vi.fn(async (id: string) => status(id)),
+    setMessageOrder: vi.fn(async (order: string[]) => order),
+    clearListenerError: vi.fn((id: string) => status(id)),
   }
   const ctx = {
     plugins,
@@ -44,14 +49,16 @@ describe('plugin routes', () => {
 
   it('maps the entry actions onto the service', async () => {
     expect((await json(await app.request('/api/plugins/a/enable', { method: 'POST' }))).body.data).toEqual(status('a'))
-    expect(plugins.enable).toHaveBeenCalledWith('a')
+    expect(plugins.enable).toHaveBeenCalledWith('a', { trust: false })
+    await app.request('/api/plugins/a/enable', { method: 'POST', body: JSON.stringify({ trust: true }) })
+    expect(plugins.enable).toHaveBeenLastCalledWith('a', { trust: true })
     await app.request('/api/plugins/a/disable', { method: 'POST' })
     expect(plugins.disable).toHaveBeenCalledWith('a')
     expect((await json(await app.request('/api/plugins/a/reload', { method: 'POST' }))).body.data).toEqual({ status: 'reloaded' })
     expect((await json(await app.request('/api/plugins/a', { method: 'DELETE' }))).body).toEqual({ success: true, data: null })
     expect((await json(await app.request('/api/plugins/scan', { method: 'POST' }))).body.data.added).toEqual(['c'])
     await app.request('/api/plugins', { method: 'POST', body: JSON.stringify({ name: 'pkg-x', config: { n: 1 } }) })
-    expect(plugins.add).toHaveBeenCalledWith('pkg-x', { n: 1 })
+    expect(plugins.add).toHaveBeenCalledWith('pkg-x', { n: 1 }, { trust: false })
     await app.request('/api/plugins/a/config', { method: 'PUT', body: JSON.stringify({ config: { n: 2 } }) })
     expect(plugins.updateConfig).toHaveBeenCalledWith('a', { n: 2 }, undefined, undefined)
     await app.request('/api/plugins/a/config', {
@@ -59,6 +66,23 @@ describe('plugin routes', () => {
       body: JSON.stringify({ config: { n: 3 }, ifRev: 'r1', clear: ['smtp.auth.pass'] }),
     })
     expect(plugins.updateConfig).toHaveBeenLastCalledWith('a', { n: 3 }, 'r1', ['smtp.auth.pass'])
+  })
+
+  it('sets the scope of an entry and the message order, and clears a listener error', async () => {
+    const scope = { guilds: { mode: 'allow', ids: ['123'] } }
+    await app.request('/api/plugins/a/scope', { method: 'PUT', body: JSON.stringify({ scope }) })
+    expect(plugins.setScope).toHaveBeenCalledWith('a', scope)
+    expect((await json(await app.request('/api/plugins/order', { method: 'PUT', body: JSON.stringify({ order: ['b', 'a'] }) }))).body.data).toEqual(['b', 'a'])
+    await app.request('/api/plugins/a/listener-error', { method: 'DELETE' })
+    expect(plugins.clearListenerError).toHaveBeenCalledWith('a')
+  })
+
+  it('answers 428 with the package when it has to be trusted first', async () => {
+    plugins.enable.mockRejectedValueOnce(new PluginTrustRequiredError('pkg-a'))
+    expect(await json(await app.request('/api/plugins/a/enable', { method: 'POST' }))).toEqual({
+      status: 428,
+      body: { success: false, message: 'pkg-a has not been trusted to run yet', data: { package: 'pkg-a' } },
+    })
   })
 
   it('answers 400 with the issues when the schema rejects a config', async () => {
