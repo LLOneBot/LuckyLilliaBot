@@ -1,0 +1,44 @@
+{
+  "name": "{{name}}",
+  "version": "0.1.0",
+  "description": "{{description}}",
+  "type": "module",
+  "main": "lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "keywords": [
+    "luckylillia-plugin"
+  ],
+  "scripts": {
+    "build": "tsc -p .",
+    "dev": "tsc -p . --watch",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^{{sdk}}"
+  },
+  "devDependencies": {
+    "@cordisjs/plugin-timer": "^1.1.4",
+    "@luckylillia/plugin-sdk": "^{{sdk}}",
+    "@satorijs/element": "^3.2.0",
+    "@satorijs/protocol": "^1.7.0",
+    "cordis": "4.0.0-rc.11",
+    "schemastery": "^3.18.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  },
+  "llbot": {
+    "description": {
+      "zh": "{{description}}"
+    },
+    "category": "chat",
+    "icon": "puzzle",
+    "service": {
+      "required": [
+        "bots",
+        "commands"
+      ]
+    }
+  }
+}
