@@ -152,9 +152,9 @@ describe('builtin plugins', () => {
     const allIn = (state: PluginState) => Object.fromEntries(builtinPlugins.map(builtin => [builtin.name, state]))
 
     // The WebUI and what needs nothing but it run from the start (webui.enable is off above, so it does not listen),
-    // and Satori, which serves whatever bots there are. Email notification and the official bot start switched off
-    // (their initial settings), the NT protocol by the file above; nothing else runs before the first login
-    const shell = ['builtin:webui', 'builtin:dashboard', 'builtin:logs', 'builtin:satori']
+    // Satori, which serves whatever bots there are, and the commands. Email notification and the official bot start
+    // switched off (their initial settings), the NT protocol by the file above; nothing else runs before the first login
+    const shell = ['builtin:webui', 'builtin:dashboard', 'builtin:logs', 'builtin:satori', 'builtin:commands']
     await vi.waitFor(() => expect(shell.map(name => states()[name])).toEqual(shell.map(() => 'active')))
     const off = { 'builtin:email-notification': 'disposed', 'builtin:qq-official': 'disposed', 'builtin:nt-protocol': 'disposed' }
     for (const status of ctx.plugins.list()) {
