@@ -1,10 +1,22 @@
 import { ApiResponse } from '../types';
 import { showToast } from '../components/common';
 import { hashPassword } from './passwordHash';
-import { getCookie, setCookie } from './cookie';
+import { deleteCookie, getCookie, setCookie } from './cookie';
 
-const TOKEN_KEY = 'webui_token';
 const TOKEN_EXPIRY_DAYS = 30;
+/** Where versions before the per-port name kept the login. */
+const LEGACY_TOKEN_KEY = 'webui_token';
+
+/**
+ * Cookies are scoped by host, not port, while every instance on a machine has its own password: a shared name would
+ * let the instances overwrite each other's login on every switch. The name carries the port the browser used; the
+ * backend derives the same from the Host header (BE/routes/plugins.ts).
+ */
+export function tokenCookieName(): string {
+  const loc = typeof location === 'undefined' ? undefined : location;
+  const port = loc?.port || (loc?.protocol === 'https:' ? '443' : '80');
+  return `webui_token_${port}`;
+}
 
 /** A non-2xx response; `data` is the `data` field of the error body, if any. */
 export class ApiError extends Error {
@@ -20,11 +32,19 @@ export function setPasswordPromptHandler(handler: (tip: string) => Promise<strin
 }
 
 export function getToken(): string | null {
-  return getCookie(TOKEN_KEY);
+  const name = tokenCookieName();
+  const token = getCookie(name);
+  if (token) return token;
+  // A login kept under the old name is moved over; if it belongs to another instance the login check asks again
+  const legacy = getCookie(LEGACY_TOKEN_KEY);
+  if (!legacy) return null;
+  setCookie(name, legacy, TOKEN_EXPIRY_DAYS);
+  deleteCookie(LEGACY_TOKEN_KEY);
+  return legacy;
 }
 
 export function setTokenStorage(token: string) {
-  setCookie(TOKEN_KEY, token, TOKEN_EXPIRY_DAYS);
+  setCookie(tokenCookieName(), token, TOKEN_EXPIRY_DAYS);
 }
 
 /** Refused by the WebUI login itself (its X-Webui-Auth header), not a 401 / 403 a route answers on its own. */

@@ -11,7 +11,7 @@ import {
   builtinPageKeys, PluginPage, PluginPageHeader, PluginPageUnavailable, usePluginHost, usePluginList, useVisiblePages,
 } from './plugin-host';
 import { ResConfig } from './types';
-import { apiFetch, setPasswordPromptHandler } from './utils/api';
+import { apiFetch, setPasswordPromptHandler, tokenCookieName } from './utils/api';
 import { deleteCookie } from './utils/cookie';
 import { useBotsPolling } from './stores/botsStore';
 import { useLayout } from './stores/layoutStore';
@@ -205,7 +205,7 @@ function App() {
         visible={showSettingsDialog}
         onClose={() => setShowSettingsDialog(false)}
         onLogout={() => {
-          deleteCookie('webui_token')
+          deleteCookie(tokenCookieName())
           window.location.reload()
         }}
       />

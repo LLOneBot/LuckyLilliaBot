@@ -118,6 +118,17 @@ function cookie(request: Request, name: string): string | undefined {
   }
 }
 
+/**
+ * The WebUI keeps its login under a per-port cookie name (FE/utils/api.ts `tokenCookieName`): cookies ignore the
+ * port while every instance on a machine has its own password. The port is the one the browser used, i.e. the
+ * Host header's, defaulting by scheme like the browser does.
+ */
+function loginCookie(request: Request): string | undefined {
+  const host = request.headers.get('host') ?? ''
+  const port = /:(\d+)$/.exec(host)?.[1] ?? (new URL(request.url).protocol === 'https:' ? '443' : '80')
+  return cookie(request, `webui_token_${port}`)
+}
+
 /** What @hono/node-server hands a handler: the connection, for the address the access log names. */
 type ServerEnv = { incoming?: { socket?: { remoteAddress?: string } } } | undefined
 
@@ -130,7 +141,7 @@ export async function servePluginAsset(ctx: Context, request: Request, env?: Ser
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405 })
   const { pathname } = new URL(request.url)
   const ip = env?.incoming?.socket?.remoteAddress ?? ''
-  if (checkToken(cookie(request, 'webui_token'), ip, request.method, pathname)) return new Response(null, { status: 401 })
+  if (checkToken(loginCookie(request), ip, request.method, pathname)) return new Response(null, { status: 401 })
   const [, , key, , ...file] = pathname.split('/')
   let target: string | undefined
   try {

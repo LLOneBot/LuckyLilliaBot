@@ -1,5 +1,4 @@
-import { apiFetch, ApiError } from './api'
-import { getCookie } from './cookie'
+import { apiFetch, ApiError, getToken } from './api'
 import {
   ConfigIssue, DependencyReport, EntryScope, PluginDescription, PluginStatus, ReloadResult, UiPrefs, UiPrefsPatch,
 } from '../types/plugins'
@@ -100,7 +99,7 @@ export type PluginStreamEvent = { type: 'status'; data: PluginStatus } | { type:
  * e.g. across a restart of the bot, but what changed meanwhile is not replayed: `onReconnect` is for fetching anew.
  */
 export function openPluginStream(onEvent: (event: PluginStreamEvent) => void, onReconnect?: () => void): () => void {
-  const token = getCookie('webui_token') || ''
+  const token = getToken() || ''
   const source = new EventSource(`${BASE}/stream?token=${encodeURIComponent(token)}`)
   let connections = 0
   source.addEventListener('connected', () => {

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { authorizedFetch, setPasswordPromptHandler } from '@/plugin/internal/service/webui/FE/utils/api'
+import { authorizedFetch, setPasswordPromptHandler, tokenCookieName } from '@/plugin/internal/service/webui/FE/utils/api'
 
 const cookies = new Map<string, string>()
 vi.mock('@/plugin/internal/service/webui/FE/components/common', () => ({ showToast: () => {} }))
 vi.mock('@/plugin/internal/service/webui/FE/utils/cookie', () => ({
   getCookie: (name: string) => cookies.get(name) ?? null,
   setCookie: (name: string, value: string) => cookies.set(name, value),
+  deleteCookie: (name: string) => cookies.delete(name),
 }))
 
 const reply = (status: number, login?: string) => new Response('{"success":false}', {
@@ -32,7 +33,7 @@ describe('authorizedFetch', () => {
     vi.stubGlobal('fetch', fetch)
     expect((await authorizedFetch('/api/config')).status).toBe(200)
     expect(prompt).toHaveBeenCalledOnce()
-    expect(fetch.mock.calls[1][1].headers['x-webui-token']).toBe(cookies.get('webui_token'))
+    expect(fetch.mock.calls[1][1].headers['x-webui-token']).toBe(cookies.get(tokenCookieName()))
   })
 
   it('leaves a 401 or 403 that a route answers on its own to the caller', async () => {

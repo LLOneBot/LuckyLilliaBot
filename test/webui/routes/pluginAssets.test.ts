@@ -20,8 +20,9 @@ const webuiAsset = vi.fn((key: string, file: string) => {
   return key === '@scope+ui' && file === 'index.js' ? module : undefined
 })
 const ctx = { plugins: { webuiAsset } } as unknown as Context
-// test/unit/setup.ts mocks the WebUI password to 'test-token'; the WebUI keeps its hash in this cookie
-const login = `theme=dark; webui_token=${hashPassword('test-token')}`
+// test/unit/setup.ts mocks the WebUI password to 'test-token'; the WebUI keeps its hash in a cookie named after the
+// port the browser used -- these requests go to http://localhost with no port, so 80
+const login = `theme=dark; webui_token_80=${hashPassword('test-token')}`
 
 function get(url: string, cookie?: string, method = 'GET') {
   return servePluginAsset(ctx, new Request(`http://localhost${url}`, { method, headers: cookie ? { cookie } : {} }))
@@ -38,7 +39,9 @@ describe('plugin WebUI assets', () => {
 
   it('wants the login cookie, since import() cannot send the login header', async () => {
     expect((await get('/plugin-webui/@scope+ui/3/index.js')).status).toBe(401)
-    expect((await get('/plugin-webui/@scope+ui/3/index.js', 'webui_token=wrong')).status).toBe(401)
+    // the name without the port is another instance's (or an old version's) login, not this one's
+    expect((await get('/plugin-webui/@scope+ui/3/index.js', `webui_token=${hashPassword('test-token')}`)).status).toBe(401)
+    expect((await get('/plugin-webui/@scope+ui/3/index.js', 'webui_token_80=wrong')).status).toBe(401)
   })
 
   it('answers 403 for a package whose WebUI the user did not approve', async () => {
@@ -53,7 +56,7 @@ describe('plugin WebUI assets', () => {
 
   // Last: the lockout is the WebUI login's own, and holds for the rest of this file
   it('counts a wrong cookie towards the login lockout like a wrong password, and keeps to the lockout', async () => {
-    for (let i = 0; i < 4; i++) await get('/plugin-webui/@scope+ui/3/index.js', 'webui_token=wrong')
+    for (let i = 0; i < 4; i++) await get('/plugin-webui/@scope+ui/3/index.js', 'webui_token_80=wrong')
     expect((await get('/plugin-webui/@scope+ui/3/index.js', login)).status).toBe(401)
   })
 })
