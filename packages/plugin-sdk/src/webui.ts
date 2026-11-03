@@ -30,8 +30,9 @@ export interface PageOptions {
    */
   header?: Component<{}>
   /**
-   * Sidebar position, lowest first, shared with the builtin pages: Dashboard 0, 日志 20, 其他配置 30, 插件 40,
-   * 关于 1000. Defaults to 100.
+   * Sidebar position, lowest first, shared with the builtin pages: Dashboard 0, NTQQ 协议 5, 日志 20, 插件 40,
+   * WebQQ 50, 关于 1000. Defaults to 100. Only where the page goes until the user arranges the sidebar (its dialog
+   * in the WebUI settings), whose order is kept over this one.
    */
   order?: number
   /**
@@ -67,12 +68,10 @@ export type SlotCardinality = 'list' | 'single' | 'keyed' | 'chain'
  * The props of a `chain` slot include `next`, which the slot passes on itself.
  */
 export interface SlotMap {
-  /** Lines of the notice bar at the top of the WebUI: render StatusNotice ones, or nothing at all. */
-  'shell.notices': { props: {}; options: {} }
-  /** Sections of the settings dialog (the gear in the sidebar), for preferences of this browser. */
-  'settings.sections': { props: {}; options: { title: string } }
   /** Buttons next to 重新扫描 on the plugin page. The plugin page has nothing to replace: it is how users keep plugins in check. */
   'plugins.toolbar': { props: {}; options: {} }
+  /** More views of the plugin page, as tabs after 插件列表: the plugin market is one. */
+  'plugins.views': { props: {}; options: PluginsViewOptions }
   /** Buttons on each card of the plugin page, before its own. */
   'plugins.card.actions': { props: { plugin: PluginEntryStatus }; options: {} }
   /** Cards on the Dashboard, declared by the Dashboard plugin. It draws the card, its title and width; the component, its inside. */
@@ -99,6 +98,13 @@ export interface DashboardCardOptions {
    * left, so one rendering nothing leaves no gap.
    */
   size?: 'normal' | 'wide' | 'full'
+}
+
+export interface PluginsViewOptions {
+  /** The tab's name */
+  title: string
+  /** Drawn after the name, e.g. a count of updates; rendering nothing leaves the name alone */
+  badge?: WebUIComponent
 }
 
 /** The chat open in WebQQ. */
@@ -317,6 +323,54 @@ export declare const SchemaSettings: WebUIComponent<SchemaSettingsProps>
 /** A listen address: the machine's addresses to pick from, or one typed in. The form uses it for `.role('host')`. */
 export declare const HostInput: WebUIComponent<{ value: string; onChange(value: string): void }>
 
+export interface PathInputProps {
+  value: string
+  onChange(value: string): void
+  /** A file (the default) or a directory */
+  select?: 'file' | 'directory'
+  /** Extensions of the files listed, e.g. `['.exe']`; the others show on request */
+  accept?: string[]
+  /** Where the browser opens while there is no value, e.g. what is used without one */
+  start?: string
+  placeholder?: string
+  disabled?: boolean
+  /** The browser's title */
+  title?: string
+}
+
+/**
+ * A path on the machine the bot runs on: typed, or picked in a browser of that machine's directories (the WebUI may
+ * be open elsewhere, so the browser's own file dialog would pick from the wrong machine). Lists names only.
+ */
+export declare const PathInput: WebUIComponent<PathInputProps>
+
+export interface DurationInputProps {
+  /** Seconds */
+  value: number
+  onChange(seconds: number): void
+  /** Most days it takes; 0 leaves the days field out. Default 1 */
+  maxDays?: number
+  /** Default true */
+  showSeconds?: boolean
+}
+
+/** A length of time in days, hours, minutes and seconds, stored as seconds. */
+export declare const DurationInput: WebUIComponent<DurationInputProps>
+
+export interface SelectInputProps<T = string> {
+  value: T
+  options: readonly { value: T; label: string }[]
+  onChange(value: T): void
+  /** Shown while the value is none of the options. Default 请选择 */
+  placeholder?: string
+  disabled?: boolean
+  /** Added to the button, e.g. a width */
+  className?: string
+}
+
+/** A dropdown in the WebUI's style; a `<select>` opens a list the browser draws in the system's. Values compare with `===`. */
+export declare function SelectInput<T = string>(props: SelectInputProps<T>): any
+
 /** Every plugin entry the WebUI lists, kept current; null until the list loads. */
 export declare function usePlugins(): PluginEntryStatus[] | null
 
@@ -348,11 +402,15 @@ export interface StatusNoticeProps {
   children?: unknown
   /** Label of the button. */
   action?: string
-  /** Id of the plugin page the button opens; the line is left out while that page is open. */
+  /** Id of the plugin page the button opens; no button while that page is open. */
   page?: string
 }
 
-/** A line of the notice bar, for components in the `shell.notices` slot. */
+/**
+ * A notice at the top of one of the plugin's own pages, looking like the one the WebUI puts there while the plugin
+ * waits, failed or still wants settings. The WebUI has no notice bar for plugins: what concerns a plugin is said on
+ * its pages and its card.
+ */
 export declare const StatusNotice: WebUIComponent<StatusNoticeProps>
 
 export type SlotProps<K extends keyof SlotMap> = {

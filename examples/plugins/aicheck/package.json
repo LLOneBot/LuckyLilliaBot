@@ -1,0 +1,62 @@
+{
+  "name": "luckylillia-plugin-aicheck",
+  "version": "1.0.0",
+  "description": "Tells whether an image was made by AI, through OpenAI's watermark check and a vision model",
+  "author": "linyuchen",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "assets",
+    "docs"
+  ],
+  "scripts": {
+    "build": "tsc -p ../ai-gateway && tsc -p .",
+    "prepack": "tsc -p ../ai-gateway && tsc -p ."
+  },
+  "keywords": [
+    "luckylillia-plugin"
+  ],
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0",
+    "luckylillia-plugin-ai-gateway": "^1.0.0"
+  },
+  "llbot": {
+    "title": {
+      "zh": "AI 图片检测",
+      "en": "AICheck"
+    },
+    "category": "chat",
+    "description": {
+      "zh": "对着图片回复「ai吗」（或者「ai吗」后面直接带图），查它是不是 AI 生成的。用 OpenAI 的水印检测和能看图的 AI，要先装好 AI 网关",
+      "en": "Reply \"ai吗\" to an image (or send it with the image) to learn whether AI made it, through OpenAI's watermark check and a vision model. Needs the AI gateway"
+    },
+    "icon": "assets/icon.svg",
+    "details": "docs/details.md",
+    "screenshots": [
+      {
+        "src": "assets/demo.jpg",
+        "caption": "对着群友的图回复「ai吗」"
+      },
+      {
+        "src": "assets/settings.jpg",
+        "caption": "设置：水印检测和看图判断各选一个 AI"
+      }
+    ],
+    "service": {
+      "required": [
+        "bots",
+        "ai",
+        "http"
+      ]
+    }
+  }
+}

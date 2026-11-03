@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRenderFailures } from '../../plugin-host/failures'
-import { useClientErrors } from '../../plugin-host/host'
 import { usePluginList } from '../../plugin-host/pluginList'
-import { SlotOutlet, useSettingsPages } from '../../plugin-host/views'
+import { SlotOutlet, useSettingsPages, useSlotContents } from '../../plugin-host/views'
+import { PluginBoundary } from '../../plugin-host/context'
+import { contributionKey, WEBUI } from '../../plugin-host/registry'
 import { ChevronLeft, ChevronRight, FolderSearch, Loader2, Puzzle, Search, X } from 'lucide-react'
 import { showToast } from '../common'
+import { Select } from '../common/Select'
 import { PluginStatus } from '../../types/plugins'
 import { addPluginInstance, reloadPlugin, scanPlugins, setPluginEnabled, TrustRequiredError } from '../../utils/pluginApi'
 import PluginCard from './PluginCard'
@@ -13,9 +14,9 @@ import {
   CATEGORIES, CategoryKey, filterPlugins, groupByCategory, pageNumbers, paginate, pluginCategory, sortPlugins,
   StatusFilter,
 } from './listing'
-import { webuiPackages } from './extensions'
 import PluginConfigDialog from './PluginConfigDialog'
-import WebuiExtensions from './WebuiExtensions'
+import WebuiDialog from '../config/WebuiDialog'
+import PluginDetailsDialog from './PluginDetailsDialog'
 import MessageOrder from './MessageOrder'
 import TrustDialog from './TrustDialog'
 
@@ -25,9 +26,13 @@ const PAGE_SIZE = 12
 // Survives a trip to a settings page and back
 const VIEW_KEY = 'llbot-plugins-view'
 
+const OWN_MODES = ['list', 'messages']
+
 interface View {
-  /** The plugins, what they add to the WebUI, or the order messages pass them in */
-  mode: 'list' | 'ui' | 'messages'
+  /**
+   * The plugins, the order messages pass them in, or a view a plugin adds (`plugins.views`, by its contribution key)
+   */
+  mode: string
   category: CategoryKey | 'all'
   status: StatusFilter
   search: string
@@ -65,6 +70,8 @@ const PluginsPage: React.FC = () => {
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const [scanning, setScanning] = useState(false)
   const [editing, setEditing] = useState<PluginStatus | null>(null)
+  const [detailsOf, setDetailsOf] = useState<PluginStatus | null>(null)
+  const closeDetails = useCallback(() => setDetailsOf(null), [])
   // A third-party package about to run for the first time, and what to do once the user trusts it
   const [trusting, setTrusting] = useState<{ plugin: PluginStatus; go: () => Promise<void> } | null>(null)
   const [view, setView] = useState<View>(loadView)
@@ -113,12 +120,12 @@ const PluginsPage: React.FC = () => {
     return result
   }, [plugins])
   const filtered = view.status !== 'all' || !!view.search.trim() || view.category !== 'all'
-  // What the 界面 view asks the user about: modules to approve, ones that broke
-  const failing = useRenderFailures(state => Object.keys(state.failures).length)
-  const clientFailing = useClientErrors(state => Object.keys(state.errors).length)
-  const unapproved = useMemo(() => webuiPackages(plugins).filter(plugin => !plugin.webuiApproved).length, [plugins])
-  const attention = failing + clientFailing + unapproved
   const current = CATEGORIES.find(category => category.key === view.category)
+  // A view whose plugin went off falls back to the list
+  const added = useSlotContents('plugins.views')
+  const mode = OWN_MODES.includes(view.mode) || added.some(c => contributionKey(c) === view.mode) ? view.mode : 'list'
+  const addedView = added.find(c => contributionKey(c) === mode)
+  const titleOf = (c: (typeof added)[number]) => String(c.options.title ?? c.label ?? c.id)
 
   const withBusy = async (id: string, task: () => Promise<void>) => {
     setBusy(previous => new Set(previous).add(id))
@@ -178,21 +185,34 @@ const PluginsPage: React.FC = () => {
     }
   }
 
-  const card = (plugin: PluginStatus) => (
-    <PluginCard
-      key={plugin.id}
-      plugin={plugin}
-      instanceTag={(countByName.get(plugin.name) ?? 0) > 1 ? `#${plugin.id}` : undefined}
-      conflicts={conflicts.get(plugin.id)}
-      busy={busy.has(plugin.id)}
-      onToggle={enabled => toggle(plugin, enabled)}
-      // A plugin with a settings page is configured there; App follows the hash
-      onConfigure={openSettings(plugin) ?? (plugin.builtin ? undefined : () => setEditing(plugin))}
-      onReload={() => reload(plugin)}
-      // Builtins run as a single instance
-      onDuplicate={plugin.builtin ? undefined : () => duplicate(plugin)}
-    />
-  )
+  // The gear: a builtin's settings page (App follows the hash), else its config dialog, for the WebUI one of its own;
+  // always the config dialog for a package, as only there are its scope, instances and approval
+  const configure = (plugin: PluginStatus): { open?: () => void; label?: string } => {
+    if (!plugin.builtin || plugin.name === WEBUI) return { open: () => setEditing(plugin), label: '配置' }
+    const settings = openSettings(plugin)
+    if (settings) return { open: settings, label: '前往设置' }
+    return plugin.hasConfig ? { open: () => setEditing(plugin), label: '配置' } : {}
+  }
+
+  const card = (plugin: PluginStatus) => {
+    const gear = configure(plugin)
+    return (
+      <PluginCard
+        key={plugin.id}
+        plugin={plugin}
+        instanceTag={(countByName.get(plugin.name) ?? 0) > 1 ? `#${plugin.id}` : undefined}
+        conflicts={conflicts.get(plugin.id)}
+        busy={busy.has(plugin.id)}
+        onToggle={enabled => toggle(plugin, enabled)}
+        onConfigure={gear.open}
+        configureLabel={gear.label}
+        onDetails={plugin.hasDetails ? () => setDetailsOf(plugin) : undefined}
+        onReload={() => reload(plugin)}
+        // Builtins run as a single instance
+        onDuplicate={plugin.builtin ? undefined : () => duplicate(plugin)}
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -215,14 +235,21 @@ const PluginsPage: React.FC = () => {
             </button>
           </div>
         </div>
-        <div className="flex gap-2 mt-4">
-          <button type="button" onClick={() => setView(previous => ({ ...previous, mode: 'list' }))} className={tab(view.mode === 'list')}>
+        <div className="flex flex-wrap gap-2 mt-4">
+          <button type="button" onClick={() => setView(previous => ({ ...previous, mode: 'list' }))} className={tab(mode === 'list')}>
             插件列表
           </button>
-          <button type="button" onClick={() => setView(previous => ({ ...previous, mode: 'ui' }))} className={tab(view.mode === 'ui')} title="插件往 WebUI 上加的页面、卡片和按钮">
-            界面{attention > 0 && <span className="ml-1.5 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-amber-500 text-white text-[11px]">{attention}</span>}
-          </button>
-          <button type="button" onClick={() => setView(previous => ({ ...previous, mode: 'messages' }))} className={tab(view.mode === 'messages')} title="消息经过各个插件的先后">
+          {added.map((c) => {
+            const key = contributionKey(c)
+            const Badge = c.options.badge as React.ComponentType | undefined
+            return (
+              <button key={key} type="button" onClick={() => setView(previous => ({ ...previous, mode: key }))} className={tab(mode === key)}>
+                {titleOf(c)}
+                {Badge && <PluginBoundary owner={c.owner} inline><Badge /></PluginBoundary>}
+              </button>
+            )
+          })}
+          <button type="button" onClick={() => setView(previous => ({ ...previous, mode: 'messages' }))} className={tab(mode === 'messages')} title="消息经过各个插件的先后">
             消息处理
           </button>
         </div>
@@ -232,11 +259,15 @@ const PluginsPage: React.FC = () => {
         <div className="flex justify-center py-16"><Loader2 size={40} className="animate-spin text-pink-500" /></div>
       )}
 
-      {plugins !== null && view.mode === 'ui' && <WebuiExtensions />}
+      {plugins !== null && mode === 'messages' && <MessageOrder />}
 
-      {plugins !== null && view.mode === 'messages' && <MessageOrder />}
+      {plugins !== null && addedView && (
+        <PluginBoundary key={contributionKey(addedView)} owner={addedView.owner} failure={{ key: contributionKey(addedView), where: `插件页的「${titleOf(addedView)}」` }}>
+          <addedView.component />
+        </PluginBoundary>
+      )}
 
-      {plugins !== null && view.mode === 'list' && (
+      {plugins !== null && mode === 'list' && (
         <>
           <div className="card p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
@@ -254,9 +285,7 @@ const PluginsPage: React.FC = () => {
                   </button>
                 )}
               </div>
-              <select value={view.status} onChange={e => update({ status: e.target.value as StatusFilter })} className="input-field w-36 flex-shrink-0">
-                {STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
+              <Select value={view.status} options={STATUS_OPTIONS} onChange={status => update({ status })} className="w-36 flex-shrink-0" />
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => update({ category: 'all' })} className={tab(view.category === 'all')}>
@@ -325,14 +354,16 @@ const PluginsPage: React.FC = () => {
         />
       )}
 
-      {editing && (
+      {detailsOf && <PluginDetailsDialog plugin={detailsOf} onClose={closeDetails} />}
+
+      {editing && (editing.name === WEBUI ? <WebuiDialog plugin={editing} onClose={() => setEditing(null)} /> : (
         <PluginConfigDialog
           plugin={editing}
           plugins={plugins ?? []}
           removable={(countByName.get(editing.name) ?? 0) > 1}
           onClose={() => setEditing(null)}
         />
-      )}
+      ))}
     </div>
   )
 }

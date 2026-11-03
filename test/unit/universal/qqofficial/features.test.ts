@@ -11,8 +11,8 @@ import * as QQOfficial from '@/plugin/internal/protocol/qq-official'
 import type { QQGuildBot, QQOfficialBot } from '@/plugin/internal/protocol/qq-official'
 import { crossPlatform } from '../crossPlatform'
 
-// The parts of the adapter that follow Koishi adapter-qq-crack: markdown and buttons, the platform's own payloads,
-// group management, guilds, interactions and menus, against a fake REST API and a local gateway
+// Markdown and buttons, the platform's own payloads, group management, guilds, interactions and menus, against a
+// fake REST API and a local gateway
 
 interface Call {
   method: string
@@ -281,7 +281,7 @@ describe('markdown and buttons', () => {
     expect(calls.filter(call => call.path.endsWith('/files')).map(call => call.body)).toEqual([
       { file_type: 1, file_data: 'AAAA', file_name: 'file', srv_send_msg: false },
     ])
-    // As Koishi adapter-qq-crack does: the text after an image does not join it
+    // The text after an image does not join it
     expect(messages().map(call => call.body)).toEqual([
       { msg_type: 2, markdown: { content: 'before ' } },
       { msg_type: 7, media: { file_info: 'info:data' } },

@@ -119,11 +119,12 @@ export interface QQOfficialConfig {
 
 /** builtin:nt-protocol: how the scanned account logs in */
 export interface NTProtocolConfig {
-  /** The pure protocol, or PMHQ bridging an official QQ client */
-  mode: 'direct' | 'pmhq'
-  /** The QQ client the pure protocol passes for; PMHQ ignores it */
+  /** The pure protocol, or NativeQQ bridging an official QQ client */
+  mode: 'direct' | 'nativeqq'
+  /** The QQ client the pure protocol passes for; NativeQQ ignores it */
   protocol: 'linux' | 'macos' | 'windows' | 'watch'
-  pmhq: { configPath: string; qqPath: string }
+  /** The QQ the bridge starts, empty: the one NativeQQ finds. A NativeQQ configuration file is only given at launch */
+  nativeQQ: { qqPath: string }
 }
 
 export interface MilkyHttpConfig {

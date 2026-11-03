@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Loader2, Power, Smartphone } from 'lucide-react'
 import { usePluginContext, usePluginStatus } from '@luckylillia/plugin-sdk/webui'
-import AuthTokenForm from './AuthTokenForm'
+import AuthTokenCard from './AuthTokenCard'
+import AuthTokenForm, { type AuthTokenStatus } from './AuthTokenForm'
+import LaunchQQ from './LaunchQQ'
+import ProtocolSettings from './ProtocolSettings'
 import LoginMethod from './LoginMethod'
 import QQLogin from './QQLogin'
-import type { LoginMode, ProtocolId, ProtocolPins } from './loginOptions'
+import { LOGIN_MODES, type BridgeStatus, type LoginMode, type ProtocolId, type ProtocolPins } from './loginOptions'
 
 interface LoginInfo {
   online: boolean
@@ -16,19 +19,12 @@ interface LoginInfo {
   lockedProtocol?: ProtocolId
   pins: ProtocolPins
   /** Only for the bridge */
-  pmhq?: { configPath: string; qqPath: string; connected: boolean }
-}
-
-interface AuthTokenStatus {
-  applicable: boolean
-  hasToken: boolean
-  validation: 'idle' | 'validating' | 'valid' | 'invalid' | 'error'
-  message: string
-  loginError: string
-  authTokenPageUrl?: string
+  nativeQQ?: { configPath: string; qqPath: string; connected: boolean; status?: BridgeStatus }
 }
 
 const POLL_INTERVAL = 3000
+// While the bridge's QQ comes up
+const QUICK_POLL_INTERVAL = 1000
 
 /** Settings page of builtin:nt-protocol, where the scanned account logs in and out. */
 const NTProtocolPage: React.FC = () => {
@@ -47,6 +43,8 @@ const NTProtocolPage: React.FC = () => {
   const [relogin, setRelogin] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  // Picked in the login method editor, not saved yet: the login below belongs to the method that runs
+  const [draftMode, setDraftMode] = useState<LoginMode | null>(null)
   // Polls right away, e.g. once a quick login went through
   const pollNow = useRef<() => void>(() => {})
 
@@ -66,17 +64,23 @@ const NTProtocolPage: React.FC = () => {
       ])
       if (stopped) return
       if (login.status === 'fulfilled') setInfo(login.value)
+      const bridge = login.status === 'fulfilled' && login.value.mode === 'nativeqq' ? login.value.nativeQQ?.status : undefined
+      // Before the bridge's session runs it has no token watcher, and the token status means nothing
+      const bridgeIdle = login.status === 'fulfilled' && login.value.mode === 'nativeqq' && bridge?.session !== 'running'
       if (token.status === 'fulfilled' && token.value) {
         const status = token.value
         setTokenStatus(status)
-        if (status.applicable && (!status.hasToken || status.validation === 'invalid')) {
+        if (bridgeIdle) {
+          setTokenForm(null)
+        } else if (status.applicable && (!status.hasToken || status.validation === 'invalid')) {
           setTokenForm(status.validation === 'invalid' ? 'invalid' : 'missing')
         } else if (!status.applicable || status.validation === 'valid') {
           setTokenForm(null)
         }
       }
       running = false
-      timer = setTimeout(poll, POLL_INTERVAL)
+      const comingUp = bridge && (bridge.session === 'starting' || (bridge.session === 'running' && !bridge.qqRunning))
+      timer = setTimeout(poll, comingUp ? QUICK_POLL_INTERVAL : POLL_INTERVAL)
     }
     pollNow.current = () => void poll()
     poll()
@@ -119,7 +123,12 @@ const NTProtocolPage: React.FC = () => {
   )
 
   const account = info?.online ? { uin: info.uin, nick: info.nick } : known
+  const bridge = info?.mode === 'nativeqq' ? info.nativeQQ?.status : undefined
+  // Without a session nothing reconnects the bridge's account: the page offers to start QQ instead of its card
+  const bridgeDown = info?.mode === 'nativeqq' && (bridge ? bridge.session !== 'running' : !info.nativeQQ?.connected)
   let body: React.ReactNode
+  // The login waits on the token: the form takes the whole page then
+  let tokenFormShown = false
   if (disabled) {
     body = <p className="text-sm text-theme-secondary">启用后在这里快速登录或扫码登录 QQ 账号</p>
   } else if (!info) {
@@ -128,7 +137,13 @@ const NTProtocolPage: React.FC = () => {
     body = entry?.state === 'failed'
       ? <p className="text-sm text-theme-secondary">NTQQ 协议没能启动，原因见上方提示</p>
       : waiting('NTQQ 协议正在启动...')
-  } else if (account && (info.online || !relogin)) {
+  } else if (draftMode && draftMode !== info.mode) {
+    body = (
+      <p className="py-10 text-center text-sm text-theme-secondary">
+        保存后改用{LOGIN_MODES.find(mode => mode.id === draftMode)?.label}登录
+      </p>
+    )
+  } else if (account && (info.online || (!relogin && !bridgeDown))) {
     body = (
       <>
         <div className="flex items-center gap-4 p-4 bg-theme-item rounded-xl">
@@ -157,8 +172,8 @@ const NTProtocolPage: React.FC = () => {
         )}
 
         <div className="mt-6 flex items-center justify-end gap-3">
-          {info.mode === 'pmhq' ? (
-            <p className="text-xs text-theme-muted">官方 QQ 端桥接的账号在 QQ 客户端里登录和退出</p>
+          {info.mode === 'nativeqq' ? (
+            <p className="text-xs text-theme-muted">官方 QQ 客户端桥接的账号在 QQ 客户端里登录和退出</p>
           ) : confirmLogout ? (
             <>
               <span className="flex-1 text-sm text-theme-secondary">确定要退出当前 QQ 登录吗？退出后可重新选择账号快速登录或扫码登录。</span>
@@ -190,22 +205,20 @@ const NTProtocolPage: React.FC = () => {
         </div>
       </>
     )
-  } else if (info.mode === 'pmhq' && !info.pmhq?.connected) {
-    body = (
-      <div className="py-10 text-center">
-        <div className="flex items-center justify-center gap-2 text-sm text-theme-secondary">
-          <Loader2 size={18} className="animate-spin text-pink-500" />
-          正在启动本机 PMHQ...
-        </div>
-        <p className="text-xs text-theme-muted mt-2">{loginError || '请检查 QQ 路径与 PMHQ 配置；会话失败后停用并重新启用 NTQQ 协议'}</p>
-      </div>
-    )
+  } else if (bridgeDown) {
+    body = bridge && (bridge.session === 'starting' || bridge.session === 'stopping')
+      ? waiting(bridge.session === 'starting' ? '正在启动 QQ...' : '正在停止 QQ...')
+      : <LaunchQQ target={info.nativeQQ} failure={bridge?.failure || loginError} onLaunched={() => pollNow.current()} />
   } else if (tokenForm) {
+    tokenFormShown = true
     body = (
       <div className="py-4">
         <AuthTokenForm reason={tokenForm} authTokenPageUrl={tokenStatus?.authTokenPageUrl} onSuccess={() => setTokenForm(null)} />
       </div>
     )
+  } else if (bridge && !bridge.qqRunning) {
+    // The session runs and the token is in: QQ itself is on its way
+    body = waiting('正在启动 QQ...')
   } else {
     body = (
       <div className="py-4">
@@ -225,10 +238,11 @@ const NTProtocolPage: React.FC = () => {
         <div className="w-12 h-12 rounded-xl gradient-primary-br flex items-center justify-center flex-shrink-0">
           <Smartphone size={24} className="text-white" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="text-lg font-semibold text-theme">NTQQ 协议</h3>
           <p className="text-sm text-theme-secondary">扫码登录的 QQ 账号，OneBot、Satori、Milky 和 WebQQ 都通过它收发消息</p>
         </div>
+        <ProtocolSettings />
       </div>
       {info && (
         <LoginMethod
@@ -240,7 +254,12 @@ const NTProtocolPage: React.FC = () => {
             if (modeChanged) setRelogin(true)
             pollNow.current()
           }}
+          onDraftMode={setDraftMode}
         />
+      )}
+      {/* The bridge needs a token too, read once its QQ is up */}
+      {!disabled && info?.ntProtocol && (info.mode === 'direct' || bridge?.session === 'running') && tokenStatus && !tokenFormShown && (
+        <AuthTokenCard status={tokenStatus} onChanged={() => pollNow.current()} />
       )}
       {body}
     </div>

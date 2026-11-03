@@ -1,12 +1,16 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink, Loader2, Save } from 'lucide-react'
 import type {
-  BotInfo, PageView, PluginConfigState, PluginEntryStatus, SchemaFormProps, SchemaSettingsProps, SlotMap, SlotProps,
-  StatusNoticeProps,
+  BotInfo, DurationInputProps, PageView, PathInputProps, PluginConfigState, PluginEntryStatus, SchemaFormProps,
+  SchemaSettingsProps, SelectInputProps, SlotMap, SlotProps, StatusNoticeProps,
 } from '@luckylillia/plugin-sdk/webui'
 import { HostSelector } from '../components/common/HostSelector'
+import { PathPicker } from '../components/common/PathPicker'
+import { DurationPicker } from '../components/common/DurationPicker'
+import { Select } from '../components/common/Select'
 import { showToast } from '../components/common/Toast'
-import { iconByName, pluginDescription, pluginIcon, pluginTitle } from '../components/plugins/meta'
+import { iconByName, pluginDescription, pluginTitle } from '../components/plugins/meta'
+import PluginIcon from '../components/plugins/PluginIcon'
 import { hydrate, SchemaNode } from '../components/plugins/schema/model'
 import { SecretClearContext } from '../components/plugins/schema/inputs'
 import { SchemaField } from '../components/plugins/schema/SchemaField'
@@ -16,7 +20,7 @@ import { useBots as useBotsStore } from '../stores/botsStore'
 import { useLayout } from '../stores/layoutStore'
 import { usePluginContext } from './context'
 import { usePluginList } from './pluginList'
-import { PageViewContext, SlotOutlet, useSlotMatches } from './views'
+import { PageNotice, PageViewContext, SlotOutlet, useSlotMatches } from './views'
 
 // The runtime side of `@luckylillia/plugin-sdk/webui`: what third-party modules get through the import map and
 // builtin ones through the alias in vite.config.ts. Keep its exports in step with sdkExports.ts.
@@ -126,7 +130,6 @@ const Section: React.FC<{ title: string; collapsed?: boolean; children: React.Re
 export const SchemaSettings: React.FC<SchemaSettingsProps> = ({ fields, sections, links, children }) => {
   const plugin = useEntry()
   const config = usePluginConfig()
-  const Icon = plugin ? pluginIcon(plugin) : undefined
   const description = plugin && pluginDescription(plugin)
   const extra = typeof children === 'function' ? (children as (config: PluginConfigState) => React.ReactNode)(config) : children as React.ReactNode
   const ungrouped = useMemo(() => {
@@ -149,9 +152,9 @@ export const SchemaSettings: React.FC<SchemaSettingsProps> = ({ fields, sections
   return (
     <div className="card p-6">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-12 h-12 rounded-xl gradient-primary-br flex items-center justify-center flex-shrink-0">
-          {Icon && <Icon size={24} className="text-white" />}
-        </div>
+        {plugin
+          ? <PluginIcon plugin={plugin} className="w-12 h-12 rounded-xl" fill="gradient-primary-br text-white" size={24} />
+          : <div className="w-12 h-12 rounded-xl gradient-primary-br flex-shrink-0" />}
         <div className="min-w-0">
           <h3 className="text-lg font-semibold text-theme">{plugin ? pluginTitle(plugin) : ''}</h3>
           {description && <p className="text-sm text-theme-secondary">{description}</p>}
@@ -198,6 +201,12 @@ export const SchemaSettings: React.FC<SchemaSettingsProps> = ({ fields, sections
 
 export const HostInput: React.FC<{ value: string; onChange(value: string): void }> = HostSelector
 
+export const PathInput: React.FC<PathInputProps> = PathPicker
+
+export const DurationInput: React.FC<DurationInputProps> = DurationPicker
+
+export const SelectInput: <T = string>(props: SelectInputProps<T>) => React.ReactNode = Select
+
 export function usePlugins(): PluginEntryStatus[] | null {
   return usePluginList(state => state.plugins)
 }
@@ -220,15 +229,10 @@ export const StatusNotice: React.FC<StatusNoticeProps> = ({ children, action, pa
   const ctx = usePluginContext()
   const href = page === undefined ? undefined : ctx.pageHref(page)
   const activeTab = useLayout(state => state.activeTab)
-  if (href && href.slice(1) === activeTab) return null
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-theme-secondary flex-1">{children as React.ReactNode}</span>
-      {action && href && (
-        <button onClick={() => { window.location.hash = href }} className="btn-glass px-4 py-1.5 text-sm flex-shrink-0">{action}</button>
-      )}
-    </div>
-  )
+  const button = action && href && href.slice(1) !== activeTab
+    ? { label: action, onClick: () => { window.location.hash = href } }
+    : undefined
+  return <PageNotice action={button}>{children as React.ReactNode}</PageNotice>
 }
 
 export function Slot({ name, props, match, children, wrap }: SlotProps<keyof SlotMap>) {

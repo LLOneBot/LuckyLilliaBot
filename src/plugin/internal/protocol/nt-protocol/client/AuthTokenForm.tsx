@@ -3,28 +3,32 @@ import { Eye, EyeOff, KeyRound, ExternalLink, Loader2 } from 'lucide-react';
 import { usePluginContext } from '@luckylillia/plugin-sdk/webui';
 
 interface AuthTokenFormProps {
-  // 决定标题文案
-  reason: 'missing' | 'invalid';
+  // 决定标题文案; replace: 已有 token 时换一个, 账号可能在线
+  reason: 'missing' | 'invalid' | 'replace';
   // Follows the backend CDN setting; the link is hidden until the status poll delivers it.
   authTokenPageUrl?: string;
   /** The token checked out, or the account is online already. */
   onSuccess: () => void;
+  /** Shown as a cancel button: the form can be closed */
+  onCancel?: () => void;
 }
 
-interface AuthTokenStatusData {
+/** GET /api/auth-token/status */
+export interface AuthTokenStatus {
   applicable: boolean;
   online: boolean;
   hasToken: boolean;
   validation: 'idle' | 'validating' | 'valid' | 'invalid' | 'error';
   message: string;
   loginError: string;
+  authTokenPageUrl?: string;
 }
 
 const POLL_INTERVAL = 1500;
 const POLL_MAX = 30; // ~45s 超时
 
 // 提交后由后端 watcher 校验, 这里轮询 /api/auth-token/status 拿结果
-const AuthTokenForm: React.FC<AuthTokenFormProps> = ({ reason, authTokenPageUrl, onSuccess }) => {
+const AuthTokenForm: React.FC<AuthTokenFormProps> = ({ reason, authTokenPageUrl, onSuccess, onCancel }) => {
   const ctx = usePluginContext();
   const [token, setToken] = useState('');
   const [showToken, setShowToken] = useState(false);
@@ -42,14 +46,15 @@ const AuthTokenForm: React.FC<AuthTokenFormProps> = ({ reason, authTokenPageUrl,
     for (let i = 0; i < POLL_MAX; i++) {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL));
       if (!mountedRef.current) return;
-      let data: AuthTokenStatusData | null = null;
+      let data: AuthTokenStatus | null = null;
       try {
-        data = await ctx.api<AuthTokenStatusData>('/api/auth-token/status');
+        data = await ctx.api<AuthTokenStatus>('/api/auth-token/status');
       } catch {
         continue;
       }
       if (!data) continue;
-      if (data.online) {
+      // 换 token 时账号可能本来就在线, 要等新 token 的校验结果
+      if (data.online && reason !== 'replace') {
         setStatusText('登录成功');
         onSuccess();
         return;
@@ -61,7 +66,7 @@ const AuthTokenForm: React.FC<AuthTokenFormProps> = ({ reason, authTokenPageUrl,
         return;
       }
       if (data.validation === 'valid') {
-        setStatusText('校验通过，正在登录...');
+        setStatusText(reason === 'replace' ? '校验通过，已更换' : '校验通过，正在登录...');
         onSuccess();
         return;
       }
@@ -108,7 +113,8 @@ const AuthTokenForm: React.FC<AuthTokenFormProps> = ({ reason, authTokenPageUrl,
     }
   };
 
-  const title = reason === 'invalid' ? 'Auth Token 无效，请重新录入' : '请录入 Auth Token';
+  const title = reason === 'replace' ? '更换 Auth Token' : reason === 'invalid' ? 'Auth Token 无效，请重新录入' : '请录入 Auth Token';
+  const hint = reason === 'replace' ? '保存后马上替换现在的 Auth Token 并校验' : '扫码登录前需要有效的 Auth Token';
 
   return (
     <div className="w-full max-w-md mx-auto text-left space-y-4">
@@ -118,7 +124,7 @@ const AuthTokenForm: React.FC<AuthTokenFormProps> = ({ reason, authTokenPageUrl,
         </div>
         <div>
           <h4 className="text-base font-semibold text-theme">{title}</h4>
-          <p className="text-sm text-theme-secondary mt-0.5">扫码登录前需要有效的 Auth Token</p>
+          <p className="text-sm text-theme-secondary mt-0.5">{hint}</p>
         </div>
       </div>
 
@@ -171,7 +177,16 @@ const AuthTokenForm: React.FC<AuthTokenFormProps> = ({ reason, authTokenPageUrl,
         )}
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            disabled={submitting}
+            className="px-4 py-2.5 bg-theme-item hover:bg-theme-item-hover text-theme rounded-xl transition-colors font-medium disabled:opacity-50"
+          >
+            取消
+          </button>
+        )}
         <button
           onClick={handleConfirm}
           disabled={submitting || !token.trim()}

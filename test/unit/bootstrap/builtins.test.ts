@@ -28,6 +28,7 @@ import Store from '@/plugin/internal/protocol/nt-protocol/store'
 import AccountService from '@/plugin/internal/protocol/nt-protocol/account'
 import { builtinPlugins } from '@/plugin/internal'
 import BotsService from '@/universal/bots'
+import HttpService from '@/universal/http'
 import PluginService, { PluginForbiddenError, PluginState } from '@/plugin/host'
 
 // Same isolation as service-registry.test.ts: these services write into DATA_DIR
@@ -135,7 +136,7 @@ describe('builtin plugins', () => {
 
     const ctx = new Context()
     await ctx.plugin(TimerService)
-    for (const plugin of [MockConfig, MockProtocol, BotsService, NTFileApi, NTFriendApi, NTGroupApi, NTLoginApi, NTMsgApi, NTUserApi, NTWebApi, NTSystemApi]) {
+    for (const plugin of [HttpService, MockConfig, MockProtocol, BotsService, NTFileApi, NTFriendApi, NTGroupApi, NTLoginApi, NTMsgApi, NTUserApi, NTWebApi, NTSystemApi]) {
       ctx.plugin(plugin)
     }
     // As builtin:nt-protocol does: the account's database is per account and its own, so the core services wait for
@@ -154,11 +155,12 @@ describe('builtin plugins', () => {
     const allIn = (state: PluginState) => Object.fromEntries(builtinPlugins.map(builtin => [builtin.name, state]))
 
     // The WebUI and what needs nothing but it run from the start (webui.enable is off above, so it does not listen),
-    // Satori, which serves whatever bots there are, the commands, the plugins' database and the market. Email
-    // notification and the official bot start switched off (their initial settings), the NT protocol by the file above;
-    // nothing else runs before the first login
+    // Satori, which serves whatever bots there are, the commands, the plugins' database, the market and the proxy.
+    // Email notification and the official bot start switched off (their initial settings), the NT protocol by the file
+    // above; nothing else runs before the first login
     const shell = [
       'builtin:webui', 'builtin:dashboard', 'builtin:logs', 'builtin:satori', 'builtin:commands', 'builtin:database', 'builtin:market',
+      'builtin:proxy',
     ]
     await vi.waitFor(() => expect(shell.map(name => states()[name])).toEqual(shell.map(() => 'active')))
     const off = { 'builtin:email-notification': 'disposed', 'builtin:qq-official': 'disposed', 'builtin:nt-protocol': 'disposed' }

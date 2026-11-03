@@ -85,7 +85,7 @@
 - **只有一层**:生效值 = schema 默认值 + 条目的 `config`。落盘只存相对 schema 默认值的差异,差异由服务端算,`PUT` 收完整值。合并和差异沿用已实施的 schema 感知规则:只有 `object` 逐 key 递归,`dict` / `array` / `union` / 标量整体替换。
 - **开关一律是条目的 `disabled`**,内置插件也一样。`ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled` 不再存在,迁移时转成 `disabled`。
 - **校验**:schema + 插件声明的跨字段规则(`check`,例如"监听全部地址必须设 token")。保存时总是校验;启用时也校验,邮件通知除外(SMTP 没配好也能先打开,只是发不出去)。邮件的 `check` 拿得到条目是否启用:启用着才要求 SMTP / 发件人 / 收件人齐全,停用时可以存空配置(issue #690)。
-- **密码类字段**:由内置插件显式声明(`BuiltinConfig.secrets`),读取时返回掩码,写回掩码或空串就保留原值,请求带 `clear` 才清空。目前只有邮件密码:适配器的 token 在 schema 里也标了 `role('secret')`,但设置页本来就要显示 token,所以没有按 role 自动打码。第三方插件按 role 打码留作后续。
+- **密码类字段**:读取时返回掩码,写回掩码或空串就保留原值,请求带 `clear` 才清空。内置插件显式声明(`BuiltinConfig.secrets`):邮件密码和官方机器人的 AppSecret;适配器的 token 在 schema 里也标了 `role('secret')`,但设置页本来就要显示 token,所以内置插件不按 role 自动打码。第三方插件按 schema 里的 `role('secret')` 自动打码(2026-11-02),列表里的值换成带标记的掩码,见 [plugin-system.md](plugin-system.md)"内置插件的设置"的 `secrets`。
 - **并发**:rev / 409 照旧;写入走 JsonFile 的原子写 + 跨进程锁。实例锁保证同一时间只有一个 bot 进程在用这个文件;桌面端在 bot 运行时走 HTTP 接口,不直接写文件。bot 没运行时外部改的文件,启动时读取并校验;运行中外部改动会被监听到并重新加载。
 - **删掉的**:账号覆盖层 `accounts/<uin>/plugins.json`、WebUI 的作用域页签、写入路由、清单字段 `llbot.configScope`、`account/prepare` 里的覆盖重算。
 
@@ -100,7 +100,8 @@
 ## 7. bot 设置(`settings.json`)
 
 - 一个文件,不再拆实例级 / 账号级,也不含适配器配置。`ConfigService` 启动时就绑定当前实例的文件,登录不切换;删掉 `-q` 预读、`peek(uin)`、`accountFile`。
-- 生效顺序(后覆盖前):代码默认值 < `default_config.json`(只在新建实例时用)< `settings.json` < 环境变量(`LLBOT_WEBUI_HOST/PORT`、`LLBOT_LOG_LEVEL`)< argv。环境变量只进内存、不落盘(已实施)。
+- 在 WebUI 里改的地方(2026-11-03 起没有"其他配置"页):WebUI 地址、端口、密码在侧边栏的齿轮;`log` 在日志页;`msgCacheExpire` 在 NTQQ 页;`musicCardSignUrl` 在 OneBot 11 页。存的地方还是这个文件,见 [plugin-system.md](plugin-system.md)"bot 设置在用到它的地方改"。
+- 生效顺序(后覆盖前):代码默认值 < `default_config.json`(只在新建实例时用)< `settings.json` < 环境变量(`LLBOT_WEBUI_HOST/PORT`、`LLBOT_LOG_LEVEL`)< 启动参数(`--webui-port <端口>` / `--webui-port=<端口>`,2026-11-02)。两层都只进内存、不落盘(`ConfigService` 的 `ENV_OVERRIDES`,一项可以同时有 `env` 和 `arg`),被盖住的字段在 WebUI 只读,`/api/config` 的 `envLocked` 每项是 `{ path, by }`,`by` 是给出它的启动参数(`-` 开头)或环境变量名。端口只认 0–65535 的整数;启动参数的值不能用时打一次警告、忽略,环境变量或文件照常生效。
 - `/api/login-info` 不再需要预判"登录后 WebUI 会去哪":登录前后 WebUI 配置相同。它的 `webui` 字段和前端登录后的跳转已删除(见 [core-pluginization.md](core-pluginization.md) §5)。
 
 ## 8. JsonFile 原语 + 并发
@@ -126,7 +127,7 @@
 2. 最近用过的号 → 实例 `default`。其余每个号:完整配置(补齐默认值后)和 `default` 不同 → 建实例 `<uin>`;相同 → 不建,它以后用 `default`。
 3. 每个建出来的实例:
    - `settings.json` = 这个号的配置去掉 `ob11` / `satori` / `milky`;
-   - `plugins.json`:内置条目的配置取 `ob11` / `satori` / `milky` 段,`enable: false` 转成 `disabled: true`;邮件条目取 `email_config.json`(或 `config/global/email.json`);第三方插件条目复制 `config/global/plugins.json` 里的(原来是全局一份、所有号共用);
+   - `plugins.json`:内置条目的配置取 `ob11` / `satori` / `milky` 段,`enable: false` 转成 `disabled: true`;邮件条目取 `email_config.json`(或 `config/global/email.json`);第三方插件条目复制 `config/global/plugins.json` 里的(原来是全局一份、所有号共用);`builtin:nt-protocol` 条目写明旧版的登录方式 `{ mode: 'direct', protocol: 'linux' }`(2026-11-02 起新装默认是官方 QQ 客户端桥接、纯协议默认 macOS,升级的人不跟着变,见 [core-pluginization.md](core-pluginization.md) §6;复制来的文件里已经有这个条目就不动);
    - `webui_token.txt` 复制一份,之后各实例各管各的。
 4. 中间布局的 `plugin-data/` 整个搬进 `default`;账号覆盖层 `config/accounts/<uin>/plugins.json` 丢弃并告警。
 5. 旧文件改名 `.bak`,中间布局的 `config/` 目录改名 `config.bak/`。日志列出建了哪些实例,并对每个 `<uin>` 实例提示"QQ <uin> 的配置在实例 <uin>,用 `-q <uin>` 或 `--instance <uin>` 启动"。
@@ -147,7 +148,8 @@
   - `webui_token.txt` 路径(`LLBotConfigViewModel.cs:336`)→ `instances/<实例名>/`;
   - LLBot 配置页(`LLBotConfigViewModel.cs:331`)、一键对接(`IntegrationWizardViewModel.cs` 4 处)、OpenClaw(`OpenClawInstallService.cs:442`)/ RedReply(`RedReplyInstallService.cs:154`)的端口探测、邮件(`EmailService.cs:30`)→ bot 运行时走 WebUI 插件接口,没运行时读写 `instances/<实例名>/plugins.json` 里的内置条目;
   - 以后要多开,再加实例管理(启动时传 `--instance`)。
-- docker:`startup.sh` sed `default_config.json` 照旧有效(新建实例从它取值);`install-llbot-docker.sh` 生成的 `config_<uin>.json` 首次启动靠迁移导入,后续改成直接写 `instances/default/`。
+  - 官方 QQ 客户端桥接(2026-11-02,见 [core-pluginization.md](core-pluginization.md) §6):启动参数 `--pmhq` / `--pmhq-config` 改成 `--nativeqq` / `--nativeqq-config`,旧的不再识别;给桌面端的 IPC(`LL_IPC_PIPE`:`get_login_state`、`get_pmhq_health`、`get_pmhq_qrcode`、`set_pmhq_auth_token`、`shutdown`)整个去掉,状态和二维码改走 WebUI 接口(`/api/login-info`、`/api/login-qrcode`、`/api/auth-token`),停 Bot 靠信号或 `LL_PARENT_PID`;桥接不再因为是桌面端启动就自动拉起 QQ,要自动就传 `-q`;无头模式要传 `--direct`(登录方式默认改成了桥接,原来靠 `LL_IPC_PIPE` 锁成纯协议)。
+- docker:`startup.sh` sed `default_config.json` 照旧有效(新建实例从它取值);`install-llbot-docker.sh` 生成的 `config_<uin>.json` 首次启动靠迁移导入,后续改成直接写 `instances/default/`。已部署的桥接 compose 要改:`PROTOCOL_MODE=nativeqq`(别的值 `startup.sh` 直接报错退出)、配置文件改名 `nativeqq_config.json`(或用 `NATIVEQQ_CONFIG` 指定)、镜像按 `docker/Dockerfile.nativeqq` 重新构建。
 - nix:sed `default_config.json` 照旧有效。
 - 文档站:讲配置文件位置的页面。
 

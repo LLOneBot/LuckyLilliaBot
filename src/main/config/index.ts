@@ -16,20 +16,37 @@ declare module 'cordis' {
   }
 }
 
-/** 进程级覆盖: 容器/托管环境用它定端口和日志级别, 值只进内存不落盘。 */
-const ENV_OVERRIDES: { env: string; path: string[]; parse: (raw: string) => unknown }[] = [
+const port = (raw: string) => (/^\d+$/.test(raw.trim()) && +raw <= 65535 ? +raw : undefined)
+
+/**
+ * 进程级覆盖: 启动参数 > 环境变量 > 文件, 容器/托管环境用它定端口和日志级别, 值只进内存不落盘。
+ * 启动参数两种写法都认: `--webui-port 3081` / `--webui-port=3081`
+ */
+const ENV_OVERRIDES: { env: string; arg?: string; path: string[]; parse: (raw: string) => unknown }[] = [
   { env: 'LLBOT_WEBUI_HOST', path: ['webui', 'host'], parse: raw => raw },
-  { env: 'LLBOT_WEBUI_PORT', path: ['webui', 'port'], parse: raw => (Number.isFinite(+raw) ? +raw : undefined) },
+  { env: 'LLBOT_WEBUI_PORT', arg: '--webui-port', path: ['webui', 'port'], parse: port },
   { env: 'LLBOT_LOG_LEVEL', path: ['logLevel'], parse: raw => (raw === 'debug' || raw === 'info' ? raw : undefined) },
 ]
 
 interface EnvLock {
-  env: string
+  /** 给出这个值的启动参数 (`-` 开头) 或环境变量 */
+  by: string
   /** 文件里这个字段的值, 每次落盘前还原回去 */
   disk: unknown
-  /** 环境变量给的值, get() 报告的就是它 */
+  /** 启动参数或环境变量给的值, get() 报告的就是它 */
   value: unknown
 }
+
+/** A flag's value: `--name value` or `--name=value`; a missing value is not taken from the next flag */
+function argValue(argv: string[], name: string): string | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === name) return argv[i + 1] !== undefined && !argv[i + 1].startsWith('-') ? argv[i + 1] : ''
+    if (argv[i].startsWith(`${name}=`)) return argv[i].slice(name.length + 1)
+  }
+}
+
+/** Said once per process: a reload runs the overlay again */
+const warned = new Set<string>()
 
 function parentOf(root: unknown, keys: string[]): Dict | undefined {
   let node = root
@@ -40,31 +57,44 @@ function parentOf(root: unknown, keys: string[]): Dict | undefined {
   return node && typeof node === 'object' ? node as Dict : undefined
 }
 
-/** 把当前进程的 LLBOT_* 原地叠到 config 上, 返回每个被覆盖字段的锁记录; 值不合法的变量忽略。 */
-function overlayEnv(config: LLBotConfig): Map<string, EnvLock> {
+/**
+ * 把启动参数和当前进程的 LLBOT_* 原地叠到 config 上, 返回每个被覆盖字段的锁记录。值不合法的忽略 (启动参数的
+ * 报一次警告), 有效的启动参数盖过环境变量。
+ */
+function overlayEnv(config: LLBotConfig, warn: (message: string) => void): Map<string, EnvLock> {
   const locks = new Map<string, EnvLock>()
-  for (const { env, path: keys, parse } of ENV_OVERRIDES) {
-    const raw = process.env[env]
-    if (raw === undefined || raw === '') continue
-    const value = parse(raw)
+  for (const { env, arg, path: keys, parse } of ENV_OVERRIDES) {
     const parent = parentOf(config, keys)
-    if (value === undefined || !parent) continue
+    if (!parent) continue
+    const flag = arg === undefined ? undefined : argValue(process.argv, arg)
+    const raw = process.env[env]
+    let source = { by: env, value: raw ? parse(raw) : undefined }
+    if (arg && flag !== undefined) {
+      const value = parse(flag)
+      if (value !== undefined) source = { by: arg, value }
+      else if (!warned.has(arg)) {
+        warned.add(arg)
+        warn(`启动参数 ${arg} 的值「${flag}」不能用，忽略`)
+      }
+    }
+    if (source.value === undefined) continue
     const leaf = keys[keys.length - 1]
-    locks.set(keys.join('.'), { env, disk: parent[leaf], value })
-    parent[leaf] = value
+    locks.set(keys.join('.'), { by: source.by, disk: parent[leaf], value: source.value })
+    parent[leaf] = source.value
   }
   return locks
 }
 
 /**
  * The bot's own settings: one file per instance, data/instances/<name>/settings.json (config-storage §7),
- * bound when the service starts and kept across logins. get() hands out the file plus the LLBOT_* overrides.
+ * bound when the service starts and kept across logins. get() hands out the file plus the launch's overrides
+ * (`--webui-port`, LLBOT_*).
  */
 export default class Config extends Service {
   private config: LLBotConfig | null = null
   private watching = false
   private readonly json: JsonFile<Dict>
-  /** 被 LLBOT_* 覆盖的字段, 按路径 ('webui.port') 索引 */
+  /** 被启动参数或 LLBOT_* 覆盖的字段, 按路径 ('webui.port') 索引 */
   private envLocked = new Map<string, EnvLock>()
   private logger
   private readonly WATCH_DEBOUNCE_MS = 2000
@@ -124,7 +154,7 @@ export default class Config extends Service {
         this.logger.error(`${this.json.file} json 内容不合格, 继续使用上一份有效配置`, error)
         if (this.config) return this.config
         const config = this.templateConfig()
-        this.envLocked = overlayEnv(config)
+        this.envLocked = overlayEnv(config, message => this.logger.warn(message))
         return config
       }
       this.logger.info('配置加载成功')
@@ -137,7 +167,7 @@ export default class Config extends Service {
     for (const key of DEPRECATED_KEYS) delete (config as Dict)[key]
     // 还没叠环境变量, 不经 stripEnv: 它用上次加载的原值, 会把外部刚改的锁定字段写回旧值
     this.writeIfChanged(config)
-    this.envLocked = overlayEnv(config)
+    this.envLocked = overlayEnv(config, message => this.logger.warn(message))
     this.config = config
     return config
   }
@@ -175,8 +205,8 @@ export default class Config extends Service {
     }
   }
 
-  envLocks(): { path: string; env: string }[] {
-    return [...this.envLocked].map(([path, { env }]) => ({ path, env }))
+  envLocks(): { path: string; by: string }[] {
+    return [...this.envLocked].map(([path, { by }]) => ({ path, by }))
   }
 
   envLockedPaths(): string[] {

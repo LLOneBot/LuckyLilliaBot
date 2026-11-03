@@ -1,5 +1,5 @@
 import { Context } from 'cordis'
-import { isPmhqMode } from '@/common/utils/environment'
+import { isNativeQQMode } from '@/common/utils/environment'
 import { Hono } from 'hono'
 import { createAuthTokenRoutes } from './authTokenRoutes'
 
@@ -50,10 +50,21 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // PMHQ 模式的登录归外部 QQ 客户端管, 直接拒绝
+  // 官方 QQ 客户端桥接: 启动本机 QQ 并注入, 之后的进度看 /api/login-info 的 nativeQQ.status
+  router.post('/nativeqq/launch', async (c) => {
+    if (!isNativeQQMode()) return c.json({ success: false, message: '只有官方 QQ 客户端桥接需要启动 QQ' }, 400)
+    try {
+      await ctx.qqProtocol.launch()
+      return c.json({ success: true })
+    } catch (e) {
+      return c.json({ success: false, message: (e as Error).message || '启动 QQ 失败' }, 500)
+    }
+  })
+
+  // NativeQQ 模式的登录归外部 QQ 客户端管, 直接拒绝
   router.post('/logout', async (c) => {
-    if (isPmhqMode()) {
-      return c.json({ success: false, message: '官方 QQ 端桥接的登录由 QQ 客户端管理，不能在这里退出' }, 400)
+    if (isNativeQQMode()) {
+      return c.json({ success: false, message: '官方 QQ 客户端桥接的登录由 QQ 客户端管理，不能在这里退出' }, 400)
     }
     try {
       await ctx.qqProtocol.logout()
@@ -74,7 +85,7 @@ export const NTLoginRoutes = {
     const app = new Hono()
       .route('/api', createLoginRoutes(ctx))
       .route('/api', createAuthTokenRoutes(ctx))
-    for (const prefix of ['/api/login-qrcode', '/api/quick-login-list', '/api/quick-login', '/api/logout', '/api/auth-token']) {
+    for (const prefix of ['/api/login-qrcode', '/api/quick-login-list', '/api/quick-login', '/api/logout', '/api/auth-token', '/api/nativeqq/launch']) {
       ctx.webuiServer.route(prefix, app)
     }
   },

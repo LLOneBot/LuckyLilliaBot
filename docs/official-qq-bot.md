@@ -1,6 +1,6 @@
 # 官方 QQ bot 适配器
 
-> QQ 开放平台（q.qq.com）的官方机器人：用 AppID + AppSecret 登录，不走 PMHQ 或直连协议，作为**中立层的第二个消息源**接入，现有插件（echo、keyword-reply）不用改就能在它上面跑。
+> QQ 开放平台（q.qq.com）的官方机器人：用 AppID + AppSecret 登录，不走纯协议或官方 QQ 客户端桥接，作为**中立层的第二个消息源**接入，现有插件（echo、keyword-reply）不用改就能在它上面跑。
 >
 > 已实施：内置插件 `builtin:qq-official`，代码在 `src/plugin/internal/protocol/qq-official/`。群聊、单聊（C2C）、频道（`qqguild` 子 bot）都做了，只走 WebSocket。功能对齐 `koishi-plugin-adapter-qq-crack` 1.0.32（官方 Koishi adapter 的魔改版，仍走官方 appid + secret，没有破解鉴权），webhook 除外。读 crack 源码：`npm pack koishi-plugin-adapter-qq-crack@<版本>` 解到临时目录（`D:\code\github.com\koishi-plugin-adapter-qq-crack` 的克隆停在 1.0.18，太旧）；频道消息的解析以上游 `@satorijs/adapter-qq` 的 `decodeMessage` 为准。
 
@@ -54,7 +54,7 @@
 | `users.ts` | 用户名缓存和持久化、昵称查询接口 |
 | `config.ts` | schema；设置规则在 `src/plugin/internal/protocol/qq-official/settings.ts`（开着时保存必须有 AppID / AppSecret；不声明 `checkOnEnable`，没填也能先在卡片上打开，启动也不报错，`notice` 让卡片显示"待配置 · 还没有填写 AppID 和 AppSecret"，主界面顶部也提示；到侧边栏出现的设置页填好保存，保存即重启条目；AppSecret 打码） |
 
-WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，整页由 schema 渲染（SDK 的 `SchemaSettings`）：凭证、类型在最上面，"消息""单聊菜单和群聊指令面板"是两个 `sections`，菜单项是按 `type` 区分的联合，表单渲染成可切换的标签。订阅的事件 `role('qq-official-intents')` 由插件用 `ctx.field()` 注册的控件画（`client/IntentsField.tsx`：按群聊单聊 / 频道分组、每项写明带来哪些事件、顶部警告没权限的事件会被断开），插件界面没加载时退回通用的多选。原来的"进阶"（`endpoint`、`gatewayUrl`、`userInfoApi`、`disableUserNamePersist`、`debug`）按 owner 2026-10-28 的要求不在页面上：schema 里标了 `.hidden()`，照常生效（以前存过的值也还在用），要改只能直接编辑实例 `plugins.json` 里这个条目的 `config`。主界面顶部的"正在连接开放平台""没有连上开放平台"也是它自己的（`client/Notices.tsx`，放进 `notices` 插槽），缺 AppID 和运行出错由 WebUI 的通用规则说
+WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，整页由 schema 渲染（SDK 的 `SchemaSettings`）：凭证、类型在最上面，"消息""单聊菜单和群聊指令面板"是两个 `sections`，菜单项是按 `type` 区分的联合，表单渲染成可切换的标签。订阅的事件 `role('qq-official-intents')` 由插件用 `ctx.field()` 注册的控件画（`client/IntentsField.tsx`：按群聊单聊 / 频道分组、每项写明带来哪些事件、顶部警告没权限的事件会被断开），插件界面没加载时退回通用的多选。原来的"进阶"（`endpoint`、`gatewayUrl`、`userInfoApi`、`disableUserNamePersist`、`debug`）按 owner 2026-10-28 的要求不在页面上：schema 里标了 `.hidden()`，照常生效（以前存过的值也还在用），要改只能直接编辑实例 `plugins.json` 里这个条目的 `config`。"正在连接 QQ 开放平台""没有连上 QQ 开放平台"是它自己画在设置页最上面的（`client/GatewayNotice.tsx`，SDK 的 `StatusNotice`；2026-11-02 起不再放在主界面顶部），缺 AppID 和运行出错由 WebUI 在这一页上方说（`PluginPage`）
 
 ## 4. 鉴权与网关
 

@@ -160,8 +160,8 @@ describe('LLBOT_* overrides', () => {
     process.env.LLBOT_LOG_LEVEL = 'debug'
     const config = await boot()
     expect(config.envLocks()).toEqual(expect.arrayContaining([
-      { path: 'webui.port', env: 'LLBOT_WEBUI_PORT' },
-      { path: 'logLevel', env: 'LLBOT_LOG_LEVEL' },
+      { path: 'webui.port', by: 'LLBOT_WEBUI_PORT' },
+      { path: 'logLevel', by: 'LLBOT_LOG_LEVEL' },
     ]))
   })
 
@@ -191,6 +191,52 @@ describe('LLBOT_* overrides', () => {
     expect(read().webui.port).toBe(5555)
     expect(read().webui.host).toBeDefined()
     expect(config.get().webui.port).toBe(9999)
+  })
+})
+
+describe('--webui-port', () => {
+  const realArgv = process.argv
+  afterEach(() => {
+    process.argv = realArgv
+  })
+  const launch = (...args: string[]) => {
+    process.argv = ['node', 'main.ts', ...args]
+  }
+
+  it('takes the port in either form, over the file, without writing it', async () => {
+    for (const args of [['--webui-port', '4321'], ['--webui-port=4321']]) {
+      rmSync(path.join(DATA_DIR, 'instances'), { recursive: true, force: true })
+      launch(...args)
+      const config = await boot()
+      expect(config.get(false).webui.port).toBe(4321)
+      expect(read().webui.port).not.toBe(4321)
+      expect(config.envLocks()).toContainEqual({ path: 'webui.port', by: '--webui-port' })
+    }
+  })
+
+  it('wins over LLBOT_WEBUI_PORT, and a patch cannot move it', async () => {
+    process.env.LLBOT_WEBUI_PORT = '9999'
+    launch('--webui-port', '4321')
+    const config = await boot()
+    config.patch({ webui: { port: 1234 } })
+    expect(config.get().webui.port).toBe(4321)
+    expect(config.envLocks()).toContainEqual({ path: 'webui.port', by: '--webui-port' })
+  })
+
+  it('is ignored when it is not a port, leaving the variable or the file in charge', async () => {
+    for (const args of [['--webui-port', 'abc'], ['--webui-port=70000'], ['--webui-port', '--dev']]) {
+      rmSync(path.join(DATA_DIR, 'instances'), { recursive: true, force: true })
+      process.env.LLBOT_WEBUI_PORT = '9999'
+      launch(...args)
+      const config = await boot()
+      expect(config.get(false).webui.port).toBe(9999)
+      expect(config.envLocks()).toContainEqual({ path: 'webui.port', by: 'LLBOT_WEBUI_PORT' })
+    }
+    delete process.env.LLBOT_WEBUI_PORT
+    launch('--webui-port', 'abc')
+    const config = await boot()
+    expect(config.get(false).webui.port).toBe(read().webui.port)
+    expect(config.envLockedPaths()).not.toContain('webui.port')
   })
 })
 

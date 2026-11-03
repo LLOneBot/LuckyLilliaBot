@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Terminal, Trash2, Pause, Play, ArrowDown } from 'lucide-react'
 import { usePluginContext } from '@luckylillia/plugin-sdk/webui'
+import LogFileSwitch from './LogFileSwitch'
 
 interface LogRecord {
   timestamp: number
@@ -196,6 +197,7 @@ const LogViewer: React.FC = () => {
             </div>
           </div>
         </div>
+        <LogFileSwitch />
       </div>
 
       <div className="card p-4">

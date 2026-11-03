@@ -26,7 +26,7 @@ describe('internal endpoints', () => {
     await expect(internal.getGuild('a', {}, {})).rejects.toThrow('too many arguments')
   })
 
-  it('names the guild endpoints like Koishi does', async () => {
+  it('puts the guild endpoints on their paths', async () => {
     const { api, request } = fakeApi()
     const internal = guildInternal(api)
     // An emoji reaction is named by the emoji itself

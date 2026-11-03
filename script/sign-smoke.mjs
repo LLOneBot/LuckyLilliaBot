@@ -2,10 +2,9 @@
 // Real production Bot/direct/sign smoke, with a private copy of one saved session.
 // node script/sign-smoke.mjs --uin 721011692 --protocol linux [--prepare-only]
 import { spawn } from 'node:child_process'
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -90,7 +89,7 @@ function prepare(config) {
   json(path.join(instanceDir, 'settings.json'), { log: false, logLevel: 'info', msgCacheExpire: 120, webui: { enable: true, host: '127.0.0.1', port: 0 } })
   const optional = ['dashboard', 'logs', 'onebot11', 'satori', 'milky', 'qq-official', 'webqq', 'email-notification']
   json(path.join(instanceDir, 'plugins.json'), { version: 1, hmr: false, entries: [
-    { id: 'smoke-nt', name: 'builtin:nt-protocol', config: { mode: 'direct', protocol: config.protocol, pmhq: { configPath: '', qqPath: '' } } },
+    { id: 'smoke-nt', name: 'builtin:nt-protocol', config: { mode: 'direct', protocol: config.protocol, nativeQQ: { qqPath: '' } } },
     ...optional.map(name => ({ id: `smoke-${name}`, name: `builtin:${name}`, disabled: true })),
     { id: 'smoke-webui', name: 'builtin:webui' }, { id: 'smoke-universal', name: 'builtin:ntqq-universal' },
   ] })
@@ -98,35 +97,15 @@ function prepare(config) {
     metadataLog: path.join(directory, 'sign-smoke-metadata.jsonl') }
 }
 
-function ipc(endpoint, method, timeoutMs = 5_000) {
-  return new Promise((resolve, reject) => {
-    const socket = net.createConnection(endpoint)
-    const id = randomUUID()
-    let buffer = '', done = false
-    const finish = (error, value) => {
-      if (done) return
-      done = true; clearTimeout(timer); socket.destroy()
-      error ? reject(error) : resolve(value)
-    }
-    const timer = setTimeout(() => finish(new SmokeError('IPC_TIMEOUT')), timeoutMs)
-    socket.setEncoding('utf8')
-    socket.once('connect', () => socket.write(JSON.stringify({ type: 'request', id, method }) + '\n'))
-    socket.once('error', () => finish(new SmokeError('IPC_UNAVAILABLE')))
-    socket.once('close', () => finish(new SmokeError('IPC_CLOSED')))
-    socket.on('data', chunk => {
-      buffer += chunk
-      if (buffer.length > 1024 * 1024) { finish(new SmokeError('IPC_RESPONSE_TOO_LARGE')); return }
-      let index
-      while ((index = buffer.indexOf('\n')) >= 0) {
-        const line = buffer.slice(0, index); buffer = buffer.slice(index + 1)
-        let response
-        try { response = JSON.parse(line) } catch { finish(new SmokeError('IPC_INVALID_JSON')); return }
-        if (response.type === 'response' && response.id === id) {
-          finish(response.error ? new SmokeError('IPC_METHOD_FAILED') : null, response.data); return
-        }
-      }
-    })
-  })
+// The Bot disposes itself once its LL_PARENT_PID is gone. The keeper stands in as that parent and goes with the
+// runner, so ending it asks for a clean shutdown where a signal would terminate the Bot outright (Windows)
+function startKeeper() {
+  const keeper = spawn(process.execPath, ['-e', `setInterval(() => { try { process.kill(${process.pid}, 0) } catch (error) { if (error.code === 'ESRCH') process.exit() } }, 1000)`],
+    { stdio: 'ignore', windowsHide: true })
+  keeper.once('error', () => {})
+  keeper.unref()
+  check(keeper.pid, 'KEEPER_SPAWN_FAILED')
+  return keeper
 }
 
 function observeOutput(stream, token, prefix, state, emit) {
@@ -183,7 +162,7 @@ function observeOutput(stream, token, prefix, state, emit) {
 async function main() {
   const config = options(process.argv.slice(2))
   if (config.help) {
-    console.log('Usage: node script/sign-smoke.mjs --uin <QQ> --protocol linux|macos [--data-dir <Bot/data>] [--auth-token-file <file>] [--dist <dir>] [--expected-build-id <id>] [--timeout-ms <ms>] [--prepare-only]\nRuns the built production Bot in direct mode with a private session copy, observes real native init/signRequest calls, checks runtime UID through localhost /api/login-info and a fresh nickname query, then shuts down over IPC. Default timeout: 90 seconds. No raw credentials, signature bytes, UID, nickname, or packet body are printed.')
+    console.log('Usage: node script/sign-smoke.mjs --uin <QQ> --protocol linux|macos [--data-dir <Bot/data>] [--auth-token-file <file>] [--dist <dir>] [--expected-build-id <id>] [--timeout-ms <ms>] [--prepare-only]\nRuns the built production Bot in direct mode with a private session copy, observes real native init/signRequest calls, checks runtime UID through localhost /api/login-info and a fresh nickname query, then ends its parent so the Bot shuts itself down. Default timeout: 90 seconds. No raw credentials, signature bytes, UID, nickname, or packet body are printed.')
     return
   }
   const native = inspectNative(config)
@@ -200,16 +179,14 @@ async function main() {
   let token
   try { token = readFileSync(config.tokenFile, 'utf8').trim() } catch { throw new SmokeError('AUTH_TOKEN_FILE_UNREADABLE') }
   check(nonempty(token), 'AUTH_TOKEN_FILE_EMPTY')
-  const pipeName = `llbot-sign-smoke-${process.pid}-${randomUUID()}`
-  const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\${pipeName}` : path.join(workspace.directory, 'ipc.sock')
+  const keeper = startKeeper()
   const nonce = randomBytes(16).toString('hex')
   const prefix = `@@LLBOT_SIGN_SMOKE:${nonce}@@`
   const environment = { ...process.env }
   for (const name of Object.keys(environment)) {
-    if (/^(NODE_OPTIONS|AUTH_TOKEN|LL_IPC_PIPE|LL_PARENT_PID|LLBOT_INSTANCE|LLBOT_WEBUI_.*|LLBOT_LOG_LEVEL|PROTOCOL_MODE|PROTOCOL|LLBOT_SIGN_SMOKE_.*)$/i.test(name)) delete environment[name]
+    if (/^(NODE_OPTIONS|AUTH_TOKEN|LL_PARENT_PID|LLBOT_INSTANCE|LLBOT_WEBUI_.*|LLBOT_LOG_LEVEL|PROTOCOL_MODE|PROTOCOL|LLBOT_SIGN_SMOKE_.*)$/i.test(name)) delete environment[name]
   }
-  Object.assign(environment, { AUTH_TOKEN: token, LL_IPC_PIPE: process.platform === 'win32' ? pipeName : endpoint,
-    LL_PARENT_PID: String(process.pid), LLBOT_LOG_LEVEL: 'info', NO_COLOR: '1',
+  Object.assign(environment, { AUTH_TOKEN: token, LL_PARENT_PID: String(keeper.pid), LLBOT_LOG_LEVEL: 'info', NO_COLOR: '1',
     LLBOT_SIGN_SMOKE_LOADER: native.loaderPath, LLBOT_SIGN_SMOKE_NONCE: nonce })
   const child = spawn(process.execPath, ['--require', path.join(botRoot, 'script/sign-smoke-probe.cjs'), path.join(config.dist, 'llbot.js'),
     '--instance', workspace.instance, '--protocol', config.protocol, '-q', config.uin],
@@ -220,7 +197,7 @@ async function main() {
   observeOutput(child.stdout, token, prefix, state, emit)
   observeOutput(child.stderr, token, prefix, state, emit)
   token = ''
-  let exit, failure, stableSince, lastLoginInfo, lastLogin, validated = false, interrupted = false
+  let exit, failure, stableSince, lastLoginInfo, validated = false, interrupted = false
   const exited = new Promise(resolve => {
     child.once('error', () => { exit = { code: null, signal: null, spawnFailed: true }; resolve(exit) })
     child.once('exit', (code, signal) => { exit = { code, signal }; resolve(exit) })
@@ -235,9 +212,8 @@ async function main() {
       check(state.nativeQQConstructions === 0, 'UNEXPECTED_NATIVE_QQ_CONSTRUCTION')
       check(!state.categories.has('SESSION_EXPIRED'), 'SESSION_EXPIRED')
       check(!state.categories.has('HOST_UNHANDLED_EXCEPTION'), 'HOST_UNHANDLED_EXCEPTION')
-      let login, info
+      let info
       try {
-        login = await ipc(endpoint, 'get_login_state')
         if (state.webuiPort) {
           const response = await fetch(`http://127.0.0.1:${state.webuiPort}/api/login-info`, {
             headers: { 'X-Webui-Token': workspace.webuiHash }, signal: AbortSignal.timeout(5_000) })
@@ -250,20 +226,16 @@ async function main() {
         check(stableSince === undefined, 'CONTROL_CHANNEL_LOST_DURING_STABILITY_WINDOW')
         await delay(500); continue
       }
-      lastLogin = login
-      check(!['need_qrcode', 'waiting_confirm', 'expired', 'cancelled'].includes(login.state), 'SAVED_SESSION_REQUIRES_QR_LOGIN')
       if (!info) { await delay(500); continue }
       lastLoginInfo = info
       check(info.mode === 'direct' && info.protocol === config.protocol, 'PROTOCOL_MODE_MISMATCH')
       check(!info.uin || String(info.uin) === config.uin, 'RUNTIME_UIN_MISMATCH')
-      check(!login.uin || String(login.uin) === config.uin, 'IPC_UIN_MISMATCH')
       const ready = info.online === true && String(info.uin) === config.uin && nonempty(info.uid) && info.uid === workspace.expectedUid
-        && login.state === 'logged_in' && String(login.uin) === config.uin && nonempty(login.nickname)
-        && login.nickname === state.nickname && info.nick === state.nickname && state.probeReady
+        && nonempty(info.nick) && info.nick === state.nickname && state.probeReady
         && state.buildId === native.build.buildId && state.initSuccess > 0 && state.completeSignSuccess > 0
       emit('sample', { mode: info.mode, protocol: info.protocol, online: info.online === true, uin: info.uin || null,
-        uidAvailable: nonempty(info.uid), uidMatchesSession: info.uid === workspace.expectedUid, loginState: login.state,
-        nicknameAvailable: nonempty(login.nickname), freshNicknameFetched: nonempty(state.nickname), initSuccess: state.initSuccess,
+        uidAvailable: nonempty(info.uid), uidMatchesSession: info.uid === workspace.expectedUid,
+        nicknameAvailable: nonempty(info.nick), freshNicknameFetched: nonempty(state.nickname), initSuccess: state.initSuccess,
         signCalls: state.signCalls, signSuccess: state.signSuccess, completeSignSuccess: state.completeSignSuccess, nativeQQConstructions: state.nativeQQConstructions, categories: [...state.categories] })
       if (stableSince !== undefined) {
         check(ready, 'DIRECT_SESSION_LOST_DURING_STABILITY_WINDOW')
@@ -275,9 +247,9 @@ async function main() {
   } catch (error) { failure = error instanceof SmokeError ? error.code : 'UNEXPECTED_RUNNER_FAILURE' }
   finally {
     process.off('SIGINT', interrupt); process.off('SIGTERM', interrupt)
+    keeper.kill()
     if (!exit) {
-      try { check((await ipc(endpoint, 'shutdown', 10_000))?.stopping === true, 'SHUTDOWN_NOT_ACKNOWLEDGED'); emit('shutdown_requested') }
-      catch { failure ||= 'IPC_SHUTDOWN_FAILED' }
+      emit('shutdown_requested')
       await Promise.race([exited, delay(30_000, undefined, { ref: false })])
     }
     if (!exit) {
@@ -292,7 +264,7 @@ async function main() {
     const { nickname, categories, ...probe } = state
     emit(failure ? 'FAIL' : 'PASS', { reason: failure ?? null, expectedUin: config.uin, protocol: config.protocol,
       exit: exit ?? null, sourcesUnchanged, uidAvailable: nonempty(lastLoginInfo?.uid),
-      nicknameAvailable: nonempty(lastLogin?.nickname), stableMs: stableSince === undefined ? 0 : Date.now() - stableSince,
+      nicknameAvailable: nonempty(lastLoginInfo?.nick), stableMs: stableSince === undefined ? 0 : Date.now() - stableSince,
       native: native.build, probe, categories: [...categories], metadataLog: workspace.metadataLog })
     if (failure) process.exitCode = 1
   }

@@ -28,8 +28,8 @@ export class SendPB extends BaseAction<Payload, PBData> {
       }
     }
     catch (e) {
-      this.ctx.logger.error('pmhq 发包失败', e)
-      throw new Error(`pmhq 发包失败: ${e}`, { cause: e })
+      this.ctx.logger.error('发包失败', e)
+      throw new Error(`发包失败: ${e}`, { cause: e })
     }
   }
 }

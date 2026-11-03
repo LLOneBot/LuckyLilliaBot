@@ -100,28 +100,15 @@ describe('commands', () => {
     ])
   })
 
-  it('lists the commands, and tells how to use one, with help', async () => {
-    const echo = ctx.command('echo <message:text>', '复读').alias('复读').option('times', '-t <n:posint> 复读几次').example('echo 你好')
-    ctx.command('secret', '', { hidden: true }).action(() => {})
+  it('has no help of its own: help and 帮助 are left to the plugins', async () => {
     ctx.commands.command('ping', '看看在不在').action(() => 'pong')
     await say('help')
-    await say('/help echo')
-    expect(sent).toEqual([
-      '可用的指令：\n/help  查看有哪些指令，或者一个指令的用法\n/ping  看看在不在\n发送「/help 指令名」查看用法',
-      '没有叫 echo 的指令。',
-    ])
-    echo.action(({ args: [message] }) => message)
-    sent.length = 0
-    await say('help 复读')
-    await say('echo <at id="U2"/> 你好')
-    expect(sent).toEqual([
-      'echo &lt;message:text&gt;\n复读\n别名：复读\n选项：\n  -t, --times &lt;n:posint&gt;  复读几次\n示例：\n  echo 你好',
-      '<at id="U2"/> 你好',
-    ])
-    settings.current = { ...settings.current, help: false }
-    sent.length = 0
-    await say('help')
+    await say('/帮助')
     expect(sent).toEqual([])
+    expect(ctx.commands.list().map(command => command.name)).toEqual(['ping'])
+    ctx.command('help', '我的帮助').action(() => '这是插件自己的帮助')
+    await say('/help')
+    expect(sent).toEqual(['这是插件自己的帮助'])
   })
 
   it('keeps commands to the owners, or group owners and admins, looking the member up when the event says nothing', async () => {
@@ -189,7 +176,7 @@ describe('commands', () => {
     await fiber.dispose()
     await say('temp')
     expect(sent).toEqual(['here'])
-    expect(ctx.commands.list().map(command => command.name)).toEqual(['help'])
+    expect(ctx.commands.list()).toEqual([])
   })
 
   it('puts the commands on the menu of the bots that have one, when they come online and after a change', async () => {
@@ -199,9 +186,9 @@ describe('commands', () => {
     ctx.command('sign', '签到').action(() => {})
     ctx.command('secret', '', { hidden: true }).action(() => {})
     await ctx.plugin({ inject: ['bots'], apply: (ctx: Context) => { ctx.bots.register(official) } })
-    expect(menus).toEqual([['help', 'sign']])
+    expect(menus).toEqual([['sign']])
     ctx.command('rank').action(() => {})
     await vi.advanceTimersByTimeAsync(2_000)
-    expect(menus).toEqual([['help', 'sign'], ['help', 'sign', 'rank']])
+    expect(menus).toEqual([['sign'], ['sign', 'rank']])
   })
 })

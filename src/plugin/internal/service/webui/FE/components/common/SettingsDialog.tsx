@@ -1,7 +1,8 @@
 import React from 'react'
 import { X, Sun, Moon, Monitor, LogOut } from 'lucide-react'
 import { useThemeStore } from '../../stores/themeStore'
-import { SlotOutlet } from '../../plugin-host/views'
+import WebuiSettings from '../config/WebuiSettings'
+import SidebarSettings from '../config/SidebarSettings'
 
 interface SettingsDialogProps {
   visible: boolean
@@ -38,7 +39,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose, onLog
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 max-h-[calc(100vh-12rem)] overflow-y-auto">
           {/* Theme Setting */}
           <div>
             <label className="block text-sm font-medium text-theme-secondary mb-3">
@@ -70,16 +71,16 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose, onLog
             </div>
           </div>
 
-          {/* Plugins' preferences for this browser, e.g. WebQQ's */}
-          <SlotOutlet
-            name="settings.sections"
-            wrap={(element, contribution) => (
-              <section className="slot-frame">
-                <label className="block text-sm font-medium text-theme-secondary mb-3">{String(contribution.options.title ?? '')}</label>
-                <div className="slot-body">{element}</div>
-              </section>
-            )}
-          />
+          <div>
+            <label className="block text-sm font-medium text-theme-secondary mb-3">侧边栏</label>
+            <SidebarSettings />
+          </div>
+
+          {/* Where the WebUI listens and its password: the instance's, unlike the rest of this dialog */}
+          <div>
+            <label className="block text-sm font-medium text-theme-secondary mb-3">WebUI</label>
+            <WebuiSettings />
+          </div>
         </div>
 
         {/* Footer */}

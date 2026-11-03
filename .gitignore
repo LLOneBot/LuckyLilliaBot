@@ -35,3 +35,4 @@ test/fixtures/pmhq-flash/
 
 # plugin SDK build output
 packages/*/lib/
+examples/plugins/*/lib/

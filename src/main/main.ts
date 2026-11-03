@@ -14,12 +14,13 @@ import { setConfigLogLevel, isDebugEnabled, bindLoggerFactory, getLogger } from 
 import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
-import { liftBuiltinSettings, migrateToInstances } from './config/migrate'
+import { liftBuiltinSettings, migrateToInstances, renameNativeQQSettings } from './config/migrate'
 import { lockInstance } from './instanceLock'
 import { currentInstance, InstanceChoice } from '@/common/instance'
 import { configPaths } from '@/common/configPaths'
 import PluginService from '../plugin/host'
 import BotsService from '../universal/bots'
+import HttpService from '../universal/http'
 import { builtinPlugins } from '../plugin/internal'
 
 declare module 'cordis' {
@@ -69,12 +70,14 @@ async function onLoad() {
     await lockInstance(instance.name)
     // Under the lock, so two processes cannot both rewrite this instance's files
     liftBuiltinSettings(ctx.logger('config'))
+    renameNativeQQSettings(ctx.logger('config'))
   } catch (e) {
     ctx.logger('main').error((e as Error).message)
     process.exit(1)
   }
   ctx.logger('main').info(`实例 ${instance.name}（${instance.reason}），配置在 ${configPaths.instance()}`)
   ctx.plugin(TimerService)
+  ctx.plugin(HttpService)
   ctx.plugin(ConfigService)
   ctx.plugin(BotsService)
   // The WebUI (builtin:webui), the scanned account (builtin:nt-protocol) and the official bot are entries here,

@@ -9,6 +9,24 @@ export const SDK_PACKAGE = '@luckylillia/plugin-sdk'
 /** The values of `llbot.category`, in the order the plugin page lists them. */
 export const PLUGIN_CATEGORIES: readonly PluginCategory[] = ['protocol', 'adapter', 'chat', 'tool', 'service', 'other']
 
+/** Extensions of the images a package may show in the WebUI: its icon, screenshots and what its details show. */
+export const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']
+
+export const isImagePath = (file: string) => IMAGE_EXTENSIONS.includes(path.extname(file).toLowerCase())
+
+export interface PluginAuthor {
+  name: string
+  email?: string
+  /** http(s) only */
+  url?: string
+}
+
+export interface PluginScreenshot {
+  /** From the package root, with forward slashes */
+  file: string
+  caption?: string
+}
+
 export interface PluginPackage {
   name: string
   version: string
@@ -18,10 +36,18 @@ export interface PluginPackage {
   main: string
   manifest: LLBotManifest
   description?: string
+  /** package.json `author` */
+  author?: PluginAuthor
   /** `peerDependencies['@luckylillia/plugin-sdk']`, if declared. */
   sdkRange?: string
   /** Absolute path of the `llbot.webui` module, when it exists inside the package. */
   webui?: string
+  /** `llbot.icon` when it names an image in the package (else it is a lucide name): from the root, forward slashes */
+  iconFile?: string
+  /** `llbot.details`, the same way */
+  detailsFile?: string
+  /** The images of `llbot.screenshots` that are there */
+  screenshots: PluginScreenshot[]
   warnings: string[]
 }
 
@@ -67,7 +93,7 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
   if (typeof pkg.name !== 'string' || !pkg.name) throw new Error('package.json has no name')
   // ESM resolves symlinks, so module URLs carry the real path; package roots must match them
   const root = await realpath(dir)
-  const main = path.resolve(root, resolveMain(pkg))
+  const main = path.resolve(root, resolveMain(pkg, root))
   if (!existsSync(main)) throw new Error(`entry ${path.relative(root, main)} does not exist`)
   const warnings: string[] = []
   if (pkg.type !== 'module' && path.extname(main) === '.js') {
@@ -80,6 +106,7 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
     else if (!existsSync(file)) warnings.push(`llbot.webui ${pkg.llbot.webui} does not exist`)
     else webui = file
   }
+  const { icon, details } = pkg.llbot
   return {
     name: pkg.name,
     version: typeof pkg.version === 'string' ? pkg.version : '0.0.0',
@@ -91,10 +118,69 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
       category: normalizeCategory(pkg.llbot.category, warnings),
     },
     description: typeof pkg.description === 'string' ? pkg.description : undefined,
+    author: parseAuthor(pkg.author),
     sdkRange: pkg.peerDependencies?.[SDK_PACKAGE],
     webui,
+    iconFile: typeof icon === 'string' && isImagePath(icon) ? packageFile(root, icon, 'llbot.icon', warnings) : undefined,
+    detailsFile: details === undefined ? undefined : packageFile(root, details, 'llbot.details', warnings, ['.md', '.markdown']),
+    screenshots: normalizeScreenshots(root, pkg.llbot.screenshots, warnings),
     warnings,
   }
+}
+
+/** package.json `author`: `Name <email> (url)`, or `{ name, email, url }` */
+export function parseAuthor(value: unknown): PluginAuthor | undefined {
+  let parts: { name?: unknown; email?: unknown; url?: unknown } = {}
+  if (typeof value === 'string') {
+    const match = /^([^<(]*?)\s*(?:<([^>]*)>)?\s*(?:\((.*)\))?\s*$/.exec(value.trim())
+    if (match) parts = { name: match[1], email: match[2], url: match[3] }
+  } else if (value && typeof value === 'object') {
+    parts = value as Record<string, unknown>
+  }
+  const text = (field: unknown) => (typeof field === 'string' && field.trim() ? field.trim() : undefined)
+  const name = text(parts.name)
+  if (!name) return
+  const author: PluginAuthor = { name }
+  const email = text(parts.email)
+  if (email) author.email = email
+  const url = text(parts.url)
+  // It becomes a link in the WebUI
+  if (url && /^https?:\/\//i.test(url)) author.url = url
+  return author
+}
+
+/** `llbot.screenshots`: images, or `{ src, caption }`; what is not an image in the package is dropped with a warning */
+export function normalizeScreenshots(root: string, value: unknown, warnings: string[] = []): PluginScreenshot[] {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) {
+    warnings.push('llbot.screenshots should be a list of images in the package')
+    return []
+  }
+  return value.flatMap((item, index) => {
+    const record = item && typeof item === 'object' ? item as Record<string, unknown> : undefined
+    const file = packageFile(root, record ? record.src : item, `llbot.screenshots[${index}]`, warnings)
+    if (!file) return []
+    const caption = typeof record?.caption === 'string' && record.caption.trim() ? record.caption.trim() : undefined
+    return [caption ? { file, caption } : { file }]
+  })
+}
+
+/** A file a manifest field names, from the package root with forward slashes; undefined with a warning when it is not one */
+function packageFile(root: string, value: unknown, field: string, warnings: string[], extensions = IMAGE_EXTENSIONS): string | undefined {
+  const file = typeof value === 'string' && value ? path.resolve(root, value) : undefined
+  if (!file || !isInside(root, file)) {
+    warnings.push(`${field} should be a path inside the package`)
+    return
+  }
+  if (!extensions.includes(path.extname(file).toLowerCase())) {
+    warnings.push(`${field} should be a ${extensions.join(' / ')} file`)
+    return
+  }
+  if (!existsSync(file)) {
+    warnings.push(`${field} ${value} does not exist`)
+    return
+  }
+  return path.relative(root, file).split(path.sep).join('/')
 }
 
 export function isInside(dir: string, file: string): boolean {
@@ -137,8 +223,25 @@ export function normalizeService(value: unknown, warnings: string[] = []): Servi
   return result
 }
 
-export function resolveMain(pkg: Record<string, any>): string {
+/** Run from its TypeScript sources (tsx, vitest), not the release build */
+const FROM_SOURCE = import.meta.url.endsWith('.ts')
+
+/**
+ * The entry: `exports` (`import`, `default`, `node`), then `main`, then index.js. A host run from its sources takes
+ * the `development` export first, when that file is there: a plugin's own sources, so it runs unbuilt.
+ */
+export function resolveMain(pkg: Record<string, any>, root?: string, fromSource = FROM_SOURCE): string {
+  const source = fromSource ? developmentExport(pkg.exports) : undefined
+  if (source && (!root || existsSync(path.resolve(root, source)))) return source
   return pickExport(pkg.exports) ?? (typeof pkg.main === 'string' ? pkg.main : 'index.js')
+}
+
+function developmentExport(exports: unknown): string | undefined {
+  if (!exports || typeof exports !== 'object') return
+  const record = exports as Record<string, unknown>
+  const target = '.' in record ? record['.'] : record
+  const source = target && typeof target === 'object' ? (target as Record<string, unknown>).development : undefined
+  return typeof source === 'string' ? source : undefined
 }
 
 function pickExport(exports: unknown): string | undefined {

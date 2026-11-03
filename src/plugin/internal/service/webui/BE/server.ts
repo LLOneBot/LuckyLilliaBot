@@ -3,7 +3,7 @@ import { Config, WebUIConfig } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { getAvailablePort } from '@/common/utils/port'
 import { authMiddleware } from './auth'
-import { createBotsRoutes, createConfigRoutes } from './routes'
+import { createBotsRoutes, createConfigRoutes, createFileRoutes } from './routes'
 import { readFile } from 'node:fs/promises'
 import { Hono } from 'hono'
 import { serveStatic } from '@hono/node-server/serve-static'
@@ -101,6 +101,7 @@ export class WebuiServer extends Service implements WebUIServer {
 
     this.app.route('/api', createConfigRoutes(this.ctx))
     this.app.route('/api', createBotsRoutes(this.ctx))
+    this.app.route('/api', createFileRoutes())
 
     // Registered after the built-in routes, so those always win
     this.app.use('/api/*', async (c) => {

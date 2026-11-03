@@ -1,10 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react'
 import GlassLens from '../common/GlassLens'
-import { useBots } from '../../stores/botsStore'
-import { X, ChevronLeft, ChevronRight, Settings, LucideIcon } from 'lucide-react'
-
-// Status of @satorijs/protocol
-const ONLINE = 1
+import { X, ChevronLeft, ChevronRight, LucideIcon } from 'lucide-react'
+import AccountsCard from './AccountsCard'
 
 interface SidebarProps {
   activeTab: string;
@@ -28,9 +25,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   pluginPages = [],
 }) => {
-  const online = useBots(state => state.bots)?.filter(bot => bot.status === ONLINE) ?? []
-  const account = online[0]
-  const others = online.length - 1
   const menuItems = pluginPages.map(page => ({ id: page.id, icon: page.icon, label: page.title }))
 
   const navRef = useRef<HTMLElement>(null)
@@ -136,51 +130,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           })}
         </nav>
 
-        {/* Account Info & Settings */}
-        <div className='p-3 hairline-t'>
-          <div className='flex items-center space-x-3 px-3 py-2'>
-            {account && (
-              <>
-                {account.avatar && (
-                  <img
-                    src={account.avatar}
-                    alt='头像'
-                    className='w-10 h-10 rounded-full object-cover ring-2 ring-white/50 dark:ring-neutral-600'
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement
-                      target.style.display = 'none'
-                      const fallback = target.nextElementSibling as HTMLElement
-                      if (fallback) fallback.style.display = 'flex'
-                    }}
-                  />
-                )}
-                <div
-                  className='w-10 h-10 bg-gradient-to-br from-pink-400 to-rose-500 rounded-full items-center justify-center text-white font-semibold flex-shrink-0'
-                  style={{ display: account.avatar ? 'none' : 'flex' }}
-                >
-                  {(account.name || account.selfId).charAt(0).toUpperCase()}
-                </div>
-                <div className='flex-1 min-w-0'>
-                  <p className='text-sm font-medium text-theme truncate'>
-                    {account.name || account.selfId}
-                    {others > 0 && <span className='ml-1.5 text-xs text-theme-muted' title='还有其他在线的账号'>+{others}</span>}
-                  </p>
-                  <p className='text-xs text-theme-muted truncate'>{account.selfId}</p>
-                </div>
-              </>
-            )}
-            {!account && <div className='flex-1' />}
-            <button
-              onClick={onOpenSettings}
-              className="p-2 rounded-lg transition-all duration-200 text-theme-muted hover:bg-theme-item hover:text-theme"
-              title="设置"
-            >
-              <Settings size={18} />
-            </button>
-          </div>
-        </div>
+        <AccountsCard onOpenSettings={onOpenSettings} />
       </div>
-      
+
       {/* 桌面端展开按钮 - 当侧边栏收起时显示 */}
       {collapsed && onToggleCollapse && (
         <button

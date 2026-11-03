@@ -1,10 +1,12 @@
 import type { BuiltinPlugin } from '../../../host'
 import { WebQQ } from '.'
+import { webqqSettings } from './settings'
 
 export const builtin: BuiltinPlugin = {
   name: 'builtin:webqq',
   title: 'WebQQ',
   plugin: WebQQ,
+  config: webqqSettings,
   manifest: {
     category: 'tool',
     icon: 'message-square',

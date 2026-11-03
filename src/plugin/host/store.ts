@@ -18,7 +18,7 @@ export interface UiPrefs {
   approved: string[]
   /** Slot contributions and sidebar pages left out: `<package>|<slot>|<id>`, `<package>|page|<tab>`. */
   hidden: string[]
-  /** Positions in `list` slots by the same keys, over the contributions' own order. */
+  /** Positions of sidebar pages and of contributions to `list` slots, by the same keys, over their own order */
   order: Record<string, number>
 }
 

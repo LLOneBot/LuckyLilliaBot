@@ -13,6 +13,7 @@ import { builtin as ntqqUniversal } from './service/ntqq-universal/builtin'
 import { builtin as commands } from './service/commands/builtin'
 import { builtin as database } from './service/database/builtin'
 import { builtin as market } from './tool/market/builtin'
+import { builtin as proxy } from './service/proxy/builtin'
 
 /**
  * The builtin entries, each defined next to its code in `<category>/<name>/builtin.ts`: the category is the one its
@@ -21,5 +22,5 @@ import { builtin as market } from './tool/market/builtin'
  */
 export const builtinPlugins: BuiltinPlugin[] = [
   webui, dashboard, logs, ntProtocol, onebot11, satori, milky, qqOfficial, webqq, emailNotification, ntqqUniversal, commands, database,
-  market,
+  market, proxy,
 ]

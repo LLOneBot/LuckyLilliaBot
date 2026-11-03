@@ -65,7 +65,7 @@ export function migrateToInstances(log: MigrationLog) {
     mkdirSync(dir, { recursive: true })
     if (settings) writeJson(path.join(dir, INSTANCE_FILES.settings), settings)
     if (email) writeJson(path.join(dir, INSTANCE_FILES.email), email.value)
-    if (plugins) writeJson(path.join(dir, INSTANCE_FILES.plugins), plugins.value)
+    writeJson(path.join(dir, INSTANCE_FILES.plugins), keepLoginMethod(plugins?.value))
     if (token) copyFileSync(token, path.join(dir, INSTANCE_FILES.webuiToken))
   }
   if (pluginData) renameSync(pluginData, path.join(staging, DEFAULT_INSTANCE, INSTANCE_FILES.pluginData))
@@ -91,7 +91,24 @@ export function migrateToInstances(log: MigrationLog) {
     log.info(`已把${what}迁到实例 ${name}（data/instances/${name}/）`)
     if (name !== DEFAULT_INSTANCE) log.info(`QQ ${name} 的配置和 ${DEFAULT_INSTANCE} 不同，单独放在实例 ${name}：用 -q ${name} 或 --instance ${name} 启动就会用它`)
   }
+  log.info('登录方式沿用旧版的纯协议 · Linux，可以在 WebUI 的「NTQQ 协议」页更改')
   log.info(`旧配置文件已改名为 *.bak：${[...sources].map(source => path.relative(DATA_DIR, source)).join('、')}`)
+}
+
+/**
+ * Released versions logged in with the pure protocol on Linux unless launched otherwise. The NT protocol plugin
+ * defaults to the official QQ client bridge and macOS since 2026-11-02, so an upgraded install gets the old ones
+ * written into its entry (launch flags still win). An entry the unreleased layout already had stays as it is,
+ * and so does a file that has no entry list to add to.
+ */
+function keepLoginMethod(plugins: Dict | undefined): Dict {
+  if (plugins && !Array.isArray(plugins.entries)) return plugins
+  const file = (plugins ?? { version: 1, entries: [] }) as unknown as PluginsFile
+  if (!file.entries.some(entry => entry.name === 'builtin:nt-protocol')) {
+    const id = newEntryId(new Set(file.entries.map(entry => entry.id)))
+    file.entries.push({ id, name: 'builtin:nt-protocol', config: { mode: 'direct', protocol: 'linux' } })
+  }
+  return file as unknown as Dict
 }
 
 /**
@@ -129,6 +146,25 @@ export function liftBuiltinSettings(log: MigrationLog) {
   if (email) retire(emailFile)
   const moved = [...sections, ...(email ? ['email'] : [])]
   log.info(`内置插件的设置（${moved.join('、')}）已从实例的 settings.json / email.json 搬进 plugins.json`)
+}
+
+/**
+ * The NT protocol plugin's login method by its NativeQQ names (2026-11-02): the official QQ client bridge was mode
+ * `pmhq`, its settings the key `pmhq`. Runs at every start, under the instance lock like the rest.
+ */
+export function renameNativeQQSettings(log: MigrationLog) {
+  const pluginsFile = configPaths.plugins()
+  const plugins = readJson(log, pluginsFile)?.value as PluginsFile | undefined
+  if (!Array.isArray(plugins?.entries)) return
+  const config = plugins.entries.find(item => item.name === 'builtin:nt-protocol')?.config as Dict | undefined
+  if (!config || (config.mode !== 'pmhq' && !('pmhq' in config))) return
+  if (config.mode === 'pmhq') config.mode = 'nativeqq'
+  if ('pmhq' in config) {
+    config.nativeQQ ??= config.pmhq
+    delete config.pmhq
+  }
+  writeJson(pluginsFile, plugins as unknown as Dict)
+  log.info('NTQQ 协议的登录方式设置已改用 NativeQQ 的名字')
 }
 
 function setEntry(file: PluginsFile, name: string, config: unknown, enabled: boolean) {

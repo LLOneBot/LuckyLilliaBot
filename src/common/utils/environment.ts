@@ -8,38 +8,44 @@ export function isDockerEnvironment(): boolean {
     }
 }
 
-/** PMHQ now runs inside this process. Obsolete network flags fail explicitly. */
-export function getPmhqTarget(argv: string[] = process.argv): { configPath: string; qqPath: string } | null {
-    if (argv.some(a => /^--pmhq-(host|port)(=|$)/.test(a))) {
-        throw new Error('PMHQ 已迁移到进程内模块，--pmhq-host / --pmhq-port 不再支持；请改用 --pmhq --pmhq-config=<配置文件绝对路径>')
-    }
+/** What the bridge runs: a NativeQQ configuration file, which only the launch gives, and the QQ to start */
+export interface NativeQQTarget {
+    configPath: string
+    qqPath: string
+}
+
+/** `--nativeqq`, `--nativeqq-config <file>` and `--qq-path <QQ>`: the official QQ client bridge, run in this process */
+export function getNativeQQTarget(argv: string[] = process.argv): NativeQQTarget | null {
     const arg = (name: string) => {
         const equals = argv.find(a => a.startsWith(name + '='))
         if (equals) return equals.slice(name.length + 1)
         const index = argv.indexOf(name)
         return index >= 0 && argv[index + 1] && !argv[index + 1].startsWith('-') ? argv[index + 1] : ''
     }
-    const configPath = arg('--pmhq-config')
-    return argv.includes('--pmhq') || !!configPath ? { configPath, qqPath: arg('--qq-path') } : null
+    const configPath = arg('--nativeqq-config')
+    return argv.includes('--nativeqq') || !!configPath ? { configPath, qqPath: arg('--qq-path') } : null
 }
 
-export type ProtocolMode = 'direct' | 'pmhq'
+export type ProtocolMode = 'direct' | 'nativeqq'
 
-/** How the NT protocol plugin logs in: the pure protocol speaking `protocol`, or PMHQ bridging an official QQ client. */
+/** How the NT protocol plugin logs in: the pure protocol speaking `protocol`, or NativeQQ bridging an official QQ client. */
 export interface ProtocolSelection {
     mode: ProtocolMode
     protocol: ProtocolId
-    pmhq: { configPath: string; qqPath: string }
+    nativeQQ: NativeQQTarget
 }
 
+/** What the NT protocol plugin saves of it */
+export type ProtocolSettings = Omit<ProtocolSelection, 'nativeQQ'> & { nativeQQ: { qqPath: string } }
+
 /**
- * What the launch fixes, and by what (a flag, an environment variable, or `desktop` for the LuckyLillia desktop
- * app), so the WebUI shows it read-only instead of saving what would not apply.
+ * What the launch fixes, and by what (a flag or an environment variable), so the WebUI shows it read-only instead of
+ * saving what would not apply.
  */
 export interface ProtocolPins {
     mode?: { value: ProtocolMode; by: string }
     protocol?: { value: ProtocolId; by: string }
-    pmhq?: { value: { configPath: string; qqPath: string }; by: string }
+    nativeQQ?: { value: NativeQQTarget; by: string }
 }
 
 let selection: ProtocolSelection | undefined
@@ -48,18 +54,16 @@ let launch: ProtocolPins | undefined
 
 export function protocolPins(argv: string[] = process.argv, env: NodeJS.ProcessEnv = process.env): ProtocolPins {
     const pins: ProtocolPins = {}
-    // The desktop app passes these flags itself, so that is where they are changed
-    const flag = (name: string) => env.LL_IPC_PIPE ? 'desktop' : name
-    const target = getPmhqTarget(argv)
+    const target = getNativeQQTarget(argv)
     if (target) {
-        pins.mode = { value: 'pmhq', by: flag('--pmhq') }
-        pins.pmhq = { value: target, by: flag('--pmhq') }
-    } else if (env.LL_IPC_PIPE) {
-        // The desktop selects its native bridge with --pmhq; otherwise it runs the pure protocol
-        pins.mode = { value: 'direct', by: 'desktop' }
+        pins.mode = { value: 'nativeqq', by: '--nativeqq' }
+        pins.nativeQQ = { value: target, by: '--nativeqq' }
+    } else if (argv.includes('--direct')) {
+        // Where there is no QQ to bridge: the docker image without it, the Linux script's headless mode
+        pins.mode = { value: 'direct', by: '--direct' }
     }
     const protocol = pinnedProtocol(argv, env)
-    if (protocol) pins.protocol = { ...protocol, by: protocol.by.startsWith('-') ? flag(protocol.by) : protocol.by }
+    if (protocol) pins.protocol = protocol
     return pins
 }
 
@@ -69,11 +73,11 @@ export function launchPins(): ProtocolPins {
 }
 
 /** The NT protocol plugin's settings, with what the launch fixes winning. */
-export function resolveProtocolSelection(settings: ProtocolSelection, pins: ProtocolPins = launchPins()): ProtocolSelection {
+export function resolveProtocolSelection(settings: ProtocolSettings, pins: ProtocolPins = launchPins()): ProtocolSelection {
     return {
         mode: pins.mode?.value ?? settings.mode,
         protocol: pins.protocol?.value ?? settings.protocol,
-        pmhq: pins.pmhq?.value ?? settings.pmhq,
+        nativeQQ: pins.nativeQQ?.value ?? { configPath: '', qqPath: settings.nativeQQ.qqPath },
     }
 }
 
@@ -95,12 +99,12 @@ export function lockedProtocol(): ProtocolId | undefined {
     return locked
 }
 
-export function isPmhqMode(): boolean {
-    return selection ? selection.mode === 'pmhq' : getPmhqTarget() !== null
+export function isNativeQQMode(): boolean {
+    return selection ? selection.mode === 'nativeqq' : getNativeQQTarget() !== null
 }
 
-export function currentPmhqTarget(): { configPath: string; qqPath: string } {
-    return selection?.pmhq ?? getPmhqTarget() ?? { configPath: '', qqPath: '' }
+export function currentNativeQQTarget(): NativeQQTarget {
+    return selection?.nativeQQ ?? getNativeQQTarget() ?? { configPath: '', qqPath: '' }
 }
 
 /**
@@ -182,14 +186,14 @@ export type ProtocolId = 'linux' | 'windows' | 'macos' | 'watch'
 
 /**
  * The profile the protocol layer runs with. The pure protocol: what it is locked to, else `--protocol` / `-p` >
- * the PROTOCOL environment variable > the NT protocol plugin's choice > linux; an unknown value is linux too, old
- * deployments have no --protocol. PMHQ has always run with linux unless launched with another (highway appId,
- * SsoInfoSync), so switching to it keeps that.
+ * the PROTOCOL environment variable > the NT protocol plugin's choice > macos (its default); an unknown value of
+ * a flag or the variable is linux. NativeQQ has always run with linux unless launched with another (highway
+ * appId, SsoInfoSync), so switching to it keeps that.
  */
 export function getProtocol(): ProtocolId {
     const pinned = launchPins().protocol?.value
-    if (selection?.mode === 'pmhq') return pinned ?? 'linux'
-    return locked ?? pinned ?? selection?.protocol ?? 'linux'
+    if (selection?.mode === 'nativeqq') return pinned ?? 'linux'
+    return locked ?? pinned ?? selection?.protocol ?? 'macos'
 }
 
 /** A blank value pins nothing, e.g. PROTOCOL= from a compose file whose variable is unset. */

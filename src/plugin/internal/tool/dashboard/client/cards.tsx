@@ -214,7 +214,7 @@ export const SystemResourcesCard: React.FC = () => {
       title="系统资源"
       version={stats.system.label}
       icon={<Server size={16} className={GLYPH} />}
-      gradient="bg-gradient-to-br from-[#8b5cf6] to-[#6366f1]"
+      gradient="bg-gradient-to-br from-[#0ea5e9] to-[#3b82f6]"
       cpu={stats.system.cpu}
       memory={stats.system.memory}
       totalMemory={stats.system.totalMemory}

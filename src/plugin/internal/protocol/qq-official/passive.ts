@@ -2,7 +2,7 @@
  * Group and C2C messages mostly go out as passive replies now: since 2025-04-21 proactive ones need the
  * group owner's consent or an interaction recall. A reply cites a received message (msg_id) or another
  * event (event_id), within a window and a count, and each reply to one msg_id needs its own msg_seq.
- * Guild replies cite a message within 5 minutes, with no count kept (as Koishi adapter-qq-crack does).
+ * Guild replies cite a message within 5 minutes, with no count kept.
  */
 export interface ReplyContext {
   id: string

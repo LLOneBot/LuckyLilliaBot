@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    // cordis 4.0.0-rc.11 ships .d.ts files with extensionless relative imports, which NodeNext cannot follow
+    "moduleResolution": "Bundler",
+    "rootDir": "src",
+    "outDir": "lib",
+    "declaration": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

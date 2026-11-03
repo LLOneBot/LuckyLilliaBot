@@ -13,11 +13,9 @@ export interface CommandSettings {
   bare: boolean
   /** `platform:userId`, or a user id on every platform: they may run every command. */
   owners: string[]
-  /** The help command. */
-  help: boolean
 }
 
-export const DEFAULT_SETTINGS: CommandSettings = { prefixes: ['/'], bare: true, owners: [], help: true }
+export const DEFAULT_SETTINGS: CommandSettings = { prefixes: ['/'], bare: true, owners: [] }
 
 interface Declaration {
   name: string
@@ -139,8 +137,6 @@ export class Command implements CommandApi {
   readonly args: Declaration[]
   readonly aliases: string[] = []
   readonly options: OptionDeclaration[] = []
-  readonly usages: string[] = []
-  readonly examples: string[] = []
   handler?: CommandAction
   disposeCommand?: () => void
 
@@ -167,16 +163,6 @@ export class Command implements CommandApi {
 
   option(name: string, syntax: string, config?: OptionConfig) {
     this.options.push(parseOption(name, syntax, config))
-    return this
-  }
-
-  usage(text: string) {
-    this.usages.push(text)
-    return this
-  }
-
-  example(text: string) {
-    this.examples.push(text)
     return this
   }
 
@@ -223,22 +209,6 @@ export class Command implements CommandApi {
     if (missing) throw new ArgvError(`缺少参数 ${missing.name}`)
     return { options, args }
   }
-
-  help(): string {
-    const lines = [this.syntax]
-    if (this.description) lines.push(this.description)
-    if (this.aliases.length) lines.push(`别名：${this.aliases.join('、')}`)
-    if (this.options.length) {
-      lines.push('选项：')
-      for (const option of this.options) {
-        const flags = option.flags.join(', ') + (option.param ? ` ${formatParam(option.param)}` : '')
-        lines.push(`  ${flags}${option.description ? `  ${option.description}` : ''}`)
-      }
-    }
-    lines.push(...this.usages)
-    if (this.examples.length) lines.push('示例：', ...this.examples.map(example => `  ${example}`))
-    return lines.join('\n')
-  }
 }
 
 /**
@@ -254,7 +224,6 @@ export class CommandService extends Service implements Commands {
   private readonly menus = new Map<string, string>()
   private readonly pending: { menus?: () => void } = {}
   private readonly home: Context
-  private readonly helpCommand: Command
 
   constructor(ctx: Context, private readonly settings: { current: CommandSettings } = { current: DEFAULT_SETTINGS }) {
     super(ctx, 'commands')
@@ -264,8 +233,6 @@ export class CommandService extends Service implements Commands {
     ctx.on('bot/status', (bot) => {
       if (bot.status === 1) this.syncMenu(bot)
     })
-    this.helpCommand = this.command('help [command]', '查看有哪些指令，或者一个指令的用法') as Command
-    this.helpCommand.alias('帮助').action(({ session }, name?: string) => this.helpFor(session, name))
   }
 
   private get bots(): BotsService {
@@ -289,10 +256,10 @@ export class CommandService extends Service implements Commands {
   }
 
   list(): CommandInfo[] {
-    return this.commands.filter(command => this.enabled(command)).map((command) => {
+    return this.commands.map((command) => {
       const conflicts: CommandInfo['conflicts'] = []
       for (const other of this.commands) {
-        if (other === command || !this.enabled(other)) continue
+        if (other === command) continue
         for (const name of command.names) {
           if (other.names.some(theirs => same(theirs, name))) conflicts.push({ name, with: this.bots.ownerOf(other.ctx) })
         }
@@ -310,13 +277,9 @@ export class CommandService extends Service implements Commands {
     })
   }
 
-  private enabled(command: Command) {
-    return command !== this.helpCommand || this.settings.current.help
-  }
-
-  /** The commands a session can see: with an action, enabled, of a plugin that takes the session. */
+  /** The commands a session can run: with an action, of a plugin that takes the session. */
   private reachable(session: Session) {
-    return this.commands.filter(command => command.handler && this.enabled(command) && this.bots.allows(command.ctx, session))
+    return this.commands.filter(command => command.handler && this.bots.allows(command.ctx, session))
   }
 
   private async handle(session: Session, next: () => Promise<void>) {
@@ -394,26 +357,8 @@ export class CommandService extends Service implements Commands {
     return !!roles?.some(role => ['owner', 'admin'].includes(role.name ?? role.id ?? ''))
   }
 
-  /** As text: a syntax has angle brackets, which a string would turn into elements. */
-  private helpFor(session: Session, name?: string): h {
-    const visible = this.reachable(session)
-    const prefix = this.settings.current.prefixes.find(Boolean) ?? ''
-    if (name) {
-      const wanted = h.unescape(name)
-      const command = visible.find(command => command.names.some(alias => same(alias, wanted)))
-      return h.text(command ? command.help() : `没有叫 ${wanted} 的指令。`)
-    }
-    const listed = visible.filter(command => !command.config.hidden)
-    if (!listed.length) return h.text('还没有可用的指令。')
-    return h.text([
-      '可用的指令：',
-      ...listed.map(command => `${prefix}${command.name}${command.description ? `  ${command.description}` : ''}`),
-      `发送「${prefix}help 指令名」查看用法`,
-    ].join('\n'))
-  }
-
   private menu(): Universal.Command[] {
-    return this.commands.filter(command => command.handler && this.enabled(command) && !command.config.hidden).map(command => ({
+    return this.commands.filter(command => command.handler && !command.config.hidden).map(command => ({
       name: command.name,
       description: { '': command.description },
       arguments: command.args.map(arg => ({ name: arg.name, description: {}, type: arg.type, required: arg.required })),

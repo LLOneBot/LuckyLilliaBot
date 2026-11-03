@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  activeOwners, configEditorOf, Contribution, contributionKey, fieldRendererOf, NO_PREFS, pageContributionKey,
-  PageContribution, rejection, slotContents, SlotContribution, slotMatches, useRegistry, visiblePages, WEBUI,
+  activeOwners, arrangePages, configEditorOf, Contribution, contributionKey, fieldRendererOf, isPageKey, NO_PREFS,
+  pageContributionKey, PageContribution, pagePosition, rejection, sidebarPatch, slotContents, SlotContribution, slotMatches,
+  useRegistry, visiblePages, WEBUI,
 } from '@/plugin/internal/service/webui/FE/plugin-host/registry'
 import { PluginStatus, UiPrefs } from '@/plugin/internal/service/webui/FE/types/plugins'
 
@@ -152,20 +153,86 @@ describe('plugin UI registry', () => {
     expect(rejection(contributions, slot('a', 'dashboard.cards', 'card'))).toMatch(/used twice/)
     // The id only has to be unique within the plugin and the slot
     expect(rejection(contributions, slot('b', 'dashboard.cards', 'card'))).toBeUndefined()
-    expect(rejection(contributions, slot('a', 'shell.notices', 'card'))).toBeUndefined()
+    expect(rejection(contributions, slot('a', 'plugins.toolbar', 'card'))).toBeUndefined()
     expect(rejection(contributions, declare('dashboard.cards', 'list', 'b'))).toMatch(/declared by webui already/)
     expect(rejection(contributions, declare('b.things', 'many' as never, 'b'))).toMatch(/cardinality is one of list, single, keyed, chain/)
     expect(rejection(contributions, declare('b.things', 'list', 'b'))).toBeUndefined()
     expect(rejection(contributions, slot('a', 'dashboard.cards', 'keyed', { match: 14 as never }))).toMatch(/match of keyed is a string/)
+    // Page keys are told from slot keys by it
+    expect(rejection(contributions, declare('page', 'list', 'b'))).toMatch(/name is taken/)
+    expect(isPageKey(pageContributionKey(page('a', 'a:home', 'Home')))).toBe(true)
+    expect(isPageKey(contributionKey(slot('a', 'dashboard.cards', 'page')))).toBe(false)
+  })
+
+  it('puts a page where the user arranged it, else where its plugin did, on one axis', () => {
+    const dashboard = page('builtin:dashboard', 'dashboard', 'Dashboard', 0)
+    const logs = page('builtin:logs', 'logs', '日志', 20)
+    const plugins = page(WEBUI, 'plugins', '插件', 40)
+    const contributions: Contribution[] = [dashboard, logs, plugins]
+    const keys = (p: UiPrefs, purpose: 'sidebar' | 'arrange' = 'sidebar', list: PluginStatus[] | null = null) =>
+      visiblePages(contributions, list, purpose, p).map(page => page.key)
+    expect(keys(NO_PREFS)).toEqual(['dashboard', 'logs', 'plugins'])
+    expect(keys(prefs({ order: { [pageContributionKey(plugins)]: -10 } }))).toEqual(['plugins', 'dashboard', 'logs'])
+    expect(pagePosition(logs, prefs({ order: { [pageContributionKey(logs)]: 50 } }))).toBe(50)
+    expect(pagePosition(logs, NO_PREFS)).toBe(20)
+    // Arranging lists the hidden pages too, but a disabled plugin's still not
+    const hidden = prefs({ hidden: [pageContributionKey(logs)] })
+    expect(keys(hidden)).toEqual(['dashboard', 'plugins'])
+    expect(keys(hidden, 'arrange')).toEqual(['dashboard', 'logs', 'plugins'])
+    const list = [status('builtin:dashboard', 'active'), status('builtin:logs', 'disposed'), status(WEBUI, 'active')]
+    expect(keys(hidden, 'arrange', list)).toEqual(['dashboard', 'plugins'])
+  })
+
+  it('writes as few page positions as it can to arrange the sidebar', () => {
+    const [a, b, c, d] = [page('a', 'a', 'A', 0), page('b', 'b', 'B', 10), page('c', 'c', 'C', 20), page('d', 'd', 'D', 30)]
+    const key = pageContributionKey
+    expect(arrangePages([a, b, c, d], NO_PREFS)).toEqual({})
+    // The one moved gets a position between its new neighbors, the rest keep theirs
+    expect(arrangePages([a, c, b, d], NO_PREFS)).toEqual({ [key(b)]: 25 })
+    // Past either end, 10 further
+    expect(arrangePages([d, a, b, c], NO_PREFS)).toEqual({ [key(d)]: -10 })
+    expect(arrangePages([b, c, d, a], NO_PREFS)).toEqual({ [key(a)]: 40 })
+    // Back where its plugin puts it: the stored position goes
+    expect(arrangePages([a, b, c, d], prefs({ order: { [key(d)]: -10 } }))).toEqual({ [key(d)]: null })
+  })
+
+  it('leaves pages at the same position alone, and puts one between them by moving it alone', () => {
+    // Third-party pages, all at the default position: their plugins' names order them
+    const [p, q, r] = [page('p', 'p:x', 'P'), page('q', 'q:x', 'Q'), page('r', 'r:x', 'R')]
+    const key = pageContributionKey
+    expect(arrangePages([p, q, r], NO_PREFS)).toEqual({})
+    expect(arrangePages([p, r, q], NO_PREFS)).toEqual({ [key(q)]: 110 })
+    expect(arrangePages([q, p, r], NO_PREFS)).toEqual({ [key(q)]: 90 })
+    for (const order of [[p, r, q], [q, p, r], [r, q, p], [q, r, p], [r, p, q]]) {
+      // What is written sorts back into the order given
+      const written = Object.entries(arrangePages(order, NO_PREFS)).filter((entry): entry is [string, number] => entry[1] !== null)
+      expect(visiblePages([p, q, r], null, 'sidebar', prefs({ order: Object.fromEntries(written) }))).toEqual(order)
+    }
+  })
+
+  it('saves the sidebar dialog as one patch, a reset dropping every stored page position and hiding', () => {
+    const [a, b] = [page('a', 'a', 'A', 0), page('b', 'b', 'B', 10)]
+    const gone = pageContributionKey(page('off', 'off:x', 'Off'))
+    const card = contributionKey(slot('a', 'dashboard.cards', 'x'))
+    const key = pageContributionKey
+    expect(sidebarPatch([a, b], new Set(), NO_PREFS, false)).toEqual({})
+    expect(sidebarPatch([b, a], new Set([key(a)]), NO_PREFS, false)).toEqual({ order: { [key(a)]: 20 }, hide: [key(a)] })
+    expect(sidebarPatch([a, b], new Set(), prefs({ hidden: [key(b)] }), false)).toEqual({ show: [key(b)] })
+    // A reset reaches a disabled plugin's page as well, and leaves what is not a page alone
+    const stored = prefs({ hidden: [key(a), gone, card], order: { [key(a)]: 50, [gone]: 5, [card]: 1 } })
+    expect(sidebarPatch([a, b], new Set(), stored, true)).toEqual({ order: { [key(a)]: null, [gone]: null }, show: [key(a), gone] })
   })
 
   it('declares the WebUI slots up front and throws on a rejected registration', () => {
     const { add, contributions } = useRegistry.getState()
     const names = contributions.filter(c => c.kind === 'declaration').map(c => (c as { name: string }).name)
-    expect(names).toEqual(expect.arrayContaining(['shell.notices', 'settings.sections', 'plugins.toolbar', 'plugins.card.actions']))
-    // The Dashboard's are its own plugin's now
+    expect(names).toEqual(expect.arrayContaining(['plugins.toolbar', 'plugins.views', 'plugins.card.actions']))
+    // The Dashboard's are its own plugin's now, and plugins say their notices on their own pages
     expect(names).not.toContain('dashboard.cards')
-    expect(() => add(declare('shell.notices', 'list', 'intruder'))).toThrow(/declared by builtin:webui already/)
+    expect(names).not.toContain('shell.notices')
+    // Plugins' settings are on their cards, not in the WebUI's settings dialog
+    expect(names).not.toContain('settings.sections')
+    expect(() => add(declare('plugins.toolbar', 'list', 'intruder'))).toThrow(/declared by builtin:webui already/)
   })
 
   it('takes the latest config editor of a plugin and the latest renderer of a role', () => {

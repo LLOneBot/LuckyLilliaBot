@@ -108,7 +108,7 @@ export class Gateway {
     socket.on('error', e => this.logger.warn('网关连接出错: %s', e.message))
   }
 
-  // The platform's gateway on the host the API is on, as Koishi adapter-qq-crack does: api.sgroup.qq.com and
+  // The platform's gateway on the host the API is on: api.sgroup.qq.com and
   // api.bot.qq.com serve the same, and a custom or sandbox endpoint keeps its own
   private onApiHost(url: string): string {
     if (!this.api.base) return url

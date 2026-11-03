@@ -108,9 +108,9 @@ export function FieldRow({ name, node, error, children }: { name?: string; node:
   const description = localize(node.meta.description)
   const title = (
     <div className="text-sm font-medium text-theme-secondary flex items-center gap-2 flex-wrap">
-      <span>{description ?? name}</span>
+      {/* The key only on hover: next to the description it reads as jargon */}
+      <span title={description && name ? name : undefined}>{description ?? name}</span>
       {node.meta.required && <span className="text-red-500">*</span>}
-      {description && name && <code className="text-xs text-theme-hint">{name}</code>}
       <Badges node={node} />
     </div>
   )

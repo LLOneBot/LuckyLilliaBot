@@ -4,10 +4,9 @@
 // The token is read into memory from --auth-token-file (never an argv token).
 
 import { execFileSync, spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -33,12 +32,12 @@ const qqMainPids = () => {
     const output = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], { encoding: 'utf8', windowsHide: true, timeout: 10_000 }).trim()
     const value = output ? JSON.parse(output) : []
     return (Array.isArray(value) ? value : [value]).filter(pid => Number.isSafeInteger(pid) && pid > 0)
-  } catch { throw new SmokeError('BASELINE_QQ_ENUMERATION_FAILED') }
+  } catch { throw new SmokeError('QQ_ENUMERATION_FAILED') }
 }
 
 function options(argv) {
   const result = {
-    uin: process.env.LLBOT_SMOKE_UIN || process.env.PMHQ_EXPECTED_UIN || '',
+    uin: process.env.LLBOT_SMOKE_UIN || '',
     dist: path.join(botRoot, 'dist'),
     tokenFile: path.resolve(botRoot, '../LuckyLillia.node/data/auth_token.txt'),
     qqPath: '', timeoutMs: 180_000, expectedBuildId: '', prepareOnly: false,
@@ -95,57 +94,46 @@ function prepareWorkspace(config) {
   mkdirSync(instanceDir, { recursive: true })
   const nativeDir = path.join(directory, 'native-work')
   mkdirSync(nativeDir)
-  const nativeConfig = path.join(directory, 'pmhq_config.json')
+  const nativeConfig = path.join(directory, 'nativeqq_config.json')
   const json = (file, value) => writeFileSync(file, JSON.stringify(value, null, 2) + '\n', 'utf8')
   // -q must cross the actual Bot argument parsing bridge. Do not duplicate the UIN here.
   json(nativeConfig, { hook_mode: 'debugger', work_dir: nativeDir, debug: false, debug_pb: false,
     ...(config.qqPath ? { qq_path: config.qqPath } : {}) })
+  // The runner reads the bridge from /api/login-info: loopback only, behind a password only it knows
+  const webuiPassword = randomBytes(32).toString('hex')
+  writeFileSync(path.join(instanceDir, 'webui_token.txt'), webuiPassword, 'utf8')
   json(path.join(instanceDir, 'settings.json'), { log: false, logLevel: 'info',
-    webui: { enable: false, host: '127.0.0.1', port: 0 }, msgCacheExpire: 120 })
+    webui: { enable: true, host: '127.0.0.1', port: 0 }, msgCacheExpire: 120 })
   const optional = ['dashboard', 'logs', 'onebot11', 'satori', 'milky', 'qq-official', 'webqq', 'email-notification']
   json(path.join(instanceDir, 'plugins.json'), { version: 1, hmr: false, entries: [
-    { id: 'smoke-nt', name: 'builtin:nt-protocol', config: { mode: 'pmhq', protocol: 'linux', pmhq: { configPath: nativeConfig, qqPath: config.qqPath } } },
+    { id: 'smoke-nt', name: 'builtin:nt-protocol', config: { mode: 'nativeqq', protocol: 'linux', nativeQQ: { qqPath: config.qqPath } } },
     ...optional.map(name => ({ id: `smoke-${name}`, name: `builtin:${name}`, disabled: true })),
-    // The host requires these core services. WebUI's listener is disabled above.
+    // The host requires these core services.
     { id: 'smoke-webui', name: 'builtin:webui' },
     { id: 'smoke-universal', name: 'builtin:ntqq-universal' },
   ] })
-  return { directory, nativeConfig, instance, metadataLog: path.join(directory, 'smoke-metadata.jsonl') }
+  return { directory, nativeConfig, instance, webuiHash: createHash('sha256').update(webuiPassword).digest('hex'),
+    metadataLog: path.join(directory, 'smoke-metadata.jsonl') }
 }
 
-function ipc(endpoint, method, timeoutMs = 5_000) {
-  return new Promise((resolve, reject) => {
-    const socket = net.createConnection(endpoint)
-    const id = randomUUID()
-    let buffer = ''
-    let completed = false
-    const finish = (error, value) => {
-      if (completed) return
-      completed = true
-      clearTimeout(timer)
-      socket.destroy()
-      error ? reject(error) : resolve(value)
-    }
-    const timer = setTimeout(() => finish(new SmokeError('IPC_TIMEOUT')), timeoutMs)
-    socket.setEncoding('utf8')
-    socket.once('connect', () => socket.write(JSON.stringify({ type: 'request', id, method }) + '\n'))
-    socket.once('error', () => finish(new SmokeError('IPC_UNAVAILABLE')))
-    socket.once('close', () => finish(new SmokeError('IPC_CLOSED')))
-    socket.on('data', chunk => {
-      buffer += chunk
-      if (buffer.length > 1024 * 1024) { finish(new SmokeError('IPC_RESPONSE_TOO_LARGE')); return }
-      let index
-      while ((index = buffer.indexOf('\n')) >= 0) {
-        const line = buffer.slice(0, index); buffer = buffer.slice(index + 1)
-        let response
-        try { response = JSON.parse(line) } catch { finish(new SmokeError('IPC_INVALID_JSON')); return }
-        if (response.type !== 'response' || response.id !== id) continue
-        // Never include IPC error text: it can contain a native response or credentials.
-        finish(response.error ? new SmokeError('IPC_METHOD_FAILED') : null, response.data)
-        return
-      }
-    })
-  })
+// The Bot disposes itself once its LL_PARENT_PID is gone. The keeper stands in as that parent and goes with the
+// runner, so ending it asks for a clean shutdown where a signal would terminate the Bot outright (Windows)
+function startKeeper() {
+  const keeper = spawn(process.execPath, ['-e', `setInterval(() => { try { process.kill(${process.pid}, 0) } catch (error) { if (error.code === 'ESRCH') process.exit() } }, 1000)`],
+    { stdio: 'ignore', windowsHide: true })
+  keeper.once('error', () => {})
+  keeper.unref()
+  check(keeper.pid, 'KEEPER_SPAWN_FAILED')
+  return keeper
+}
+
+async function loginInfo(port, webuiHash) {
+  const response = await fetch(`http://127.0.0.1:${port}/api/login-info`, {
+    headers: { 'X-Webui-Token': webuiHash }, signal: AbortSignal.timeout(5_000) })
+  check(response.ok, 'WEBUI_LOGIN_INFO_HTTP_ERROR')
+  const body = await response.json()
+  check(body.success && body.data, 'WEBUI_LOGIN_INFO_INVALID')
+  return body.data
 }
 
 function observeOutput(stream, token, observations) {
@@ -160,12 +148,14 @@ function observeOutput(stream, token, observations) {
       const raw = buffer.slice(0, index); buffer = buffer.slice(index + 1)
       const line = raw.replaceAll(token, '[REDACTED]').replace(/\x1b\[[0-9;]*m/g, '')
       observations.outputLines++
+      const port = /Webui 服务器已启动 127\.0\.0\.1:(\d+)/.exec(line)
+      if (port) observations.webuiPort = Number(port[1])
       const marker = line.indexOf('getSelfNick -> ')
       if (marker >= 0) {
         try {
           const nickname = JSON.parse(line.slice(marker + 'getSelfNick -> '.length).trim())
           if (nonempty(nickname)) observations.fetchedNickname = nickname
-        } catch { /* only the IPC identity may establish success */ }
+        } catch { /* only /api/login-info may establish the identity */ }
       }
       if (line.includes('getSelfNick threw:')) observations.nicknameFailures++
       if (/unhandledRejection|uncaughtException/.test(line)) observations.hostExceptions++
@@ -176,21 +166,18 @@ function observeOutput(stream, token, observations) {
   })
 }
 
-function healthMetadata(health, login, observations) {
-  return { sessionStatus: health.sessionStatus ?? null, status: health.status ?? null,
-    qqPid: Number(health.qq_pid) || null, uin: health.uin == null ? null : String(health.uin),
-    uidAvailable: nonempty(health.uid), loginState: login.state ?? null,
-    loginUin: login.uin ?? null, nicknameAvailable: nonempty(login.nickname),
-    nicknameFetchedByBot: nonempty(observations.fetchedNickname),
-    authTokenSet: health.auth_token_set === true, failureAvailable: !!health.failure,
-    historySize: Number(health.history_size) || 0, receivedSend: Number(health.received_send) || 0,
-    receivedRecv: Number(health.received_recv) || 0 }
+function sampleMetadata(info, qqPid, observations) {
+  const status = info.nativeQQ?.status ?? {}
+  return { sessionStatus: status.session ?? null, qqRunning: status.qqRunning === true, qqPid: qqPid ?? null,
+    online: info.online === true, uin: info.uin ? String(info.uin) : null, uidAvailable: nonempty(info.uid),
+    nicknameAvailable: nonempty(info.nick), nicknameFetchedByBot: nonempty(observations.fetchedNickname),
+    authTokenSet: status.authTokenSet === true, failureAvailable: !!status.failure }
 }
 
 async function main() {
   const config = options(process.argv.slice(2))
   if (config.help) {
-    console.log('Usage: node script/native-debugger-smoke.mjs --uin <QQ> [--qq-path <exe>] [--auth-token-file <file>] [--dist <dir>] [--expected-build-id <id>] [--timeout-ms <20000..600000>] [--prepare-only]\nUIN may also come from LLBOT_SMOKE_UIN or PMHQ_EXPECTED_UIN. Tests built dist/llbot.js, waits 10 seconds of stable identity, then shuts down Bot over IPC and retains QQ. Output contains metadata only.')
+    console.log('Usage: node script/native-debugger-smoke.mjs --uin <QQ> [--qq-path <exe>] [--auth-token-file <file>] [--dist <dir>] [--expected-build-id <id>] [--timeout-ms <20000..600000>] [--prepare-only]\nUIN may also come from LLBOT_SMOKE_UIN. Tests built dist/llbot.js, waits 10 seconds of stable identity, then has Bot shut itself down and checks that QQ stays up. Output contains metadata only.')
     return
   }
   check(process.platform === 'win32' && process.arch === 'x64', 'WINDOWS_X64_REQUIRED')
@@ -202,25 +189,24 @@ async function main() {
     appendFileSync(workspace.metadataLog, line + '\n', 'utf8')
     console.log(line)
   }
-  emit('prepared', { expectedUin: config.uin, native, workspace: workspace.directory, metadataLog: workspace.metadataLog, hookMode: 'debugger', adaptersEnabled: false, webuiListening: false })
+  emit('prepared', { expectedUin: config.uin, native, workspace: workspace.directory, metadataLog: workspace.metadataLog, hookMode: 'debugger', adaptersEnabled: false, webuiListening: 'loopback' })
   if (config.prepareOnly) return
   const baselineQqPids = qqMainPids()
   emit('baseline', { protectedQqPids: baselineQqPids })
   let token
   try { token = readFileSync(config.tokenFile, 'utf8').trim() } catch { throw new SmokeError('AUTH_TOKEN_FILE_UNREADABLE') }
   check(nonempty(token), 'AUTH_TOKEN_FILE_EMPTY')
-  const pipeName = `llbot-debugger-smoke-${process.pid}-${randomUUID()}`
-  const endpoint = `\\\\.\\pipe\\${pipeName}`
+  const keeper = startKeeper()
   const environment = { ...process.env }
   for (const name of Object.keys(environment)) {
-    if (/^(NODE_OPTIONS|AUTH_TOKEN|LL_IPC_PIPE|LL_PARENT_PID|LLBOT_INSTANCE|LLBOT_WEBUI_.*|LLBOT_LOG_LEVEL|PROTOCOL_MODE|PROTOCOL)$/i.test(name)) delete environment[name]
+    if (/^(NODE_OPTIONS|AUTH_TOKEN|LL_PARENT_PID|LLBOT_INSTANCE|LLBOT_WEBUI_.*|LLBOT_LOG_LEVEL|PROTOCOL_MODE|PROTOCOL)$/i.test(name)) delete environment[name]
   }
-  Object.assign(environment, { AUTH_TOKEN: token, LL_IPC_PIPE: pipeName, LL_PARENT_PID: String(process.pid), LLBOT_LOG_LEVEL: 'info', NO_COLOR: '1' })
-  const child = spawn(process.execPath, [path.join(config.dist, 'llbot.js'), '--instance', workspace.instance, '--pmhq', '--pmhq-config', workspace.nativeConfig, '-q', config.uin],
+  Object.assign(environment, { AUTH_TOKEN: token, LL_PARENT_PID: String(keeper.pid), LLBOT_LOG_LEVEL: 'info', NO_COLOR: '1' })
+  const child = spawn(process.execPath, [path.join(config.dist, 'llbot.js'), '--instance', workspace.instance, '--nativeqq', '--nativeqq-config', workspace.nativeConfig, '-q', config.uin],
     { cwd: workspace.directory, env: environment, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
   // Retain the token only in the redactor closure and the already-spawned child's environment.
   delete environment.AUTH_TOKEN
-  const observations = { outputBytes: 0, outputLines: 0, errorLines: 0, truncatedLines: 0, nicknameFailures: 0, hostExceptions: 0, fetchedNickname: '' }
+  const observations = { outputBytes: 0, outputLines: 0, errorLines: 0, truncatedLines: 0, nicknameFailures: 0, hostExceptions: 0, webuiPort: 0, fetchedNickname: '' }
   observeOutput(child.stdout, token, observations)
   observeOutput(child.stderr, token, observations)
   token = ''
@@ -235,39 +221,50 @@ async function main() {
   process.once('SIGTERM', interrupt)
   let failure
   let qqPid
-  let baseline
+  let stableUid
   let stableSince
   let samples = 0
   let validated = false
+  let seenRunning = false
   let lastMetadata
   emit('host_started', { hostPid: child.pid ?? null })
   try {
     while (Date.now() - started < config.timeoutMs) {
       check(!interrupted, 'INTERRUPTED')
       check(!exit, 'HOST_EXITED_BEFORE_VALIDATION')
-      let health, login
-      try { [health, login] = await Promise.all([ipc(endpoint, 'get_pmhq_health'), ipc(endpoint, 'get_login_state')]) }
+      check(observations.hostExceptions === 0, 'HOST_UNHANDLED_EXCEPTION')
+      let info
+      try { info = observations.webuiPort ? await loginInfo(observations.webuiPort, workspace.webuiHash) : undefined }
       catch {
-        check(stableSince === undefined, 'IPC_LOST_DURING_STABILITY_WINDOW')
+        check(stableSince === undefined, 'WEBUI_LOST_DURING_STABILITY_WINDOW')
         await delay(500); continue
       }
-      lastMetadata = healthMetadata(health, login, observations)
+      // No status before the protocol is up
+      const status = info?.nativeQQ?.status
+      if (!status) {
+        check(stableSince === undefined, 'IDENTITY_LOST_DURING_STABILITY_WINDOW')
+        await delay(500); continue
+      }
+      check(info.mode === 'nativeqq', 'PROTOCOL_MODE_MISMATCH')
+      seenRunning ||= status.session === 'running'
+      check(!status.failure && status.session !== 'failed' && !(seenRunning && status.session === 'stopped'), 'NATIVE_SESSION_FAILED')
+      check(!info.uin || String(info.uin) === config.uin, 'LOGIN_UIN_MISMATCH')
+      // The QQ this run started is the one main QQ process that was not there before
+      if (!qqPid && status.qqRunning) {
+        const fresh = qqMainPids().filter(pid => !baselineQqPids.includes(pid))
+        check(fresh.length <= 1, 'QQ_PROCESS_AMBIGUOUS')
+        qqPid = fresh[0]
+      }
+      check(qqPid || !status.loggedIn, 'NATIVE_REUSED_BASELINE_QQ')
+      lastMetadata = sampleMetadata(info, qqPid, observations)
       samples++
-      if (lastMetadata.qqPid) qqPid = lastMetadata.qqPid
       emit('sample', lastMetadata)
-      check(!qqPid || !baselineQqPids.includes(qqPid), 'NATIVE_REUSED_BASELINE_QQ')
-      check(!health.failure && !['failed', 'stopped'].includes(health.sessionStatus), 'NATIVE_SESSION_FAILED')
-      check(!health.uin || String(health.uin) === config.uin, 'HEALTH_UIN_MISMATCH')
-      check(!login.uin || String(login.uin) === config.uin, 'LOGIN_UIN_MISMATCH')
-      check(observations.hostExceptions === 0, 'HOST_UNHANDLED_EXCEPTION')
-      const ready = health.sessionStatus === 'running' && String(health.uin) === config.uin && nonempty(health.uid)
-        && login.state === 'logged_in' && String(login.uin) === config.uin && nonempty(login.nickname)
-        && observations.fetchedNickname === login.nickname && lastMetadata.authTokenSet
-        && lastMetadata.historySize > 0 && lastMetadata.receivedSend > 0 && lastMetadata.receivedRecv > 0 && alive(qqPid)
+      const ready = status.session === 'running' && status.loggedIn && status.authTokenSet && info.online === true
+        && String(info.uin) === config.uin && nonempty(info.uid) && nonempty(info.nick)
+        && observations.fetchedNickname === info.nick && alive(qqPid)
       if (stableSince !== undefined) {
         check(ready, 'IDENTITY_LOST_DURING_STABILITY_WINDOW')
-        check(qqPid === baseline.qqPid && health.uid === baseline.uid, 'SESSION_CHANGED_DURING_STABILITY_WINDOW')
-        check(lastMetadata.receivedSend >= baseline.send && lastMetadata.receivedRecv >= baseline.recv, 'CAPTURE_COUNTERS_RESET')
+        check(info.uid === stableUid, 'SESSION_CHANGED_DURING_STABILITY_WINDOW')
         if (Date.now() - stableSince >= STABLE_MS) {
           emit('validated', { ...lastMetadata, stableMs: Date.now() - stableSince, samples })
           validated = true
@@ -275,7 +272,7 @@ async function main() {
         }
       } else if (ready) {
         stableSince = Date.now()
-        baseline = { qqPid, uid: health.uid, send: lastMetadata.receivedSend, recv: lastMetadata.receivedRecv }
+        stableUid = info.uid
         emit('stability_started', { qqPid, uin: config.uin, uidAvailable: true, nicknameAvailable: true })
       }
       await delay(1000)
@@ -285,18 +282,14 @@ async function main() {
   finally {
     process.off('SIGINT', interrupt)
     process.off('SIGTERM', interrupt)
+    keeper.kill()
     if (!exit) {
-      try {
-        const response = await ipc(endpoint, 'shutdown', 10_000)
-        check(response?.stopping === true, 'SHUTDOWN_NOT_ACKNOWLEDGED')
-        emit('shutdown_requested', { hostPid: child.pid })
-      } catch { failure ||= 'IPC_SHUTDOWN_FAILED' }
+      emit('shutdown_requested', { hostPid: child.pid })
       await Promise.race([exited, delay(SHUTDOWN_MS, undefined, { ref: false })])
     }
     if (!exit) {
       failure ||= 'HOST_SHUTDOWN_TIMEOUT'
-      // Do not TerminateProcess an attached debugger or kill the QQ tree. The
-      // host's LL_PARENT_PID watcher will request disposal when this runner exits.
+      // Do not TerminateProcess an attached debugger or kill the QQ tree: the Bot is still disposing.
       child.stdout.destroy(); child.stderr.destroy(); child.unref()
     } else if (exit.code !== 0 || exit.signal || exit.spawnFailed) failure ||= 'HOST_EXIT_NOT_CLEAN'
     const qqRetained = alive(qqPid)

@@ -15,6 +15,7 @@ import path from 'node:path'
 import { TEMP_DIR } from '@/common/globalVars'
 import { SendElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/entities'
 import { SendPicElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
+import { WebQQSchema } from './settings'
 
 export interface WebQQRoutesOptions {
   uploadDir: string
@@ -67,7 +68,10 @@ export function createWebQQRoutes(ctx: Context, options: WebQQRoutesOptions): Ho
 export const WebQQ = {
   name: 'webqq',
   inject: ['account', 'webuiServer', 'app', 'store', 'qqProtocol', 'ntMsgApi', 'ntFileApi', 'ntUserApi', 'ntGroupApi', 'ntFriendApi'],
+  Config: WebQQSchema,
   apply(ctx: Context) {
+    // The settings are the WebUI's to read: taking them in place keeps the open chats' streams through a change
+    ctx.on('internal/update', () => {})
     const uploadDir = path.join(TEMP_DIR, 'webqq-uploads')
     mkdirSync(uploadDir, { recursive: true })
     const sseClients = new Set<SSEStreamingApi>()

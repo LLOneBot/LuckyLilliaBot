@@ -7,7 +7,7 @@ import type {
 type Method = (...args: any[]) => Promise<any>
 
 /**
- * Every REST endpoint, by the name the Koishi QQ adapters give it, for what the neutral API does not cover. Path
+ * Every REST endpoint, by name, for what the neutral API does not cover. Path
  * parameters come first in order; then the body, or the query for GET / DELETE; a body may be followed by a query.
  */
 export interface Internal {
@@ -59,7 +59,7 @@ export interface GuildInternal extends Internal {
 
 type Routes = Record<string, Partial<Record<'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', string | string[]>>>
 
-/** Group and C2C endpoints, and those of the bot itself (Koishi adapter-qq-crack, internal/group.ts) */
+/** Group and C2C endpoints, and those of the bot itself */
 const GROUP_ROUTES: Routes = {
   '/v2/groups/{channel.id}/messages': { POST: 'sendMessage' },
   '/v2/groups/{channel.id}/messages/{message.id}': { DELETE: 'deleteMessage' },
@@ -94,7 +94,7 @@ const GROUP_ROUTES: Routes = {
   '/v2/generate_url_link': { POST: 'generateUrlLink' },
 }
 
-/** Guild endpoints (Koishi adapter-qq-crack, internal/guild.ts) */
+/** Guild endpoints */
 const GUILD_ROUTES: Routes = {
   '/users/@me': { GET: 'getMe' },
   '/users/@me/guilds': { GET: 'getGuilds' },

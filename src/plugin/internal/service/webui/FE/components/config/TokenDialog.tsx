@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Eye, EyeOff } from 'lucide-react';
 import { validatePassword } from '../../utils/passwordValidation';
+import Portal from '../common/Portal';
 
 interface TokenDialogProps {
   visible: boolean;
@@ -62,12 +63,13 @@ const TokenDialog: React.FC<TokenDialogProps> = ({ visible, onConfirm, onClose, 
 
   if (!visible) return null;
 
+  // Above every dialog: a login that ran out asks again whatever is open
   return (
-    <>
+    <Portal>
       {/* Backdrop - 点击不关闭 */}
       <div 
         className="fixed inset-0 scrim flex items-center justify-center p-4"
-        style={{ zIndex: 9000 }}
+        style={{ zIndex: 10050 }}
         onClick={(e) => e.target === e.currentTarget && onClose?.()}
       >
         {/* Dialog */}
@@ -142,7 +144,7 @@ const TokenDialog: React.FC<TokenDialogProps> = ({ visible, onConfirm, onClose, 
           </div>
         </div>
       </div>
-    </>
+    </Portal>
   );
 };
 

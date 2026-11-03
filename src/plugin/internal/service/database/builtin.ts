@@ -2,10 +2,11 @@ import type { BuiltinPlugin } from '../../../host'
 import * as DatabasePlugin from '.'
 
 export const builtin: BuiltinPlugin = {
-  // Not core: a plugin implementing `database` (MySQL, say) can take its place
+  // Every plugin keeping data injects `database`: switching it off would stop them all
   name: 'builtin:database',
   title: '数据库',
   plugin: DatabasePlugin,
+  core: true,
   manifest: {
     category: 'service',
     icon: 'database',

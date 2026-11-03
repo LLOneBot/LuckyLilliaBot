@@ -4,28 +4,23 @@ import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest'
 vi.unmock('@/common/utils/environment')
 
 import {
-  currentPmhqTarget, getInstanceArg, getPluginDirs, getPmhqTarget, getProtocol, isPluginHmr, isPmhqMode, lockedProtocol,
+  currentNativeQQTarget, getInstanceArg, getPluginDirs, getNativeQQTarget, getProtocol, isPluginHmr, isNativeQQMode, lockedProtocol,
   lockProtocol, protocolPins, resolveProtocolSelection, setProtocolSelection,
 } from '@/common/utils/environment'
 
 const argv = (...args: string[]) => ['node', 'main.ts', ...args]
 
-describe('native PMHQ launch', () => {
-  it('selects local PMHQ explicitly and accepts paths in either form', () => {
-    expect(getPmhqTarget(argv())).toBeNull()
-    expect(getPmhqTarget(argv('--pmhq'))).toEqual({ configPath: '', qqPath: '' })
-    expect(getPmhqTarget(argv('--pmhq-config=/config.json'))).toEqual({ configPath: '/config.json', qqPath: '' })
-    expect(getPmhqTarget(argv('--pmhq', '--pmhq-config', '/config.json', '--qq-path', '/QQ'))).toEqual({ configPath: '/config.json', qqPath: '/QQ' })
-    expect(getPmhqTarget(argv('--pmhq', '--pmhq-config', '--dev'))).toEqual({ configPath: '', qqPath: '' })
-  })
-  it('rejects obsolete remote transport flags instead of silently choosing another account', () => {
-    for (const flag of ['--pmhq-port', '--pmhq-port=13000', '--pmhq-host=remote']) {
-      expect(() => getPmhqTarget(argv(flag))).toThrow('不再支持')
-    }
+describe('NativeQQ launch', () => {
+  it('selects the official QQ client bridge explicitly and accepts paths in either form', () => {
+    expect(getNativeQQTarget(argv())).toBeNull()
+    expect(getNativeQQTarget(argv('--nativeqq'))).toEqual({ configPath: '', qqPath: '' })
+    expect(getNativeQQTarget(argv('--nativeqq-config=/config.json'))).toEqual({ configPath: '/config.json', qqPath: '' })
+    expect(getNativeQQTarget(argv('--nativeqq', '--nativeqq-config', '/config.json', '--qq-path', '/QQ'))).toEqual({ configPath: '/config.json', qqPath: '/QQ' })
+    expect(getNativeQQTarget(argv('--nativeqq', '--nativeqq-config', '--dev'))).toEqual({ configPath: '', qqPath: '' })
   })
   it('follows process.argv before a plugin selection exists', () => {
     const real = process.argv
-    try { process.argv = argv('--pmhq'); expect(isPmhqMode()).toBe(true) }
+    try { process.argv = argv('--nativeqq'); expect(isNativeQQMode()).toBe(true) }
     finally { process.argv = real }
   })
 })
@@ -68,16 +63,17 @@ describe('protocolPins', () => {
     expect(protocolPins(argv(), {})).toEqual({})
   })
 
-  it('pins the native bridge and credits Desktop for its flags', () => {
-    expect(protocolPins(argv('--pmhq', '--pmhq-config=/config.json'), {})).toEqual({
-      mode: { value: 'pmhq', by: '--pmhq' },
-      pmhq: { value: { configPath: '/config.json', qqPath: '' }, by: '--pmhq' },
+  it('pins the official QQ client bridge to its flags', () => {
+    expect(protocolPins(argv('--nativeqq', '--nativeqq-config=/config.json'), {})).toEqual({
+      mode: { value: 'nativeqq', by: '--nativeqq' },
+      nativeQQ: { value: { configPath: '/config.json', qqPath: '' }, by: '--nativeqq' },
     })
-    expect(protocolPins(argv('--pmhq'), { LL_IPC_PIPE: 'x' })).toEqual({
-      mode: { value: 'pmhq', by: 'desktop' }, pmhq: { value: { configPath: '', qqPath: '' }, by: 'desktop' },
-    })
-    expect(protocolPins(argv('--protocol=macos'), { LL_IPC_PIPE: 'x' })).toEqual({
-      mode: { value: 'direct', by: 'desktop' }, protocol: { value: 'macos', by: 'desktop' },
+  })
+
+  it('pins the pure protocol with --direct, leaving its protocol free', () => {
+    expect(protocolPins(argv('--direct'), {})).toEqual({ mode: { value: 'direct', by: '--direct' } })
+    expect(protocolPins(argv('--direct', '-p', 'linux'), {})).toEqual({
+      mode: { value: 'direct', by: '--direct' }, protocol: { value: 'linux', by: '-p' },
     })
   })
 
@@ -96,15 +92,16 @@ describe('protocolPins', () => {
 })
 
 describe('resolveProtocolSelection', () => {
-  const settings = { mode: 'direct', protocol: 'macos', pmhq: { configPath: '', qqPath: '' } } as const
+  const settings = { mode: 'direct', protocol: 'macos', nativeQQ: { qqPath: '/QQ' } } as const
+  const selected = { ...settings, nativeQQ: { configPath: '', qqPath: '/QQ' } }
 
-  it('lets each pinned field win and keeps the rest', () => {
-    expect(resolveProtocolSelection(settings, {})).toEqual(settings)
-    expect(resolveProtocolSelection(settings, { protocol: { value: 'watch', by: '-p' } })).toEqual({ ...settings, protocol: 'watch' })
+  it('lets each pinned field win and keeps the rest, a configuration file coming from the launch only', () => {
+    expect(resolveProtocolSelection(settings, {})).toEqual(selected)
+    expect(resolveProtocolSelection(settings, { protocol: { value: 'watch', by: '-p' } })).toEqual({ ...selected, protocol: 'watch' })
     expect(resolveProtocolSelection(settings, {
-      mode: { value: 'pmhq', by: '--pmhq-port' },
-      pmhq: { value: { configPath: '/pmhq.json', qqPath: '' }, by: '--pmhq-port' },
-    })).toEqual({ mode: 'pmhq', protocol: 'macos', pmhq: { configPath: '/pmhq.json', qqPath: '' } })
+      mode: { value: 'nativeqq', by: '--nativeqq' },
+      nativeQQ: { value: { configPath: '/nativeqq.json', qqPath: '' }, by: '--nativeqq' },
+    })).toEqual({ mode: 'nativeqq', protocol: 'macos', nativeQQ: { configPath: '/nativeqq.json', qqPath: '' } })
   })
 })
 
@@ -112,7 +109,7 @@ describe('resolveProtocolSelection', () => {
 describe('the protocol in effect', () => {
   const realArgv = process.argv
   const realEnv = process.env
-  const direct = (protocol: 'linux' | 'macos' | 'windows') => ({ mode: 'direct', protocol, pmhq: { configPath: '/a.json', qqPath: '' } } as const)
+  const direct = (protocol: 'linux' | 'macos' | 'windows') => ({ mode: 'direct', protocol, nativeQQ: { configPath: '/a.json', qqPath: '' } } as const)
 
   beforeAll(() => {
     process.argv = argv()
@@ -124,18 +121,20 @@ describe('the protocol in effect', () => {
     process.env = realEnv
   })
 
-  it('follows the selection of the NT protocol plugin', () => {
+  it('follows the selection of the NT protocol plugin, macOS by default', () => {
+    expect(getProtocol()).toBe('macos')
+    setProtocolSelection(direct('linux'))
     expect(getProtocol()).toBe('linux')
     setProtocolSelection(direct('macos'))
     expect(getProtocol()).toBe('macos')
-    expect(isPmhqMode()).toBe(false)
+    expect(isNativeQQMode()).toBe(false)
   })
 
-  it('keeps linux for PMHQ whatever the pure protocol was set to', () => {
-    setProtocolSelection({ mode: 'pmhq', protocol: 'macos', pmhq: { configPath: '/pmhq.json', qqPath: '' } })
+  it('keeps linux for NativeQQ whatever the pure protocol was set to', () => {
+    setProtocolSelection({ mode: 'nativeqq', protocol: 'macos', nativeQQ: { configPath: '/nativeQQ.json', qqPath: '' } })
     expect(getProtocol()).toBe('linux')
-    expect(isPmhqMode()).toBe(true)
-    expect(currentPmhqTarget()).toEqual({ configPath: '/pmhq.json', qqPath: '' })
+    expect(isNativeQQMode()).toBe(true)
+    expect(currentNativeQQTarget()).toEqual({ configPath: '/nativeQQ.json', qqPath: '' })
   })
 
   it('stays with what the pure protocol was locked to until a restart', () => {
@@ -145,7 +144,7 @@ describe('the protocol in effect', () => {
     setProtocolSelection(direct('windows'))
     expect(lockedProtocol()).toBe('macos')
     expect(getProtocol()).toBe('macos')
-    setProtocolSelection({ ...direct('windows'), mode: 'pmhq' })
+    setProtocolSelection({ ...direct('windows'), mode: 'nativeqq' })
     expect(getProtocol()).toBe('linux')
   })
 })

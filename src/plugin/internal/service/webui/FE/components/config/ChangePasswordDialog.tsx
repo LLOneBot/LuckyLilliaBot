@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Eye, EyeOff, Lock } from 'lucide-react';
 import { apiFetch } from '../../utils/api';
-import { showToast } from '../common';
+import { Portal, showToast } from '../common';
 import { validatePassword } from '../../utils/passwordValidation';
 
 interface ChangePasswordDialogProps {
@@ -79,12 +79,12 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
 
   if (!visible) return null;
 
+  // Out of the dialog it is opened from, whose glass would otherwise hold it; a click outside does not close it
   return (
-    <>
+    <Portal>
       <div
         className="fixed inset-0 scrim flex items-center justify-center p-4"
-        style={{ zIndex: 9000 }}
-        onClick={(e) => e.target === e.currentTarget && onClose()}
+        style={{ zIndex: 10001 }}
       >
         <div className="glass glass-thick r-window glass-pop w-full max-w-md">
           {/* Header */}
@@ -191,7 +191,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
           </div>
         </div>
       </div>
-    </>
+    </Portal>
   );
 };
 

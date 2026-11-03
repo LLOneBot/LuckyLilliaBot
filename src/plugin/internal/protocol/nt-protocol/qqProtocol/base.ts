@@ -5,11 +5,10 @@ import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import QRCode from 'qrcode'
 import { Oidb } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
-import type { PBData, QQResourceUsage } from './types'
+import type { PBData, QQResourceUsage, BridgeStatus } from './types'
 import type { SelfInfo } from '../ntqqapi/types'
 import type { AuthTokenStatus } from './direct-lib/authTokenWatcher'
 import { Context, Service } from 'cordis'
-import { setLoginState } from '../llbot-ipc'
 
 type DisconnectCallback = (duration: number) => void
 
@@ -33,7 +32,19 @@ declare module 'cordis' {
   }
 }
 
-/** PMHQ (native) 与 Direct (native sign + TCP) 共用的基类 */
+/** NativeQQ (桥接官方 QQ 客户端) 与 Direct (native sign + TCP) 共用的基类 */
+export interface QuickLoginAccount {
+  uin: string
+  uid: string
+  nick: string
+  faceUrl?: string
+}
+
+export interface QuickLoginAccounts {
+  ready: boolean
+  accounts: QuickLoginAccount[]
+}
+
 export abstract class QQProtocolBase extends Service {
   static inject = ['config']
 
@@ -84,9 +95,20 @@ export abstract class QQProtocolBase extends Service {
     sig: string
   } | null>
 
-  /** 仅 Direct 提供账号列表；NativeQQ 通过启动参数 -q 或配置 quick_login_qq 请求 QQ 客户端快速登录。 */
-  public listQuickLoginAccounts(): Array<{ uin: string; uid: string; nick: string; savedAt: number }> {
-    return []
+  /**
+   * The accounts that log in without a QR code: Direct's saved sessions, the bridge's from the injected QQ.
+   * `ready: false` while the bridge's QQ is not far enough along to say: ask again.
+   */
+  public async listQuickLoginAccounts(): Promise<QuickLoginAccounts> {
+    return { ready: true, accounts: [] }
+  }
+
+  /** Only the bridge has something to start: QQ, from the NTQQ page's button */
+  public async launch(): Promise<void> {}
+
+  /** The bridge's session as NativeQQ reports it; undefined for the pure protocol */
+  public async bridgeStatus(): Promise<BridgeStatus | undefined> {
+    return undefined
   }
 
   /** 仅 Direct 实现; 抛错时 FE 退回扫码 */
@@ -100,7 +122,7 @@ export abstract class QQProtocolBase extends Service {
   /** WebUI 存了新的 auth token, 立刻校验, 不等下一轮查文件 */
   public checkAuthToken(): void {}
 
-  /** 只有 PMHQ 有 QQ 进程可量; null 时 WebUI 不显示 QQ 资源卡 */
+  /** 只有 NativeQQ 有 QQ 进程可量; null 时 WebUI 不显示 QQ 资源卡 */
   public async getQQResourceUsage(): Promise<QQResourceUsage | null> {
     return null
   }
@@ -130,7 +152,6 @@ export abstract class QQProtocolBase extends Service {
     this.selfInfo.uid = ''
     this.selfInfo.nick = ''
     this.resetQrState()
-    setLoginState({ state: 'initializing', uin: undefined, nickname: undefined, qrcode_png_base64: undefined })
   }
 
   public async sendOidb(
@@ -175,7 +196,7 @@ export abstract class QQProtocolBase extends Service {
   }
 
   /**
-   * 返回缓存的那张 (过期才拉新), 终端 / WebUI / Desktop 显示的是同一张码。expireTime 是剩余秒数。
+   * 返回缓存的那张 (过期才拉新), 终端 / WebUI 显示的是同一张码。expireTime 是剩余秒数。
    * 调用方是 WebUI 上的用户, 算手动刷新, 不受自动刷新上限限制
    */
   public async getLoginQrCode(): Promise<LoginQrCode> {
@@ -243,7 +264,7 @@ export abstract class QQProtocolBase extends Service {
 
   /**
    * Cap on loop-driven QR fetches (first code included) before the loop stops refreshing and waits
-   * for a manual refresh. Unlimited by default: PMHQ only reads the codes QQ itself refreshes.
+   * for a manual refresh. Unlimited by default: NativeQQ only reads the codes QQ itself refreshes.
    */
   protected qrAutoRefreshLimit(): number {
     return Number.POSITIVE_INFINITY
@@ -257,7 +278,6 @@ export abstract class QQProtocolBase extends Service {
     }
     if (!this.qrAutoRefreshStopLogged) {
       this.qrAutoRefreshStopLogged = true
-      setLoginState({ state: 'expired' })
       this.logger.warn(
         `已自动刷新 ${this.qrAutoRefreshCount} 张二维码仍未登录, 停止自动刷新; 到 WebUI 登录页点击刷新可继续, 或重启`,
       )
@@ -277,10 +297,10 @@ export abstract class QQProtocolBase extends Service {
     this.lastPrintedQrSig = ''
   }
 
-  /** Direct 在这里启动扫码 poll; PMHQ 靠 /health 探测 online */
+  /** Direct 在这里启动扫码 poll; NativeQQ 靠 health() 探测 online */
   protected onQrRefreshed(): void {}
 
-  /** 同时落盘 png、推给 Desktop。同一张码只打印一次 */
+  /** 同时落盘 png。同一张码只打印一次 */
   protected async printQrToTerminal(): Promise<void> {
     try {
       const data = await this.peekLoginQrCode(false)
@@ -289,8 +309,6 @@ export abstract class QQProtocolBase extends Service {
       const sig = this.qrResult?.sig || ''
       if (!sig || sig === this.lastPrintedQrSig) return
       this.lastPrintedQrSig = sig
-
-      setLoginState({ state: 'need_qrcode', qrcode_png_base64: data.pngBase64QrcodeData })
 
       const qrText = await QRCode.toString(data.qrcodeUrl, { type: 'terminal', small: true })
       console.log('\n========== 请使用手机QQ扫描二维码登录 ==========')

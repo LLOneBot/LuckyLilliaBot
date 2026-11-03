@@ -24,26 +24,15 @@ vi.mock('@/common/config', () => ({
   })),
 }))
 
-vi.mock('@/ntqqapi/native/pmhq', () => ({
-  pmhq: {
-    getProcessInfo: vi.fn(() => Promise.resolve({
-      memory: { rss: 100000000, totalMem: 8000000000 },
-      cpu: { percent: 5.0 },
-    })),
-    tellPort: vi.fn(() => Promise.resolve()),
-    getMultiMsg: vi.fn(() => Promise.resolve([])),
-  },
-}))
-
 vi.mock('@/main/log', () => ({
   getLogCache: vi.fn(() => []),
 }))
 
 vi.mock('@/common/utils/environment', () => ({
   isDockerEnvironment: vi.fn(() => false),
-  isPmhqMode: vi.fn(() => false),
-  getPmhqTarget: vi.fn(() => null),
-  currentPmhqTarget: vi.fn(() => ({ configPath: '', qqPath: '' })),
+  isNativeQQMode: vi.fn(() => false),
+  getNativeQQTarget: vi.fn(() => null),
+  currentNativeQQTarget: vi.fn(() => ({ configPath: '', qqPath: '' })),
   launchPins: vi.fn(() => ({})),
   lockedProtocol: vi.fn(() => undefined),
   getProtocol: vi.fn(() => 'linux'),

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
 import { createNTStatsRoutes } from '@/plugin/internal/protocol/nt-protocol/statsRoutes'
-import { getProtocol, isPmhqMode } from '@/common/utils/environment'
+import { getProtocol, isNativeQQMode } from '@/common/utils/environment'
 
 // The NT protocol plugin's Dashboard figures
 describe('GET /ntqq/stats', () => {
@@ -55,9 +55,9 @@ describe('GET /ntqq/stats', () => {
     services(undefined)
     vi.mocked(getProtocol).mockReturnValue('macos')
     expect((await stats()).protocol).toBe('macos')
-    vi.mocked(isPmhqMode).mockReturnValue(true)
+    vi.mocked(isNativeQQMode).mockReturnValue(true)
     const data = await stats()
-    expect(data.mode).toBe('pmhq')
+    expect(data.mode).toBe('nativeqq')
     expect(data.protocol).toBeUndefined()
   })
 })

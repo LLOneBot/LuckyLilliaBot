@@ -1,6 +1,4 @@
-import { setHostShutdown, startIpcServer, stopIpcServer } from './ipc'
-
-/** One host shutdown path: signals, Desktop requests, and parent death all await plugin disposal. */
+/** One host shutdown path: signals and the parent's death both await plugin disposal. */
 export function installHostLifecycle(dispose: () => Promise<void>, log: (error: unknown) => void): () => Promise<void> {
   let stopping: Promise<void> | undefined
   let parentTimer: NodeJS.Timeout | undefined
@@ -8,10 +6,9 @@ export function installHostLifecycle(dispose: () => Promise<void>, log: (error: 
     if (parentTimer) clearInterval(parentTimer)
     process.off('SIGINT', requestStop)
     process.off('SIGTERM', requestStop)
-    try { await dispose() } finally { await stopIpcServer() }
+    await dispose()
   })()
   const requestStop = () => { void stop().then(() => process.exit(0), error => { log(error); process.exit(1) }) }
-  setHostShutdown(requestStop)
   process.once('SIGINT', requestStop)
   process.once('SIGTERM', requestStop)
   const parent = Number(process.env.LL_PARENT_PID)
@@ -23,6 +20,5 @@ export function installHostLifecycle(dispose: () => Promise<void>, log: (error: 
     }, 1000)
     parentTimer.unref()
   }
-  startIpcServer()
   return stop
 }

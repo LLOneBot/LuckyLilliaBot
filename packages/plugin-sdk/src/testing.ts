@@ -46,11 +46,13 @@ export interface TestCommandSettings {
   bare: boolean
   /** `platform:userId`, or a user id on every platform */
   owners: string[]
-  help: boolean
 }
 
 export interface TestApp {
-  /** Load the plugin under test here: `bots`, `commands` and `timer` are in place, `ctx.storage` is a temporary directory. */
+  /**
+   * Load the plugin under test here: `bots`, `commands`, `http` and `timer` are in place, `ctx.storage` is a temporary
+   * directory. `http` goes out directly unless a test hooks `http/fetch-init`.
+   */
   readonly ctx: Context
   /** The command settings; change them in place. */
   readonly commands: TestCommandSettings

@@ -1,4 +1,5 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { Context, Fiber, Service } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
@@ -128,6 +129,38 @@ describe('PluginService', () => {
     expect(description.defaults).toEqual({ n: 1 })
     expect(description.config).toBeNull()
     expect(description.schema).toMatchObject({ refs: expect.any(Object), uid: expect.any(Number) })
+  })
+
+  it('keeps the role(\'secret\') fields of a package from the WebUI, in lists whatever order they come back in', async () => {
+    writePlugin(pluginRoot, 'keys', {
+      'index.js': `
+        import Schema from 'schemastery'
+        export const name = 'keys'
+        export const Config = Schema.object({
+          token: Schema.string().role('secret').default(''),
+          ais: Schema.array(Schema.object({ name: Schema.string(), key: Schema.string().role('secret').default('') })).default([]),
+        })
+        export function apply() {}
+      `,
+    })
+    const plugins = await boot()
+    const { id } = byName('keys')
+    const stored = () => JSON.parse(readFileSync(file, 'utf8')).entries.find((entry: { name: string }) => entry.name === 'keys').config
+    await plugins.updateConfig(id, { token: 't0p', ais: [{ name: 'a', key: 'ka' }, { name: 'b', key: 'kb' }] })
+    const description = await plugins.describe(id)
+    expect(description.secrets).toEqual(['token', 'ais.*.key'])
+    expect(JSON.stringify([description.config, description.effective])).not.toMatch(/t0p|ka|kb/)
+    const shown = description.effective as { token: string; ais: { name: string; key: string }[] }
+    expect(shown.token).toBe(SECRET_MASK)
+    // b moved up, a went away, c is new: each key stays with its own item
+    await plugins.updateConfig(id, { ...shown, ais: [shown.ais[1], { name: 'c', key: 'kc' }] })
+    expect(stored()).toEqual({ token: 't0p', ais: [{ name: 'b', key: 'kb' }, { name: 'c', key: 'kc' }] })
+    const again = (await plugins.describe(id)).effective as typeof shown
+    await expect(plugins.updateConfig(id, { ...again, ais: [{ name: 'b', key: `${SECRET_MASK}#00000000` }] }))
+      .rejects.toMatchObject({ issues: [{ path: ['ais', '0', 'key'] }] })
+    // A blank in a list empties that one key
+    await plugins.updateConfig(id, { ...again, ais: [{ ...again.ais[0], key: '' }, again.ais[1]] })
+    expect(stored().ais.map((ai: { key?: string }) => ai.key ?? '')).toEqual(['', 'kc'])
   })
 
   it('reports a throwing apply() as failed without affecting other plugins', async () => {
@@ -605,6 +638,72 @@ describe('PluginService webui', () => {
     await boot()
     expect(ctx.plugins.uiPrefs().hidden).toEqual(['ui|dashboard.cards|x'])
     expect(byName('ui').webuiApproved).toBe(false)
+  })
+})
+
+describe('PluginService details', () => {
+  function showcase(dir: string, pkg: Record<string, unknown>, files: Record<string, string>) {
+    writePlugin(pluginRoot, dir, { 'index.js': 'export function apply() {}' }, pkg)
+    for (const [name, content] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(pluginRoot, dir, name)), { recursive: true })
+      writeFileSync(path.join(pluginRoot, dir, name), content)
+    }
+  }
+
+  it('lists the author, an image icon and whether there are details, which it reads when asked', async () => {
+    showcase('@scope/shown', {
+      version: '2.1.0',
+      author: 'Alice <a@b.c> (https://alice.dev)',
+      llbot: { icon: 'assets/icon.png', details: 'docs/details.md', screenshots: ['assets/a.png', { src: 'assets/b.gif', caption: '群里' }] },
+    }, { 'assets/icon.png': '', 'docs/details.md': '# 介绍', 'assets/a.png': '', 'assets/b.gif': '' })
+    showcase('plain', { llbot: { icon: 'timer' } }, {})
+    const plugins = await boot()
+    expect(byName('@scope/shown')).toMatchObject({
+      author: { name: 'Alice', email: 'a@b.c', url: 'https://alice.dev' },
+      iconUrl: '/plugin-assets/@scope+shown/2.1.0/assets/icon.png',
+      hasDetails: true,
+    })
+    expect(byName('plain')).not.toHaveProperty('iconUrl')
+    expect(byName('plain')).not.toHaveProperty('hasDetails')
+    expect(byName('plain')).not.toHaveProperty('author')
+
+    const id = byName('@scope/shown').id
+    expect(await plugins.details(id)).toEqual({
+      markdown: '# 介绍',
+      base: '/plugin-assets/@scope+shown/2.1.0/docs/',
+      screenshots: [
+        { url: '/plugin-assets/@scope+shown/2.1.0/assets/a.png' },
+        { url: '/plugin-assets/@scope+shown/2.1.0/assets/b.gif', caption: '群里' },
+      ],
+    })
+    // An edit shows without a rescan
+    writeFileSync(path.join(pluginRoot, '@scope/shown', 'docs', 'details.md'), '# 改过')
+    expect((await plugins.details(id)).markdown).toBe('# 改过')
+    expect(await plugins.details(byName('plain').id)).toEqual({ base: '/plugin-assets/plain/1.0.0/', screenshots: [] })
+    await expect(plugins.details('nope')).rejects.toBeInstanceOf(PluginNotFoundError)
+  })
+
+  it('sends the list out again when a rescan finds an edit of what the WebUI shows, without reloading', async () => {
+    showcase('edited', { llbot: { title: '旧名字' } }, {})
+    const plugins = await boot()
+    const changes: (string | undefined)[] = []
+    ctx.on('plugins/changed', id => changes.push(id))
+    await plugins.scan()
+    expect(changes).toEqual([])
+
+    showcase('edited', { llbot: { title: '新名字', icon: 'a.png' } }, { 'a.png': '' })
+    expect(await plugins.scan()).toEqual({ added: [], changed: [], removed: [] })
+    expect(changes).toEqual([undefined])
+    expect(byName('edited')).toMatchObject({ manifest: { title: '新名字' }, iconUrl: '/plugin-assets/edited/1.0.0/a.png' })
+  })
+
+  it('serves the images inside a package and nothing else, approved or not', async () => {
+    showcase('pics', {}, { 'a.png': '', 'deep/b.SVG': '', 'notes.md': '' })
+    const plugins = await boot()
+    expect(plugins.asset('pics', 'a.png')).toBe(path.join(await realpath(path.join(pluginRoot, 'pics')), 'a.png'))
+    expect(plugins.asset('pics', 'deep/b.SVG')).toBeDefined()
+    for (const file of ['notes.md', 'index.js', 'package.json', '../alpha/x.png']) expect(plugins.asset('pics', file)).toBeUndefined()
+    expect(plugins.asset('nope', 'a.png')).toBeUndefined()
   })
 })
 

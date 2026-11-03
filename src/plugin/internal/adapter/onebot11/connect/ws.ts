@@ -417,7 +417,8 @@ class OB11WebSocketReverse {
       headers: {
         'X-Self-ID': this.ctx.account.uin,
         'Authorization': `Bearer ${this.config.token}`,
-        'x-client-role': 'Universal', // koishi-adapter-onebot 需要这个字段
+        // Part of the OneBot 11 reverse WebSocket handshake; some frameworks refuse the connection without it
+        'x-client-role': 'Universal',
         'User-Agent': `LLOneBot/${version}`,
       },
     })

@@ -1,7 +1,7 @@
 import h from '@satorijs/element'
 import { Ark, Button, Keyboard, Markdown, MessageType, SendRequest, Stream } from './types'
 
-// The platform-specific elements of Koishi adapter-qq-crack (markdown.ts, ark.ts), and its button conversion
+// The platform-specific elements (markdown, ark) and the button conversion
 
 export type CustomRequest = Omit<SendRequest, 'msg_id' | 'msg_seq' | 'event_id'>
 
@@ -95,7 +95,7 @@ export function decodeButton(attrs: Attrs, label: string): Button {
     : isRecord(action.permission) ? action.permission : undefined
   const type = attrs.type ?? action.type
   const link = type === 'link' || type === 0
-  // Satori's action is a callback, as in upstream adapter-qq; crack made it a command like a button with no type
+  // Satori's `action` type is a callback button
   const callback = type === 'action'
   const text = typeof attrs.text === 'string' ? attrs.text : undefined
 

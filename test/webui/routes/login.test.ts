@@ -3,7 +3,7 @@ import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
 import { createLoginRoutes } from '@/plugin/internal/protocol/nt-protocol/loginRoutes'
 import { createLoginInfoRoutes } from '@/plugin/internal/protocol/nt-protocol/loginInfoRoutes'
-import { isPmhqMode, launchPins, lockedProtocol } from '@/common/utils/environment'
+import { isNativeQQMode, launchPins, lockedProtocol } from '@/common/utils/environment'
 
 describe('login routes', () => {
   let ctx: ReturnType<typeof createMockContext>
@@ -77,6 +77,29 @@ describe('login routes', () => {
     })
   })
 
+  describe('POST /nativeqq/launch', () => {
+    const launch = () => createTestApp(createLoginRoutes(ctx)).request('/nativeqq/launch', { method: 'POST' })
+
+    it('starts QQ for the official QQ client bridge only', async () => {
+      ctx.qqProtocol.launch = vi.fn(async () => {})
+      expect((await launch()).status).toBe(400)
+      expect(ctx.qqProtocol.launch).not.toHaveBeenCalled()
+      vi.mocked(isNativeQQMode).mockReturnValue(true)
+      const res = await launch()
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ success: true })
+      expect(ctx.qqProtocol.launch).toHaveBeenCalledTimes(1)
+    })
+
+    it('says why QQ did not start', async () => {
+      vi.mocked(isNativeQQMode).mockReturnValue(true)
+      ctx.qqProtocol.launch = vi.fn(async () => { throw new Error('QQ 路径不存在') })
+      const res = await launch()
+      expect(res.status).toBe(500)
+      expect(await res.json()).toEqual({ success: false, message: 'QQ 路径不存在' })
+    })
+  })
+
   describe('GET /login-info', () => {
     it('returns selfInfo', async () => {
       const app = createTestApp(createLoginInfoRoutes(ctx))
@@ -104,15 +127,24 @@ describe('login routes', () => {
         lockedProtocol: 'linux',
         pins: { protocol: { value: 'macos', by: '--protocol' } },
       })
-      expect(body.data.pmhq).toBeUndefined()
+      expect(body.data.nativeQQ).toBeUndefined()
     })
 
-    it('tells the bridge whether PMHQ answers', async () => {
-      vi.mocked(isPmhqMode).mockReturnValue(true)
+    it('tells the bridge whether NativeQQ answers', async () => {
+      vi.mocked(isNativeQQMode).mockReturnValue(true)
       ctx.qqProtocol.get_is_connected = vi.fn(() => false)
       const body = await (await createTestApp(createLoginInfoRoutes(ctx)).request('/login-info')).json()
-      expect(body.data.mode).toBe('pmhq')
-      expect(body.data.pmhq).toEqual({ configPath: '', qqPath: '', connected: false })
+      expect(body.data.mode).toBe('nativeqq')
+      expect(body.data.nativeQQ).toEqual({ configPath: '', qqPath: '', connected: false })
+    })
+
+    it('passes on what NativeQQ says of the bridge', async () => {
+      vi.mocked(isNativeQQMode).mockReturnValue(true)
+      const status = { session: 'starting', authTokenSet: false, qqRunning: false, loggedIn: false, qrcodeAvailable: false }
+      ctx.qqProtocol.get_is_connected = vi.fn(() => false)
+      ctx.qqProtocol.bridgeStatus = vi.fn(async () => status)
+      const body = await (await createTestApp(createLoginInfoRoutes(ctx)).request('/login-info')).json()
+      expect(body.data.nativeQQ).toEqual({ configPath: '', qqPath: '', connected: false, status })
     })
   })
 })

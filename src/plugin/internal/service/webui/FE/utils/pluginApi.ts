@@ -1,6 +1,7 @@
 import { apiFetch, ApiError, getToken } from './api'
 import {
-  ConfigIssue, DependencyReport, EntryScope, PluginDescription, PluginStatus, ReloadResult, UiPrefs, UiPrefsPatch,
+  ConfigIssue, DependencyReport, EntryScope, PluginDescription, PluginDetails, PluginStatus, ReloadResult, UiPrefs,
+  UiPrefsPatch,
 } from '../types/plugins'
 
 const BASE = '/api/plugins'
@@ -55,6 +56,8 @@ export const removePlugin = (id: string) => request<null>(`/${id}`, { method: 'D
 export const describePlugin = (id: string) => request<PluginDescription>(`/${id}/schema`)
 
 export const getPluginDependencies = (id: string) => request<DependencyReport>(`/${id}/dependencies`)
+
+export const getPluginDetails = (id: string) => request<PluginDetails>(`/${id}/details`)
 
 export const getUiPrefs = () => request<UiPrefs>('/ui')
 

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { compareVersions, satisfies } from 'compare-versions'
+import { parseAuthor } from '../../../host/manifest'
 
 /** The keyword a plugin package lists (`keywords` in package.json) to show up in the market */
 export const PLUGIN_KEYWORD = 'luckylillia-plugin'
@@ -38,6 +39,9 @@ export interface SearchItem {
   description?: string
   keywords?: string[]
   date?: string
+  /** package.json `author`'s name */
+  author?: string
+  /** Who published it on npm */
   publisher?: string
   links?: { npm?: string; homepage?: string; repository?: string }
 }
@@ -63,15 +67,18 @@ export class RegistryError extends Error {
 
 const ABBREVIATED = 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
 
+export type Fetch = (url: string, init?: RequestInit) => Promise<Response>
+
 export class Registry implements RegistryClient {
-  constructor(readonly url: string, readonly searchUrl: string) {}
+  /** `fetch`: the market passes `ctx.http`'s, so that the builtin proxy applies */
+  constructor(readonly url: string, readonly searchUrl: string, private readonly fetch: Fetch = (url, init) => globalThis.fetch(url, init)) {}
 
   packument(name: string, full = false): Promise<Packument> {
     return this.json<Packument>(`${base(this.url)}/${name.replace('/', '%2f')}`, full ? 'application/json' : ABBREVIATED, `package ${name}`)
   }
 
   async tarball(version: PackageVersion): Promise<Buffer> {
-    const response = await fetch(version.dist.tarball, { signal: AbortSignal.timeout(120_000) })
+    const response = await this.fetch(version.dist.tarball, { signal: AbortSignal.timeout(120_000) })
     if (!response.ok) throw new RegistryError(`${version.name}@${version.version}: ${response.status} fetching ${version.dist.tarball}`, response.status)
     const data = Buffer.from(await response.arrayBuffer())
     verify(data, version)
@@ -93,6 +100,7 @@ export class Registry implements RegistryClient {
         description: typeof pkg.description === 'string' ? pkg.description : undefined,
         keywords: Array.isArray(pkg.keywords) ? pkg.keywords : undefined,
         date: typeof pkg.date === 'string' ? pkg.date : undefined,
+        author: parseAuthor(pkg.author)?.name,
         publisher: typeof pkg.publisher?.username === 'string' ? pkg.publisher.username : undefined,
         links: pkg.links && typeof pkg.links === 'object' ? pkg.links : undefined,
       } satisfies SearchItem]
@@ -103,9 +111,9 @@ export class Registry implements RegistryClient {
   private async json<T>(url: string, accept: string, what: string): Promise<T> {
     let response: Response
     try {
-      response = await fetch(url, { headers: { accept }, signal: AbortSignal.timeout(30_000) })
+      response = await this.fetch(url, { headers: { accept }, signal: AbortSignal.timeout(30_000) })
     } catch (e) {
-      throw new RegistryError(`${what}: cannot reach ${new URL(url).origin}: ${(e as Error).cause ?? (e as Error).message}`)
+      throw new RegistryError(`${what}: cannot reach ${new URL(url).origin}: ${reasonOf(e)}`)
     }
     if (response.status === 404) throw new RegistryError(`${what} not found on ${new URL(url).origin}`, 404)
     if (!response.ok) throw new RegistryError(`${what}: ${new URL(url).origin} answered ${response.status}`, response.status)
@@ -114,6 +122,13 @@ export class Registry implements RegistryClient {
 }
 
 const base = (url: string) => url.replace(/\/+$/, '')
+
+/** Down the cause chain: fetch() itself only says "fetch failed" */
+function reasonOf(error: unknown): string {
+  let cause = error as { message?: string; code?: string; cause?: unknown } | undefined
+  while (cause?.cause) cause = cause.cause as typeof cause
+  return cause?.code ?? cause?.message ?? String(error)
+}
 
 const STRENGTH = ['sha1', 'sha256', 'sha384', 'sha512']
 

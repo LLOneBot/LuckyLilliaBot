@@ -26,8 +26,14 @@ interface QuickLoginResult {
 }
 
 interface GetLoginListResult {
+  /** false while the bridge's QQ is not up far enough to list its accounts */
+  ready?: boolean;
   LocalLoginInfoList: Account[];
 }
+
+const LIST_RETRY_MS = 2000;
+// About two minutes for QQ to come up
+const LIST_RETRIES = 60;
 
 interface QQLoginProps {
   /** A quick login went through: the account is online now */
@@ -38,7 +44,10 @@ interface QQLoginProps {
 const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
   const ctx = usePluginContext();
   const showToast = ctx.toast;
-  const [loginMode, setLoginMode] = useState<'quick' | 'qr'>('quick');
+  // Quick login only once the list says there is someone to log in: the bridge lists none (yet)
+  const [loginMode, setLoginMode] = useState<'loading' | 'quick' | 'qr'>('loading');
+  const [waitingQQ, setWaitingQQ] = useState(false);
+  const aliveRef = useRef(true);
   // Why the quick login did not get online, kept on screen: a toast is easily missed
   const [error, setError] = useState('');
   const [showAccountList, setShowAccountList] = useState(false);
@@ -93,25 +102,38 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
   const fetchQuickLoginList = useCallback(async () => {
     if (hasFetchedRef.current) return;
     hasFetchedRef.current = true;
-    try {
-      const data = await ctx.api<GetLoginListResult>('/api/quick-login-list');
-      if (data?.LocalLoginInfoList) {
-        const quickLoginAccounts = data.LocalLoginInfoList.filter(item => item.isQuickLogin && !item.isUserLogin);
-        setAccounts(quickLoginAccounts);
-        if (quickLoginAccounts.length > 0) {
-          setSelectedAccount(prev => prev ?? quickLoginAccounts[0]);
-        } else {
-          setLoginMode('qr');
-        }
-      } else {
+    // The bridge's QQ lists its saved accounts only once it is up: ask again until it says
+    for (let attempt = 0; attempt < LIST_RETRIES; attempt++) {
+      let data: GetLoginListResult;
+      try {
+        data = await ctx.api<GetLoginListResult>('/api/quick-login-list');
+      } catch {
+        if (!aliveRef.current) return;
+        showToast('获取快速登录列表失败', 'error');
         setAccounts([]);
         setLoginMode('qr');
+        return;
       }
-    } catch {
-      showToast('获取快速登录列表失败', 'error');
-      setAccounts([]);
-      setLoginMode('qr');
+      if (!aliveRef.current) return;
+      if (data?.ready === false) {
+        setWaitingQQ(true);
+        await new Promise(resolve => setTimeout(resolve, LIST_RETRY_MS));
+        if (!aliveRef.current) return;
+        continue;
+      }
+      setWaitingQQ(false);
+      const quickLoginAccounts = (data?.LocalLoginInfoList ?? []).filter(item => item.isQuickLogin && !item.isUserLogin);
+      setAccounts(quickLoginAccounts);
+      if (quickLoginAccounts.length > 0) {
+        setSelectedAccount(prev => prev ?? quickLoginAccounts[0]);
+        setLoginMode(mode => (mode === 'loading' ? 'quick' : mode));
+      } else {
+        setLoginMode('qr');
+      }
+      return;
     }
+    setWaitingQQ(false);
+    setLoginMode('qr');
   }, [ctx, showToast]);
 
   // The request returns once the login has an outcome: online, or the reason it is not
@@ -137,8 +159,10 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
   const selectAccount = (account: Account) => { setSelectedAccount(account); setShowAccountList(false); };
 
   useEffect(() => {
+    aliveRef.current = true;
     if (!hasFetchedRef.current) fetchQuickLoginList();
     return () => {
+      aliveRef.current = false;
       if (qrRefreshIntervalRef.current) clearTimeout(qrRefreshIntervalRef.current);
     };
   }, []);
@@ -163,6 +187,13 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
       {error && (
         <div className="w-full max-w-md mb-6 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm text-left">
           {error}
+        </div>
+      )}
+
+      {loginMode === 'loading' && (
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-theme-secondary">
+          <Loader2 size={18} className="animate-spin text-pink-500" />
+          {waitingQQ ? '正在等待 QQ 启动完成...' : '正在读取可快速登录的账号...'}
         </div>
       )}
 

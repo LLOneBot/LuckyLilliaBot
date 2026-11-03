@@ -1,7 +1,9 @@
 # NativeQQ 接入
 
-官方 QQ 桥接模式由 Bot 进程内的 `NativeQQ` 管理。启动参数和设置中的 `pmhq` 名称
-继续兼容，但不再启动独立 PMHQ 服务。纯协议模式仍使用同一原生包的签名接口。
+官方 QQ 客户端桥接由 Bot 进程内的 `NativeQQ` 管理，没有独立的桥接服务，也没有给桌面端用的
+IPC。启动参数、设置、路由和 docker 变量都用 NativeQQ 的名字（2026-11-02 起，旧名字
+不再识别；已保存的设置启动时由 `config/migrate.ts` 的 `renameNativeQQSettings()` 改名）。
+纯协议模式仍使用同一原生包的签名接口。
 签名与设备信息代码直接调用 `@/native` 的 `getNativeAddon()`；旧签名加载入口、
 独立签名二进制及废弃的 token 兼容文件已移除。
 
@@ -10,16 +12,18 @@
 在 Bot 工作目录中保存 `data/auth_token.txt`，运行：
 
 ```powershell
-node dist/llbot.js --pmhq -q 123456789
+node dist/llbot.js --nativeqq -q 123456789
 ```
 
 将示例 QQ 号替换为实际账号。Windows 默认使用 debugger；QQ 安装路径从系统解析，
 也可传 `--qq-path`。`-q` / `--qq` 指定的账号会覆盖配置文件的 `quick_login_qq`。
 快速登录依赖 QQ 已保存的有效登录状态。
 
-其他配置可通过绝对路径 `--pmhq-config` 指定。JSON 配置可设置 `hook_mode` 为
-`debugger`，以及字符串形式的 `quick_login_qq`。
+其他配置可通过绝对路径 `--nativeqq-config` 指定。JSON 配置可设置 `hook_mode` 为
+`debugger`，以及字符串形式的 `quick_login_qq`。配置文件只能由启动参数给（2026-11-02 起 WebUI
+不再有这一项）；WebUI 里只选 QQ 可执行文件，留空时用自动检测到的，见 core-pluginization.md §6。
 
+会话由 WebUI「NTQQ 协议」页的「启动 QQ」创建（`POST /api/nativeqq/launch` → `qqProtocol.launch()`）；启动时给了 `-q` / `quick_login_qq` 或在 docker 里，协议一启动就自动创建。界面上的状态（会话阶段、QQ 进程、是否登录）从 `health()` 读，经 `/api/login-info` 的 `nativeQQ.status` 给页面，见 core-pluginization.md §5。
 Bot 先创建会话，再由 token watcher 校验授权并允许 QQ 启动。只有 health 同时提供
 有效 UIN 和非空 UID 才发布在线状态；启动成功和收到数据包都不能单独代表登录成功。
 
@@ -39,13 +43,15 @@ node scripts/sync-to-bot.mjs --bot-dir <Bot绝对路径>
 `npm run build`，产物及其完整原生包写入 `dist`。运行时验证哈希，并将当前平台文件
 复制到按 buildId 区分的缓存后加载，以便 Windows 上更新原安装目录。
 
-新版只导出 `NativeQQ`，没有旧 `Pmhq` 构造器。旧 manifest 使用 `lucky-lillia.node`
+新版只导出 `NativeQQ` 构造器。旧 manifest 使用 `lucky-lillia.node`
 文件名时，先验证并备份整个旧 bundle，再同步；不要单独替换二进制或沿用旧 loader。
 `--dev` 使用独立 development bundle，不能用 production 自动替代。
 
 ## Docker 更新
 
-`docker/Dockerfile.pmhq` 将 QQ 基础镜像、Node 和 Bot 组合为一个容器。Linux 使用
+`docker/Dockerfile.nativeqq` 将 QQ 基础镜像、Node 和 Bot 组合为一个容器（`PROTOCOL_MODE=nativeqq`，
+`startup.sh` 以 `--nativeqq --nativeqq-config` 启动；配置文件取 `NATIVEQQ_CONFIG`，默认
+`/app/llbot/data/nativeqq_config.json`）。Linux 使用
 inline 模式及配套 sidecar，不能使用 Windows debugger。QQ 基础镜像应固定 digest，
 并满足 Node 和原生模块的 glibc 运行要求。
 
@@ -77,6 +83,17 @@ node script/native-debugger-smoke.mjs --uin 721011692 --auth-token-file <授权�
 
 脚本验证内置原生包版本、全新 QQ PID、实际在线身份、Bot 查询得到的昵称和正常退出。
 它会启动真实 QQ；输出仅包含元数据，凭证通过内存环境传给子进程。
+
+2026-11-02 去掉 IPC 后两个冒烟脚本改了控制方式，改完没有在真机上重跑：
+
+- 状态：开启只监听 127.0.0.1、随机密码的 WebUI，读 `/api/login-info`（`online` / `uin` / `uid` / `nick`，
+  桥接还有 `nativeQQ.status` 的会话阶段、QQ 是否在跑、是否登录、Auth Token）。端口从日志
+  `Webui 服务器已启动 127.0.0.1:<port>` 取。
+- QQ PID：`health()` 的 `qq_pid` 不再对外，改为 QQ 起来后对比启动前后的 QQ 主进程，多出的那一个就是；
+  一个都没多出却登录了，算复用了已有 QQ。收发包计数也不再检查，自身昵称查询已经是一次真实收发。
+- 停止：脚本起一个占位进程当 Bot 的 `LL_PARENT_PID`（它跟着脚本退出），要停时结束它，Bot 的父进程监视
+  （`src/main/hostLifecycle.ts`）照常 dispose 后以 0 退出。Windows 上发信号等于直接结束进程，不会 dispose。
+  这条路径用真实的 `hostLifecycle` 测过：结束占位进程约 1.2 秒后 Bot dispose 并退出 0。
 本次日志位于相邻 Node 项目的 `target/bot-nativeqq-live.log`、
 `target/bot-nativeqq-tests.log`、`target/bot-nativeqq-typecheck.log`、
 `target/bot-nativeqq-build.log`。Docker、Linux/macOS 的 Bot 实机运行不在本次验证范围。
@@ -105,7 +122,8 @@ node script/sign-smoke.mjs --uin 721011692 --protocol macos --auth-token-file <�
 ```
 
 脚本用进程内探针观察真实原生调用，保留原始参数、结果和 Promise，不替换签名
-实现。只记录调用和状态元数据，不保存授权、会话内容、签名字节或包体。
+实现。只记录调用和状态元数据，不保存授权、会话内容、签名字节或包体。上面记录里 IPC
+的部分是当时的做法，现在登录状态只看 `/api/login-info`，停止方式同上一节。
 可用 `--prepare-only` 检查构建和准备隔离配置。
 
 日志位于相邻 Node 项目的 `target/bot-sign-macos-live.log`、

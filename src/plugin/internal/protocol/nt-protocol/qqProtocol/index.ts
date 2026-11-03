@@ -1,21 +1,21 @@
 import { QQProtocolBase } from './base'
-import { PmhqQQProtocol } from './pmhq'
+import { NativeQQProtocol } from './nativeQQ'
 import { DirectQQProtocol } from './direct'
 import { FriendMixin, GroupMixin, MediaMixin, MessageMixin, SystemMixin, UserMixin } from './mixins'
 
 export type {
   PBData,
-  PMHQResSendPB,
-  PMHQResRecvPB,
-  PMHQReqSendPB,
-  PMHQRes,
-  PMHQReq,
+  NativeQQResSendPB,
+  NativeQQResRecvPB,
+  NativeQQReqSendPB,
+  NativeQQRes,
+  NativeQQReq,
   ResListener,
   QQResourceUsage,
 } from './types'
 
 export { QQProtocolBase } from './base'
-export { PmhqQQProtocol } from './pmhq'
+export { NativeQQProtocol } from './nativeQQ'
 export { DirectQQProtocol } from './direct'
 
 
@@ -45,7 +45,7 @@ function applyMixins<TBase extends new (...args: any[]) => object, TMixins exten
 const mixins = [GroupMixin, FriendMixin, MediaMixin, MessageMixin, UserMixin, SystemMixin] as const
 
 export const DirectQQProtocolClient = applyMixins(DirectQQProtocol, mixins)
-export const PmhqQQProtocolClient = applyMixins(PmhqQQProtocol, mixins)
+export const NativeQQProtocolClient = applyMixins(NativeQQProtocol, mixins)
 
 // 两个实现的 InstanceType 取 union 会推成 never, 所以用抽象 base 合并 mixin 的类型
 type QQProtocolInstance = MergeMixins<QQProtocolBase, typeof mixins>

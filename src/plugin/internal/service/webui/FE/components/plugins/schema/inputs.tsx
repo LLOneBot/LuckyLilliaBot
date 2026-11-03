@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import { Select } from '../../common/Select'
 import { SchemaNode } from './model'
 
 interface InputProps<T> {
@@ -10,8 +11,11 @@ interface InputProps<T> {
   path?: string[]
 }
 
-/** What the bot sends in place of a stored secret (SECRET_MASK in src/plugin/host/index.ts). */
+/** What the bot sends in place of a stored secret (src/plugin/host/secrets.ts). */
 export const SECRET_MASK = '********'
+
+/** In a list the mask carries a token, `********#<token>`, naming the stored secret wherever its item moves */
+export const isSecretMask = (text: string) => text === SECRET_MASK || text.startsWith(`${SECRET_MASK}#`)
 
 /** Given by a form that can empty a stored secret: sending the mask or nothing back keeps it. */
 export const SecretClearContext = createContext<((path: string) => void) | undefined>(undefined)
@@ -21,6 +25,7 @@ const invalidRing = 'border-red-400 focus:ring-red-500'
 export function StringInput({ node, value, onChange, invalid, path = [] }: InputProps<string>) {
   const [reveal, setReveal] = useState(false)
   const [cleared, setCleared] = useState(false)
+  const lastMask = useRef<string | undefined>(undefined)
   const clear = useContext(SecretClearContext)
   const { role, pattern, extra } = node.meta
   const text = value ?? ''
@@ -32,7 +37,8 @@ export function StringInput({ node, value, onChange, invalid, path = [] }: Input
     return <textarea value={text} rows={rows} onChange={e => onChange(e.target.value)} className={`${className} resize-y`} />
   }
   if (role === 'secret') {
-    const stored = text === SECRET_MASK
+    const stored = isSecretMask(text)
+    if (stored) lastMask.current = text
     return (
       <div className="flex items-center gap-2">
         <div className="relative flex-1 min-w-0">
@@ -42,6 +48,8 @@ export function StringInput({ node, value, onChange, invalid, path = [] }: Input
             placeholder={cleared ? '保存后清空已存的值' : undefined}
             // The stored one is selected, so typing replaces it
             onFocus={e => stored && e.target.select()}
+            // Emptying it is not clearing it: in a list a blank would empty the stored value, so the mask comes back
+            onBlur={() => text === '' && !cleared && lastMask.current && onChange(lastMask.current)}
             onChange={e => onChange(e.target.value)}
             className={`${className} pr-12`}
           />
@@ -105,9 +113,7 @@ export function DurationInput({ value, onChange, invalid }: InputProps<number>) 
         onChange={e => onChange(e.target.value === '' ? undefined : Math.round(Number(e.target.value) * unit.factor))}
         className={`input-field flex-1 ${invalid ? invalidRing : ''}`}
       />
-      <select value={unit.factor} onChange={e => setUnit(UNITS.find(item => item.factor === Number(e.target.value))!)} className="input-field w-28">
-        {UNITS.map(item => <option key={item.factor} value={item.factor}>{item.label}</option>)}
-      </select>
+      <Select value={unit} options={UNITS.map(item => ({ value: item, label: item.label }))} onChange={setUnit} className="w-28" />
     </div>
   )
 }
@@ -136,12 +142,7 @@ export function ChoiceInput({ options, value, onChange, radio, invalid }: {
       </div>
     )
   }
-  return (
-    <select value={index} onChange={e => onChange(options[Number(e.target.value)]?.value)} className={`input-field ${invalid ? invalidRing : ''}`}>
-      {index < 0 && <option value={-1}>请选择</option>}
-      {options.map((option, i) => <option key={i} value={i}>{option.label}</option>)}
-    </select>
-  )
+  return <Select value={value} options={options} onChange={onChange} className={invalid ? invalidRing : ''} />
 }
 
 /** Fallback for schemas a form cannot express field by field. */

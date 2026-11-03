@@ -5,7 +5,7 @@ export interface NTStats {
   online: boolean
   uin: string
   nick: string
-  mode: 'direct' | 'pmhq'
+  mode: 'direct' | 'nativeqq'
   protocol?: string
   version?: string
   friendCount?: number

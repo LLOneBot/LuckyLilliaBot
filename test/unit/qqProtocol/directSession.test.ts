@@ -20,7 +20,6 @@ import {
 } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/session'
 import { requestSign, setupSign, updateAuthToken } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign'
 import { teaEncrypt } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/tea'
-import { getCurrentLoginState } from '../../../src/plugin/internal/protocol/nt-protocol/llbot-ipc'
 
 vi.mock('@/common/globalVars', () => ({
   TEMP_DIR: '/tmp/test-data/temp',
@@ -293,7 +292,6 @@ describe('direct session authentication failures', () => {
     expect(offline).toHaveBeenCalledTimes(alreadyOnline ? 1 : 0)
     if (alreadyOnline) expect(offline).toHaveBeenCalledWith(expect.stringContaining(authMessage))
     expect(qrLoop).toHaveBeenCalledTimes(1)
-    expect(getCurrentLoginState()).toMatchObject({ state: 'need_qrcode' })
     expect(client['conn'].disconnect).not.toHaveBeenCalled()
     await expect(protocol.sendPB('test.command', Buffer.alloc(0))).rejects.toThrow('not logged in')
 
@@ -384,7 +382,6 @@ describe('direct session authentication failures', () => {
     expect(saveSession).not.toHaveBeenCalled()
     expect(startHeartbeat).not.toHaveBeenCalled()
     expect(protocol.authTokenStatus.loginError).toContain(authMessage)
-    expect(getCurrentLoginState()).toMatchObject({ state: 'need_qrcode' })
   })
 
   it('does not let a late registration failure clear a replacement session', async () => {
@@ -747,7 +744,6 @@ describe('reconnect and QR refresh after dropping offline', () => {
     await vi.advanceTimersByTimeAsync(3_000)
     expect(print).not.toHaveBeenCalled()
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(getCurrentLoginState()).toMatchObject({ state: 'expired' })
 
     stubQrFetch()
     await protocol.getLoginQrCode()
@@ -840,6 +836,5 @@ describe('reconnect and QR refresh after dropping offline', () => {
     await vi.advanceTimersByTimeAsync(2_000)
 
     expect(info).toHaveBeenCalledWith('二维码已过期, 这张码用了 2s')
-    expect(getCurrentLoginState()).toMatchObject({ state: 'expired' })
   })
 })

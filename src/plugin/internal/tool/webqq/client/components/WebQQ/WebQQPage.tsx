@@ -9,7 +9,7 @@ import { useWebQQStore, resetVisitedChats } from '../../stores/webqqStore'
 import { appendCachedMessage, updateCachedMessageEmojiReaction, markCachedMessageAsRecalled } from '../../utils/messageDb'
 import { showToast } from '../common'
 import { Loader2, Maximize2 } from 'lucide-react'
-import { useSettingsStore } from '../../stores/settingsStore'
+import { useWebQQSettings } from '../../settings'
 import { webui } from '../../context'
 
 function extractMessageSummary(rawMessage: RawMessage): string {
@@ -85,7 +85,7 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
 
   const [, forceUpdate] = React.useState(0)
 
-  const { showWebQQFullscreenButton } = useSettingsStore()
+  const { fullscreenButton } = useWebQQSettings()
 
   const {
     friendCategories,
@@ -449,7 +449,7 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
       </div>
 
       {/* 全屏按钮, 固定在窗口右下角 */}
-      {!isFullscreen && showWebQQFullscreenButton && (
+      {!isFullscreen && fullscreenButton && (
         <button
           onClick={() => window.open(webui().pageHref('webqq', { fullscreen: true }), '_blank')}
           className="fixed top-4 right-4 md:top-auto md:bottom-6 md:right-6 z-50 p-3 glass glass-chrome glass-interactive r-capsule text-[var(--accent)] transition-all duration-200 group"

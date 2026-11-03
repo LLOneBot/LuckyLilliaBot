@@ -14,13 +14,14 @@ export class NTLoginApi extends Service {
   }
 
   async getQuickLoginList() {
-    const accounts = this.ctx.qqProtocol.listQuickLoginAccounts()
+    const { ready, accounts } = await this.ctx.qqProtocol.listQuickLoginAccounts()
     return {
+      ready,
       LocalLoginInfoList: accounts.map(a => ({
         uin: a.uin,
         uid: a.uid,
         nickName: a.nick,
-        faceUrl: `https://q1.qlogo.cn/g?b=qq&nk=${a.uin}&s=100`,
+        faceUrl: a.faceUrl || `https://q1.qlogo.cn/g?b=qq&nk=${a.uin}&s=100`,
         loginType: 0,
         isQuickLogin: true,
         isAutoLogin: false,

@@ -3,17 +3,19 @@ import { Loader2, Save, Trash2, X } from 'lucide-react'
 import { Portal, showToast } from '../common'
 import { EntryScope, PluginDescription, PluginStatus } from '../../types/plugins'
 import {
-  ConfigConflictError, ConfigRejectedError, describePlugin, patchUiPrefs, removePlugin, savePluginConfig, setPluginScope,
+  ConfigConflictError, ConfigRejectedError, describePlugin, removePlugin, savePluginConfig, setPluginScope,
 } from '../../utils/pluginApi'
 import { hydrate, SchemaNode } from './schema/model'
 import { SchemaField } from './schema/SchemaField'
 import { JsonInput, SecretClearContext } from './schema/inputs'
-import { pluginIcon, pluginTitle } from './meta'
+import { pluginTitle } from './meta'
+import PluginIcon from './PluginIcon'
+import UiApproval from './UiApproval'
 import DependencyList from './DependencyList'
 import ScopeEditor, { cleanScope } from './ScopeEditor'
 import { PluginBoundary } from '../../plugin-host/context'
 import { clientAllowed, ensureClient, useClientErrors } from '../../plugin-host/host'
-import { useConfigEditor } from '../../plugin-host/views'
+import { useConfigEditor, useSettingsPages } from '../../plugin-host/views'
 
 interface PluginConfigDialogProps {
   plugin: PluginStatus
@@ -48,7 +50,6 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
   const [errors, setErrors] = useState<Record<string, string>>({})
   // Dotted paths of stored secrets emptied in the form
   const cleared = useRef(new Set<string>())
-  const Icon = pluginIcon(plugin)
   // Applied on its own, without restarting the plugin
   const [scope, setScope] = useState<EntryScope | undefined>(opened.scope)
   const scopeChanged = JSON.stringify(cleanScope(scope) ?? null) !== JSON.stringify(plugin.scope ?? null)
@@ -76,12 +77,10 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
     }
   }, [plugin.name, plugin.webui, loadsClient])
 
-  const approve = () => patchUiPrefs({ approve: [plugin.name] })
-    .then(() => showToast('已批准它的界面', 'success'))
-    .catch(e => showToast(e instanceof Error ? e.message : String(e), 'error'))
-
   // No schema and no Config export: nothing to configure. A non-schemastery Config gets the JSON editor.
-  const configurable = !!Editor || node !== null || plugin.hasConfig !== false
+  // A package with a settings page of its own is configured there; this dialog keeps what only it has
+  const settingsPage = useSettingsPages().get(plugin.name)
+  const configurable = !settingsPage && (!!Editor || node !== null || plugin.hasConfig !== false)
   const ready = !loading && clientReady
 
   const configChanged = !!description && (JSON.stringify(value) !== JSON.stringify(formValue(description, node)) || cleared.current.size > 0)
@@ -94,7 +93,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
       if (configurable && !loadError && (configChanged || !scopeChanged)) {
         // The complete value goes up; the server works out what differs from the defaults
         await savePluginConfig(plugin.id, value, { ifRev: description?.rev, clear: [...cleared.current] })
-        showToast('配置已保存，插件已按新配置重启', 'success')
+        showToast('配置已保存，已按新配置生效', 'success')
       } else {
         showToast('生效范围已保存，立刻生效', 'success')
       }
@@ -131,14 +130,19 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
 
   return (
     <Portal>
-      <div className="fixed inset-0 scrim flex items-center justify-center p-4" style={{ zIndex: 9000 }} onClick={onClose}>
-        <div className="glass glass-thick r-window glass-pop w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      {/* A click outside does not close it, or a stray one would drop what was being edited */}
+      <div className="fixed inset-0 scrim flex items-center justify-center p-4" style={{ zIndex: 9000 }}>
+        <div className="glass glass-thick r-window glass-pop w-full max-w-2xl max-h-[85vh] flex flex-col">
           <div className="flex items-center justify-between p-6 hairline-b">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl gradient-primary-br text-white flex items-center justify-center flex-shrink-0"><Icon size={20} /></div>
+              <PluginIcon plugin={plugin} className="w-10 h-10 rounded-xl" fill="gradient-primary-br text-white" size={20} />
               <div className="min-w-0">
                 <h3 className="text-lg font-semibold text-theme truncate">{pluginTitle(plugin)} 配置</h3>
-                <p className="text-xs text-theme-hint truncate">{plugin.name} · {plugin.id}</p>
+                {!plugin.builtin && (
+                  <p className="text-xs text-theme-hint truncate">
+                    {plugin.name}{plugin.version ? ` · v${plugin.version}` : ''}{removable ? ` · #${plugin.id}` : ''}
+                  </p>
+                )}
               </div>
             </div>
             <button onClick={onClose} className="text-theme-hint hover:text-theme"><X size={24} /></button>
@@ -155,15 +159,18 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
                 <ScopeEditor value={scope} onChange={setScope} />
               </section>
             )}
-            {plugin.webui && !plugin.webuiApproved && (
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-theme-item text-sm">
-                <p className="flex-1 text-theme-secondary">这个插件带着自己的界面（可能有专门的配置编辑器），批准后才会加载；现在用的是通用表单</p>
-                <button type="button" onClick={approve} className="btn-glass text-sm flex-shrink-0">批准界面</button>
-              </div>
-            )}
+            <UiApproval plugin={plugin} />
             {!ready && <div className="flex justify-center py-10"><Loader2 size={32} className="animate-spin text-pink-500" /></div>}
             {ready && loadError && <p className="text-sm text-red-500">加载配置失败：{loadError}</p>}
-            {ready && !loadError && !configurable && <p className="text-sm text-theme-secondary text-center py-6">这个插件没有可配置项</p>}
+            {settingsPage && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-theme-item text-sm">
+                <p className="flex-1 text-theme-secondary">它的设置在自己的页面里</p>
+                <button type="button" onClick={() => { onClose(); window.location.hash = settingsPage }} className="btn-glass text-sm flex-shrink-0">
+                  打开设置页
+                </button>
+              </div>
+            )}
+            {ready && !loadError && !configurable && !settingsPage && <p className="text-sm text-theme-secondary text-center py-6">这个插件没有可配置项</p>}
             {ready && !loadError && configurable && (
               <div className="space-y-5">
                 {clientError && <p className="text-xs text-amber-600 dark:text-amber-400">插件自己的界面没能加载，先用通用表单：{clientError}</p>}

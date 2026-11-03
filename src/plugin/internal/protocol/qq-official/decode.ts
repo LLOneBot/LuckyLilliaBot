@@ -165,7 +165,7 @@ export function decodeGuildDispatch(host: GuildDecodeHost, payload: GatewayPaylo
     case 'GUILD_MEMBER_ADD':
     case 'GUILD_MEMBER_UPDATE':
     case 'GUILD_MEMBER_REMOVE':
-    // Koishi adapter-qq-crack spells it this way
+    // Undocumented; taken like GUILD_MEMBER_REMOVE
     case 'GUILD_MEMBER_DELETE': {
       const data: GuildMember = payload.d
       const type = payload.t === 'GUILD_MEMBER_ADD' ? 'guild-member-added'
@@ -308,7 +308,7 @@ function decodeInteraction(host: DecodeHost, payload: GatewayPayload): SatoriEve
   })
 }
 
-// Channels of a guild DM: guild `<source guild>_<dm guild>`, channel `<dm guild>_<dm channel>` (as Koishi does)
+// Channels of a guild DM: guild `<source guild>_<dm guild>`, channel `<dm guild>_<dm channel>`
 function guildPlace(data: Partial<GuildMessage>) {
   return data.direct_message
     ? {

@@ -24,10 +24,9 @@ import { overwriteMachineGuid } from './direct-lib/machineGuid'
 import { getActiveProfile } from './direct-lib/profiles'
 import { updateAuthToken } from './direct-lib/sign'
 import { authTokenUtil } from '../../../../../main/config'
-import { setLoginState } from '../llbot-ipc'
 import { version } from '../../../../../version'
 import { AuthTokenWatcher } from './direct-lib/authTokenWatcher'
-import { QQProtocolBase } from './base'
+import { QQProtocolBase, type QuickLoginAccounts } from './base'
 
 // Outlives the protocol plugin: native sign binds its relay to the first client and cannot rebind, so switching
 // the plugin off only disconnects it and switching it back on picks the same one up
@@ -126,8 +125,8 @@ export class DirectQQProtocol extends QQProtocolBase {
     return { cmd, pb: resp.payload.toString('hex') }
   }
 
-  public listQuickLoginAccounts(): Array<{ uin: string; uid: string; nick: string; savedAt: number }> {
-    return listAvailableSessions()
+  public async listQuickLoginAccounts(): Promise<QuickLoginAccounts> {
+    return { ready: true, accounts: listAvailableSessions() }
   }
 
   /**
@@ -173,7 +172,6 @@ export class DirectQQProtocol extends QQProtocolBase {
     this.runtimeUinOverride = null
     // 不然 180s 内登出会复用上一次的旧码
     this.resetQrState()
-    setLoginState({ state: 'need_qrcode' })
     this.ensureQrLoop()
   }
 
@@ -430,7 +428,6 @@ export class DirectQQProtocol extends QQProtocolBase {
       this.directQrResult = null
       this.directPollResult = null
       this.resetQrState()
-      setLoginState({ state: 'need_qrcode', qrcode_png_base64: undefined })
       if (wasOnline) {
         this.ctx.parallel('protocol/disconnect')
         this.ctx.parallel('qq/session-expired', error.message)
@@ -487,16 +484,11 @@ export class DirectQQProtocol extends QQProtocolBase {
           return
         }
 
-        if (result.state === QrCodeState.WaitingForConfirm) {
-          setLoginState({ state: 'waiting_confirm' })
-        }
-
         if (result.state === QrCodeState.Expired || result.state === QrCodeState.Cancelled) {
           const expired = result.state === QrCodeState.Expired
           // The code's age is the tell for server-side risk control: flagged devices get codes that die in seconds.
           const age = this.qrFetchedAt ? `${Math.round((Date.now() - this.qrFetchedAt) / 1000)}s` : '?'
           this.logger.info(expired ? `二维码已过期, 这张码用了 ${age}` : `手机端取消了扫码, 这张码用了 ${age}`)
-          setLoginState({ state: expired ? 'expired' : 'cancelled' })
           this.invalidateQrCache()
           return
         }

@@ -173,7 +173,7 @@ function newer(a: string, b: string): boolean {
 }
 
 export const name = 'market'
-export const inject = ['plugins']
+export const inject = ['plugins', 'http']
 export const Config = MarketSchema
 
 export function apply(ctx: Context, config: MarketSettings) {
@@ -189,7 +189,7 @@ export function apply(ctx: Context, config: MarketSettings) {
   } catch {
     // created by the first install
   }
-  const market = new Market(ctx, new Registry(config.registry, config.search), root)
+  const market = new Market(ctx, new Registry(config.registry, config.search, (url, init) => ctx.http.fetch(url, init)), root)
   market.installer.cleanup().catch(e => ctx.logger('market').warn(e))
   ctx.inject(['webuiServer'], (ctx) => {
     ctx.webuiServer.route('/api/market', new Hono().route('/api/market', createMarketRoutes(ctx, market)))

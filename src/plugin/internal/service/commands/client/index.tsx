@@ -83,7 +83,7 @@ const CommandTable: React.FC = () => {
                 <td className="py-1.5 pr-3">
                   <div className="font-mono text-theme">{command.syntax}</div>
                   {command.aliases.length > 0 && <div className="text-xs text-theme-muted">别名：{command.aliases.join('、')}</div>}
-                  {command.hidden && <div className="text-xs text-theme-hint">不在 help 和指令菜单里</div>}
+                  {command.hidden && <div className="text-xs text-theme-hint">不在指令菜单里</div>}
                   {command.conflicts.map(conflict => (
                     <div key={`${conflict.name}\n${conflict.with ?? ''}`} className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                       <AlertTriangle size={12} className="flex-shrink-0" />

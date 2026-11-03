@@ -11,6 +11,7 @@ import type {
 } from '../../packages/plugin-sdk/src/testing'
 import BotsService from './bots'
 import { CommandService, DEFAULT_SETTINGS, type CommandSettings } from './commands'
+import HttpService from './http'
 
 // @luckylillia/plugin-sdk/testing (bundled by packages/plugin-sdk/scripts/build-testing.mjs): the neutral layer as
 // the bot runs it, with a bot that only records what it is asked to send
@@ -82,6 +83,7 @@ export async function createTestApp(): Promise<TestAppApi> {
     }),
   })
   await ctx.plugin(TimerService)
+  await ctx.plugin(HttpService)
   await ctx.plugin(BotsService)
   const settings: { current: CommandSettings } = { current: { ...DEFAULT_SETTINGS, prefixes: [...DEFAULT_SETTINGS.prefixes] } }
   await ctx.plugin(CommandService, settings)
@@ -97,6 +99,7 @@ export async function createTestApp(): Promise<TestAppApi> {
     async dispose() {
       await ctx.registry.delete(CommandService)
       await ctx.registry.delete(BotsService)
+      await ctx.registry.delete(HttpService)
       await ctx.registry.delete(TimerService)
       rmSync(dataDir, { recursive: true, force: true })
     },

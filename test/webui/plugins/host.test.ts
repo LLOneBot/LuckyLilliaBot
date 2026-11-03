@@ -11,7 +11,7 @@ vi.mock('@/plugin/internal/service/webui/FE/plugin-host/builtins', () => {
       'builtin:broken': (ctx: WebUIContext) => {
         ctx.page({ id: 'broken', title: 'Broken', component: Component })
         ctx.declareSlot('broken.items', { title: 'Items', cardinality: 'list' })
-        ctx.slot('shell.notices', { id: 'line', component: Component })
+        ctx.slot('plugins.toolbar', { id: 'line', component: Component })
         throw new Error('boom')
       },
       'builtin:fine': (ctx: WebUIContext) => {

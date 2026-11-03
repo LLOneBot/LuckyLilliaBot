@@ -7,7 +7,7 @@ const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'llbot-migrate-'))
 
 vi.mock('@/common/globalVars', () => ({ DATA_DIR }))
 
-const { liftBuiltinSettings, migrateToInstances } = await import('@/main/config/migrate')
+const { liftBuiltinSettings, migrateToInstances, renameNativeQQSettings } = await import('@/main/config/migrate')
 
 const log = { info: vi.fn(), warn: vi.fn() }
 const at = (...parts: string[]) => path.join(DATA_DIR, ...parts)
@@ -32,6 +32,8 @@ beforeEach(() => {
 })
 
 describe('migrateToInstances', () => {
+  const loginMethodKept = { id: expect.any(String), name: 'builtin:nt-protocol', config: { mode: 'direct', protocol: 'linux' } }
+
   it('leaves a fresh data directory alone', () => {
     migrateToInstances(log)
     expect(existsSync(at('instances'))).toBe(false)
@@ -75,10 +77,25 @@ describe('migrateToInstances', () => {
     for (const name of ['default', '1']) {
       expect(read('instances', name, 'email.json')).toEqual({ enabled: true, from: 'a@b.c' })
       expect(readFileSync(at('instances', name, 'webui_token.txt'), 'utf8')).toBe('secret')
-      expect(read('instances', name, 'plugins.json').entries).toEqual([{ id: 'a1', name: 'p' }])
+      expect(read('instances', name, 'plugins.json').entries).toEqual([{ id: 'a1', name: 'p' }, loginMethodKept])
     }
     expect(existsSync(at('email_config.json.bak'))).toBe(true)
     expect(existsSync(at('webui_token.txt.bak'))).toBe(true)
+  })
+
+  it('keeps the login method released versions had, the pure protocol on Linux, over the new defaults', () => {
+    put('config_1.json', { ffmpeg: '/f' })
+    migrateToInstances(log)
+    expect(read('instances', 'default', 'plugins.json')).toEqual({ version: 1, entries: [loginMethodKept] })
+    expect(log.info).toHaveBeenCalledWith(expect.stringContaining('纯协议 · Linux'))
+  })
+
+  it('leaves the login method of an unreleased plugins.json as it is', () => {
+    put('config_1.json', { ffmpeg: '/f' })
+    const entries = [{ id: 'n0000001', name: 'builtin:nt-protocol', config: { mode: 'nativeqq' } }]
+    put('config/global/plugins.json', { version: 1, entries })
+    migrateToInstances(log)
+    expect(read('instances', 'default', 'plugins.json').entries).toEqual(entries)
   })
 
   it('puts the unreleased data/config/ layout back together, and retires it as a whole', () => {
@@ -189,5 +206,40 @@ describe('liftBuiltinSettings', () => {
     put('instances/default/settings.json', { log: true })
     liftBuiltinSettings(log)
     expect(existsSync(at('instances', 'default', 'plugins.json'))).toBe(false)
+  })
+})
+
+describe('renameNativeQQSettings', () => {
+  const entry = () => read('instances', 'default', 'plugins.json').entries[0]
+
+  it('gives the official QQ client bridge its NativeQQ names', () => {
+    put('instances/default/plugins.json', {
+      version: 1,
+      entries: [{ id: 'n0000001', name: 'builtin:nt-protocol', config: { mode: 'pmhq', pmhq: { configPath: '/qq.json', qqPath: '' } } }],
+    })
+    renameNativeQQSettings(log)
+    expect(entry()).toEqual({ id: 'n0000001', name: 'builtin:nt-protocol', config: { mode: 'nativeqq', nativeQQ: { configPath: '/qq.json', qqPath: '' } } })
+    expect(log.info).toHaveBeenCalledTimes(1)
+  })
+
+  it('takes the old key alone too, and leaves new settings and other entries alone', () => {
+    put('instances/default/plugins.json', {
+      version: 1,
+      entries: [{ id: 'n0000001', name: 'builtin:nt-protocol', config: { protocol: 'macos', pmhq: { qqPath: '/QQ' } } }],
+    })
+    renameNativeQQSettings(log)
+    expect(entry().config).toEqual({ protocol: 'macos', nativeQQ: { qqPath: '/QQ' } })
+    const written = readFileSync(at('instances', 'default', 'plugins.json'), 'utf8')
+    renameNativeQQSettings(log)
+    expect(readFileSync(at('instances', 'default', 'plugins.json'), 'utf8')).toBe(written)
+    expect(log.info).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing without plugins.json, or with one it cannot read', () => {
+    renameNativeQQSettings(log)
+    expect(existsSync(at('instances', 'default', 'plugins.json'))).toBe(false)
+    put('instances/default/plugins.json', '{ broken')
+    renameNativeQQSettings(log)
+    expect(readFileSync(at('instances', 'default', 'plugins.json'), 'utf8')).toBe('{ broken')
   })
 })

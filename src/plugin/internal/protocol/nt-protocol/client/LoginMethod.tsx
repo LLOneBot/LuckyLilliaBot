@@ -1,13 +1,67 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Cpu, Loader2, MonitorSmartphone, Save } from 'lucide-react'
-import { usePluginConfig, usePluginContext } from '@luckylillia/plugin-sdk/webui'
+import { PathInput, SelectInput, usePluginConfig, usePluginContext } from '@luckylillia/plugin-sdk/webui'
 import type { NTProtocolConfig } from '../../../../../common/types'
 import {
-  describeMethod, effectiveMethod, isEditable, LOGIN_MODES, pendingProtocol, pinnedBy, pinNote, protocolLabel, PROTOCOLS,
+  describeMethod, effectiveMethod, isEditable, LOGIN_MODES, LoginMode, pendingProtocol, pinnedBy, pinNote, protocolLabel, PROTOCOLS,
   ProtocolId, ProtocolPins,
 } from './loginOptions'
 
-const ICONS = { direct: Cpu, pmhq: MonitorSmartphone }
+const ICONS = { direct: Cpu, nativeqq: MonitorSmartphone }
+
+/** GET /api/nativeqq/qq-path: the QQ NativeQQ finds by itself, and the bot machine's platform */
+interface QQPathFound {
+  detected: string | null
+  platform: string
+}
+
+const QQ_FILE: Record<string, string> = { win32: 'QQ.exe', linux: '/opt/QQ/qq', darwin: 'QQ.app/Contents/MacOS/QQ' }
+
+/** The QQ the bridge starts: one picked on the bot's machine, or, left empty, the one found there */
+const QQPathField: React.FC<{ value: string; pinnedBy?: string; onChange(qqPath: string): void }> = ({ value, pinnedBy: pin, onChange }) => {
+  const ctx = usePluginContext()
+  const [found, setFound] = useState<QQPathFound | null>(null)
+  useEffect(() => {
+    let current = true
+    ctx.api('/api/nativeqq/qq-path').then(
+      data => current && setFound(data as QQPathFound),
+      () => current && setFound({ detected: null, platform: '' }),
+    )
+    return () => {
+      current = false
+    }
+  }, [])
+
+  const detected = found?.detected ?? undefined
+  let note: React.ReactNode
+  if (pin) note = pin
+  else if (!found) note = '正在查找这台机器上安装的 QQ…'
+  else if (value) note = detected ? `清空后改用自动检测到的 ${detected}` : '清空后改用自动检测'
+  else if (detected) note = `自动检测到 ${detected}`
+  else {
+    note = (
+      <span className="text-amber-600 dark:text-amber-400">
+        这台机器上没找到 QQ，请点「浏览」选择{QQ_FILE[found.platform] ? ` ${QQ_FILE[found.platform]}` : ' QQ 的可执行文件'}
+      </span>
+    )
+  }
+  return (
+    <div>
+      <label className="block text-sm font-medium text-theme-secondary mb-2">QQ 可执行文件</label>
+      <PathInput
+        value={value}
+        onChange={onChange}
+        disabled={!!pin}
+        accept={found?.platform === 'win32' ? ['.exe'] : undefined}
+        start={detected}
+        placeholder="留空自动检测"
+        title="选择 QQ 可执行文件"
+      />
+      <p className="text-xs text-theme-muted mt-1 break-all">{note}</p>
+      {!pin && <p className="text-xs text-theme-muted mt-1">保存后在这里点「启动 QQ」；启动 LLBot 时用 -q 指定了 QQ 号或在 docker 里会自动启动</p>}
+    </div>
+  )
+}
 
 interface LoginMethodProps {
   pins: ProtocolPins
@@ -15,14 +69,24 @@ interface LoginMethodProps {
   /** Switching the mode logs this account out */
   online: boolean
   onSaved: (modeChanged: boolean) => void
+  /** The mode picked in the open editor, null when it is closed */
+  onDraftMode?: (mode: LoginMode | null) => void
 }
 
 /** The login method of builtin:nt-protocol: which one, and the form to change it. */
-const LoginMethod: React.FC<LoginMethodProps> = ({ pins, lockedProtocol, online, onSaved }) => {
+const LoginMethod: React.FC<LoginMethodProps> = ({ pins, lockedProtocol, online, onSaved, onDraftMode }) => {
   const { toast: showToast } = usePluginContext()
   const { value, save, saving, error } = usePluginConfig<NTProtocolConfig>()
   // The saved settings while editing: what the launch fixes is shown in place, but not saved over them
   const [draft, setDraft] = useState<NTProtocolConfig | null>(null)
+  const draftMode = draft ? effectiveMethod(draft, pins).mode : null
+  // A logged-in account keeps its login method: the editor goes once the account is online
+  useEffect(() => {
+    if (online) setDraft(null)
+  }, [online])
+  useEffect(() => {
+    onDraftMode?.(draftMode)
+  }, [draftMode, onDraftMode])
 
   if (error) return <p className="mb-6 text-sm text-red-500">读取登录方式失败：{error}</p>
   if (!value) return null
@@ -42,8 +106,13 @@ const LoginMethod: React.FC<LoginMethodProps> = ({ pins, lockedProtocol, online,
           {pending && (
             <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">已改为 {protocolLabel(pending)}，重启 LLBot 后生效</div>
           )}
+          {online && isEditable(current, pins) && (
+            <div className="text-xs text-theme-muted mt-1">
+              {current.mode === 'nativeqq' ? '已登录：在 QQ 客户端里退出登录后才能更改' : '已登录：退出登录后才能更改'}
+            </div>
+          )}
         </div>
-        {isEditable(current, pins) && (
+        {isEditable(current, pins) && !online && (
           <button onClick={() => setDraft(value)} className="btn-glass px-4 py-1.5 text-sm flex-shrink-0">更改</button>
         )}
       </div>
@@ -54,7 +123,6 @@ const LoginMethod: React.FC<LoginMethodProps> = ({ pins, lockedProtocol, online,
   const protocol = PROTOCOLS.find(item => item.id === shown.protocol)
   const waits = pendingProtocol(shown, lockedProtocol)
   const change = (patch: Partial<NTProtocolConfig>) => setDraft({ ...draft, ...patch })
-  const changePmhq = (patch: Partial<NTProtocolConfig['pmhq']>) => change({ pmhq: { ...draft.pmhq, ...patch } })
 
   const submit = async () => {
     const modeChanged = shown.mode !== current.mode
@@ -97,38 +165,25 @@ const LoginMethod: React.FC<LoginMethodProps> = ({ pins, lockedProtocol, online,
       {shown.mode === 'direct' ? (
         <div>
           <label className="block text-sm font-medium text-theme-secondary mb-2">模拟的 QQ 客户端</label>
-          <select
+          <SelectInput
             value={shown.protocol}
+            options={PROTOCOLS.map(item => ({ value: item.id, label: item.label }))}
             disabled={!!pins.protocol}
-            onChange={e => change({ protocol: e.target.value as ProtocolId })}
-            className="input-field"
-          >
-            {PROTOCOLS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </select>
+            onChange={protocol => change({ protocol })}
+          />
           <p className="text-xs text-theme-muted mt-1">
             {pins.protocol ? pinnedBy(pins.protocol.by) : '不同客户端的登录记录分开保存，换了以后要重新登录'}
           </p>
           {protocol?.hint && <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">{protocol.hint}</p>}
         </div>
       ) : (
-        <div>
-          <label className="block text-sm font-medium text-theme-secondary mb-2">QQ 可执行文件路径</label>
-          <input value={shown.pmhq.qqPath} disabled={!!pins.pmhq}
-            onChange={e => changePmhq({ qqPath: e.target.value })}
-            placeholder="留空自动检测，手动填写时使用绝对路径" className="input-field" />
-          <label className="block text-sm font-medium text-theme-secondary mb-2 mt-3">PMHQ 配置文件路径</label>
-          <input value={shown.pmhq.configPath} disabled={!!pins.pmhq}
-            onChange={e => changePmhq({ configPath: e.target.value })}
-            placeholder="可选，pmhq_config.json 的绝对路径" className="input-field" />
-          <p className="text-xs text-theme-muted mt-1">
-            {pins.pmhq ? pinnedBy(pins.pmhq.by) : 'PMHQ 随协议一起启动和停止；录入 Auth Token 后启动本机 QQ'}
-          </p>
-        </div>
+        <QQPathField
+          value={shown.nativeQQ.qqPath}
+          pinnedBy={pins.nativeQQ && pinnedBy(pins.nativeQQ.by)}
+          onChange={qqPath => change({ nativeQQ: { ...draft.nativeQQ, qqPath } })}
+        />
       )}
 
-      {online && shown.mode !== current.mode && (
-        <p className="text-sm text-amber-600 dark:text-amber-400">保存后会断开当前登录的 QQ 账号，改用{LOGIN_MODES.find(mode => mode.id === shown.mode)!.label}</p>
-      )}
       {waits && lockedProtocol && (
         <p className="text-sm text-amber-600 dark:text-amber-400">
           这次运行的纯协议已经在用 {protocolLabel(lockedProtocol)}，改成 {protocolLabel(waits)} 要重启 LLBot 后才生效

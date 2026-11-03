@@ -1,8 +1,8 @@
 import {
   Bell, Book, BookOpen, Bot, Brain, Calendar, Clock, Cloud, Code, Cpu, Database, Dice5, FileText, Gamepad2, Gift,
   Globe, Hand, Heart, Image, Info, Languages, LayoutDashboard, LucideIcon, Mail, MessageSquare, Milk, Music, Network,
-  Puzzle, Radio, Repeat, Search, Send, Settings, ShieldBan, Sliders, Smartphone, Smile, Sparkles, Star, Store, Terminal,
-  Timer, Trophy, Users, Wrench, Zap,
+  Puzzle, Radio, Repeat, ScrollText, Search, Send, Settings, ShieldBan, Sliders, Smartphone, Smile, Sparkles, Star, Store,
+  Terminal, Timer, Trophy, Users, Wrench, Zap,
 } from 'lucide-react'
 import { EntryScope, PluginState, PluginStatus } from '../../types/plugins'
 
@@ -12,8 +12,8 @@ const ICONS: Record<string, LucideIcon> = {
   cloud: Cloud, code: Code, cpu: Cpu, database: Database, 'dice-5': Dice5, 'file-text': FileText,
   'gamepad-2': Gamepad2, gift: Gift, globe: Globe, hand: Hand, heart: Heart, image: Image, info: Info,
   languages: Languages, 'layout-dashboard': LayoutDashboard, mail: Mail, 'message-square': MessageSquare, milk: Milk,
-  music: Music, network: Network, puzzle: Puzzle, radio: Radio, repeat: Repeat, search: Search, send: Send,
-  settings: Settings, 'shield-ban': ShieldBan, sliders: Sliders, smartphone: Smartphone, smile: Smile,
+  music: Music, network: Network, puzzle: Puzzle, radio: Radio, repeat: Repeat, 'scroll-text': ScrollText,
+  search: Search, send: Send, settings: Settings, 'shield-ban': ShieldBan, sliders: Sliders, smartphone: Smartphone, smile: Smile,
   sparkles: Sparkles, star: Star, store: Store, terminal: Terminal, timer: Timer, trophy: Trophy, users: Users,
   wrench: Wrench, zap: Zap,
 }
@@ -26,8 +26,14 @@ export function pluginIcon(plugin: PluginStatus): LucideIcon {
   return iconByName(plugin.manifest.icon)
 }
 
+/** Plain text, or the Chinese of a map keyed by locale (`llbot.description` / `llbot.title`) */
+function localized(text: string | Record<string, string> | undefined): string | undefined {
+  if (typeof text === 'string') return text.trim() || undefined
+  return text?.zh ?? text?.['zh-CN'] ?? text?.en
+}
+
 export function pluginTitle(plugin: PluginStatus): string {
-  return plugin.title ?? plugin.name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
+  return plugin.title ?? localized(plugin.manifest.title) ?? plugin.name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
 }
 
 /** The plugin providing a service by its manifest, an enabled one first. */
@@ -76,9 +82,7 @@ export function pendingReason(plugin: PluginStatus, plugins: PluginStatus[]): st
 }
 
 export function pluginDescription(plugin: PluginStatus): string | undefined {
-  const text = plugin.manifest.description
-  if (typeof text === 'string') return text
-  return text?.zh ?? text?.['zh-CN'] ?? text?.en ?? plugin.description
+  return localized(plugin.manifest.description) ?? plugin.description
 }
 
 /** A running builtin that still waits for its settings (PluginStatus.notice). */
@@ -104,6 +108,7 @@ export const SERVICE_LABEL: Record<string, string> = {
   database: '数据库',
   account: 'NTQQ 账号',
   timer: '定时器',
+  http: '网络请求',
   webuiServer: 'WebUI',
 }
 

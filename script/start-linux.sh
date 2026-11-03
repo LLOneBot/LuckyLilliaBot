@@ -43,7 +43,7 @@ usage() {
 
 启动模式:
   --headless              无头模式，直接运行 ./LuckyLillia（默认）
-  --headed                有头模式，通过 PMHQ 连接 QQ
+  --headed                有头模式，桥接官方 QQ 客户端
 
 界面模式（仅有头模式）:
   --gui                   GUI 模式，显示 QQ 窗口（同时指定有头模式）
@@ -85,7 +85,7 @@ parse_args() {
             --headless)
                 set_protocol_mode "headless"
                 ;;
-            --headed|--pmhq)
+            --headed|--nativeqq)
                 set_protocol_mode "headed"
                 ;;
             --gui)
@@ -124,7 +124,7 @@ choose_protocol_mode() {
 
     echo "------------------------------------------------"
     echo "1) 无头模式（--headless，直连协议，默认）"
-    echo "2) 有头模式（--headed，PMHQ + QQ）"
+    echo "2) 有头模式（--headed，官方 QQ 客户端桥接）"
     echo "------------------------------------------------"
     while true; do
         read -r -p "请选择 [1/2，默认 1]: " choice < /dev/tty || error "读取启动模式失败"
@@ -164,7 +164,7 @@ parse_args "$@"
 if [ "$PROTOCOL_MODE" == "headless" ]; then
     chmod +x "$SCRIPT_DIR/bin/llbot/node" "$LLBOT_CLI_BIN" 2>/dev/null
     log "启动模式: 无头"
-    exec "$LLBOT_CLI_BIN" "${LLBOT_ARGS[@]}"
+    exec "$LLBOT_CLI_BIN" --direct "${LLBOT_ARGS[@]}"
 fi
 
 # 环境检查
@@ -219,7 +219,7 @@ install_debian() {
 
 [ "$DISTRO" == "arch" ] && install_arch || install_debian
 
-chmod +x "$SCRIPT_DIR/bin/llbot/node" "$SCRIPT_DIR/bin/pmhq/pmhq" "$LLBOT_CLI_BIN" 2>/dev/null
+chmod +x "$SCRIPT_DIR/bin/llbot/node" "$LLBOT_CLI_BIN" 2>/dev/null
 sudo chown -R "$(whoami):$(whoami)" "$SCRIPT_DIR/bin" 2>/dev/null
 
 # X11/Wayland 变量处理
@@ -253,10 +253,10 @@ run_llbot() {
     log "启动模式: 有头 / $([ "$DISPLAY_MODE" == "shell" ] && echo "Shell" || echo "GUI")"
 
     if [ "$DISPLAY_MODE" == "shell" ]; then
-        exec env "${IM_ENV[@]}" xvfb-run -a "$LLBOT_CLI_BIN" --pmhq "${LLBOT_ARGS[@]}"
+        exec env "${IM_ENV[@]}" xvfb-run -a "$LLBOT_CLI_BIN" --nativeqq "${LLBOT_ARGS[@]}"
     else
         [ "$DISTRO" != "arch" ] && xhost +local:$(whoami) > /dev/null 2>&1
-        exec env "${IM_ENV[@]}" "$LLBOT_CLI_BIN" --pmhq "${LLBOT_ARGS[@]}"
+        exec env "${IM_ENV[@]}" "$LLBOT_CLI_BIN" --nativeqq "${LLBOT_ARGS[@]}"
     fi
 }
 

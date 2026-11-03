@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { usePageView, useSidebar } from '@luckylillia/plugin-sdk/webui'
 import WebQQPage from './components/WebQQ/WebQQPage'
 import { hydrateWebQQStore } from './stores/webqqStore'
-import { useSettingsStore } from './stores/settingsStore'
+import { useWebQQSettings } from './settings'
 import { setCurrentUin } from './utils/currentUin'
 import { getLoginInfo } from './utils/webqqApi'
 
@@ -11,7 +11,7 @@ import { getLoginInfo } from './utils/webqqApi'
 const WebQQEntry: React.FC = () => {
   const { fullscreen } = usePageView()
   const { setCollapsed } = useSidebar()
-  const autoHideSidebar = useSettingsStore(state => state.autoHideSidebarInWebQQ)
+  const { autoHideSidebar } = useWebQQSettings()
   const [uin, setUin] = useState<string | null>(null)
   const [error, setError] = useState('')
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // luckylillia-plugin create <dir>: a new plugin package from ../template
+import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 
-const USAGE = 'Usage: luckylillia-plugin create <dir> [--name <package name>] [--description <text>]'
+const USAGE = 'Usage: luckylillia-plugin create <dir> [--name <package name>] [--description <text>] [--author <name>]'
 // validate-npm-package-name without its length and reserved-name checks
 const PACKAGE_NAME = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
 
@@ -23,6 +24,7 @@ try {
     options: {
       name: { type: 'string' },
       description: { type: 'string' },
+      author: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   })
@@ -42,11 +44,21 @@ const base = path.basename(target)
 const name = args.values.name ?? (base.startsWith('luckylillia-plugin-') ? base : `luckylillia-plugin-${base}`)
 if (!PACKAGE_NAME.test(name)) fail(`"${name}" is not a valid npm package name, pick one with --name`)
 const id = name.replace(/^@[^/]+\//, '').replace(/^luckylillia-plugin-/, '')
+// git's user.name unless given; the WebUI shows it on the plugin's card
+function gitUser() {
+  try {
+    return execFileSync('git', ['config', 'user.name'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+  } catch {
+    return ''
+  }
+}
+
 const values = {
   name,
   id,
   sdk: JSON.parse(readFileSync(path.join(sdk, 'package.json'), 'utf8')).version,
   description: args.values.description ?? `${id} 插件`,
+  author: args.values.author ?? gitUser(),
 }
 
 cpSync(path.join(sdk, 'template'), target, { recursive: true })

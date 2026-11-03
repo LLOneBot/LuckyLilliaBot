@@ -5,7 +5,7 @@ export type ProtocolId = NTProtocolConfig['protocol']
 
 interface Pin<T> {
   value: T
-  /** A flag, an environment variable, or `desktop` for the LuckyLillia desktop app */
+  /** A flag or an environment variable */
   by: string
 }
 
@@ -13,12 +13,24 @@ interface Pin<T> {
 export interface ProtocolPins {
   mode?: Pin<LoginMode>
   protocol?: Pin<ProtocolId>
-  pmhq?: Pin<{ configPath: string; qqPath: string }>
+  nativeQQ?: Pin<{ configPath: string; qqPath: string }>
+}
+
+/** The official QQ client bridge as NativeQQ.health() has it: BridgeStatus of the protocol, in /api/login-info */
+export interface BridgeStatus {
+  /** stopped / starting / running / stopping / failed */
+  session: string
+  failure?: string
+  authTokenSet: boolean
+  /** QQ's process is up */
+  qqRunning: boolean
+  loggedIn: boolean
+  qrcodeAvailable: boolean
 }
 
 export const LOGIN_MODES: { id: LoginMode; label: string; hint: string }[] = [
   { id: 'direct', label: '纯协议', hint: 'LLBot 自己模拟 QQ 客户端登录，不用安装 QQ' },
-  { id: 'pmhq', label: '官方 QQ 端桥接', hint: 'LLBot 内置 PMHQ 启动本机 QQ 客户端收发消息' },
+  { id: 'nativeqq', label: '官方 QQ 客户端桥接', hint: '需要安装官方 QQ 客户端，然后 LLBot 注入' },
 ]
 
 export const PROTOCOLS: { id: ProtocolId; label: string; hint?: string }[] = [
@@ -32,7 +44,6 @@ export const protocolLabel = (id: string) => PROTOCOLS.find(protocol => protocol
 
 /** "由…指定" for a pin, with the spaces the WebUI puts between Chinese and Latin text. */
 export function pinnedBy(by: string): string {
-  if (by === 'desktop') return '由 LuckyLillia 桌面端指定'
   return by.startsWith('-') ? `由启动参数 ${by} 指定` : `由环境变量 ${by} 指定`
 }
 
@@ -41,27 +52,27 @@ export function effectiveMethod(settings: NTProtocolConfig, pins: ProtocolPins):
   return {
     mode: pins.mode?.value ?? settings.mode,
     protocol: pins.protocol?.value ?? settings.protocol,
-    pmhq: pins.pmhq?.value ?? settings.pmhq,
+    nativeQQ: pins.nativeQQ?.value ?? settings.nativeQQ,
   }
 }
 
 export function describeMethod(method: NTProtocolConfig): string {
-  return method.mode === 'pmhq'
-    ? '官方 QQ 端桥接 · 本机 PMHQ'
+  return method.mode === 'nativeqq'
+    ? '官方 QQ 客户端桥接'
     : `纯协议 · ${protocolLabel(method.protocol)}`
 }
 
 /** Whether anything that matters for the method is left to choose. */
 export function isEditable(method: NTProtocolConfig, pins: ProtocolPins): boolean {
-  return !pins.mode || !(method.mode === 'pmhq' ? pins.pmhq : pins.protocol)
+  return !pins.mode || !(method.mode === 'nativeqq' ? pins.nativeQQ : pins.protocol)
 }
 
 /** Who fixed what, for the summary: said once when it all comes from one place and nothing is left to change. */
 export function pinNote(method: NTProtocolConfig, pins: ProtocolPins): string | undefined {
   const fixed = [
     pins.mode && { field: '登录方式', by: pins.mode.by },
-    method.mode === 'pmhq'
-      ? pins.pmhq && { field: 'PMHQ 配置', by: pins.pmhq.by }
+    method.mode === 'nativeqq'
+      ? pins.nativeQQ && { field: 'QQ 路径', by: pins.nativeQQ.by }
       : pins.protocol && { field: '协议', by: pins.protocol.by },
   ].filter((item): item is { field: string; by: string } => !!item)
   if (!fixed.length) return

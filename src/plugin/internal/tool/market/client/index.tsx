@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react'
 import {
   AlertTriangle, ArrowUpCircle, ChevronLeft, ChevronRight, Download, ExternalLink, Loader2, PackageCheck, RefreshCw, Search,
-  Store, Trash2,
+  Trash2,
 } from 'lucide-react'
 import {
-  SchemaSettings, usePluginContext, usePlugins, type PluginEntryStatus, type WebUIContext, type WebUIPlugin,
+  usePluginContext, usePlugins, type PluginEntryStatus, type WebUIContext, type WebUIPlugin,
 } from '@luckylillia/plugin-sdk/webui'
 
 export const name = 'builtin:market'
@@ -15,6 +15,7 @@ interface SearchItem {
   version: string
   description?: string
   date?: string
+  author?: string
   publisher?: string
   links?: { npm?: string; homepage?: string; repository?: string }
   installed?: string
@@ -52,7 +53,7 @@ const UPDATE_CHECK_INTERVAL = 10 * 60_000
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 const titleOf = (name: string) => name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
 
-// One copy of the installed packages and their updates for the page, the cards and the toolbar button
+// One copy of the installed packages and their updates for the view, its tab's count and the cards
 const store = {
   ctx: undefined as WebUIContext | undefined,
   installed: null as InstalledPackage[] | null,
@@ -185,7 +186,7 @@ const ResultCard: React.FC<{ item: SearchItem }> = ({ item }) => (
     </div>
     {item.description && <p className="text-sm text-theme-secondary line-clamp-2">{item.description}</p>}
     <div className="flex flex-wrap items-center gap-3 text-xs text-theme-muted">
-      {item.publisher && <span>{item.publisher}</span>}
+      {(item.author || item.publisher) && <span title={item.author ? '作者' : '发布者'}>{item.author ?? item.publisher}</span>}
       {item.date && <span>{new Date(item.date).toLocaleDateString()}</span>}
       {item.links?.npm && <a href={item.links.npm} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 hover:text-pink-500">npm<ExternalLink size={11} /></a>}
       {item.links?.homepage && <a href={item.links.homepage} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 hover:text-pink-500">主页<ExternalLink size={11} /></a>}
@@ -252,7 +253,7 @@ const SearchView: React.FC = () => {
           <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
           <div>
             <div>搜索失败：{error}</div>
-            <div className="text-theme-muted mt-1">可以在「源设置」里换一个搜索用的源，或者在下面按包名直接安装。</div>
+            <div className="text-theme-muted mt-1">可以点插件列表里「插件市场」卡片上的齿轮，换一个搜索用的源；或者在下面按包名直接安装。</div>
           </div>
         </div>
       )}
@@ -357,33 +358,24 @@ const InstalledView: React.FC<{ onSearch(): void }> = ({ onSearch }) => {
   )
 }
 
-const MarketPage: React.FC = () => {
+/** The plugin market, a view of the plugin page (`plugins.views`): search and what is installed. The sources are its config, behind the card's gear */
+const MarketView: React.FC = () => {
   const market = useMarket()
-  const [view, setView] = useState<'search' | 'installed' | 'settings'>('search')
+  const [view, setView] = useState<'search' | 'installed'>('search')
   const updates = Object.values(market.updates ?? {}).filter(info => info.update).length
   return (
     <div className="space-y-6">
-      <div className="card p-6">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl gradient-primary-br flex items-center justify-center flex-shrink-0">
-            <Store size={24} className="text-white" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-theme">插件市场</h3>
-            <p className="text-sm text-theme-secondary">从 npm 搜索、安装和更新插件。新装的插件默认不启用，到<a href="#plugins" className="text-pink-500 hover:underline">「插件」页</a>启用它</p>
-          </div>
-        </div>
-        <div className="flex gap-2 mt-4">
+      <div className="card p-4 flex flex-wrap items-center gap-3">
+        <div className="flex gap-2">
           <button type="button" onClick={() => setView('search')} className={tab(view === 'search')}>搜索</button>
           <button type="button" onClick={() => setView('installed')} className={tab(view === 'installed')}>
             已安装{updates > 0 && <span className="ml-1.5 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-pink-500 text-white text-[11px]">{updates}</span>}
           </button>
-          <button type="button" onClick={() => setView('settings')} className={tab(view === 'settings')}>源设置</button>
         </div>
+        <p className="flex-1 min-w-[14rem] text-xs text-theme-muted sm:text-right">从 npm 搜索、安装和更新插件；新装的插件默认不启用，到「插件列表」里启用</p>
       </div>
       {view === 'search' && <SearchView />}
       {view === 'installed' && <InstalledView onSearch={() => setView('search')} />}
-      {view === 'settings' && <SchemaSettings />}
     </div>
   )
 }
@@ -401,23 +393,18 @@ const UpdateBadge: React.FC<{ plugin: PluginEntryStatus }> = ({ plugin }) => {
   )
 }
 
-const MarketButton: React.FC = () => {
-  const ctx = usePluginContext()
+/** After the tab's name: how many installed packages have an update */
+const UpdateCount: React.FC = () => {
   const market = useMarket()
   const updates = Object.values(market.updates ?? {}).filter(info => info.update).length
-  return (
-    <a href={ctx.pageHref('market')} className="btn-glass flex items-center gap-2">
-      <Store size={18} />
-      插件市场
-      {updates > 0 && <span className="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-pink-500 text-white text-[11px]">{updates}</span>}
-    </a>
-  )
+  if (!updates) return null
+  return <span className="ml-1.5 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-pink-500 text-white text-[11px]">{updates}</span>
 }
 
 const apply: WebUIPlugin = (ctx) => {
   store.ctx = ctx
-  ctx.page({ id: 'market', title: '插件市场', icon: 'store', component: MarketPage, order: 45, settings: true })
-  ctx.slot('plugins.toolbar', { id: 'market', label: '插件市场入口', component: MarketButton })
+  // A tab of the plugin page rather than a page of its own: finding plugins and switching them on go together
+  ctx.slot('plugins.views', { id: 'market', label: '插件市场', component: MarketView, title: '插件市场', badge: UpdateCount, order: 10 })
   ctx.slot('plugins.card.actions', { id: 'market-update', label: '插件更新', component: UpdateBadge })
 }
 

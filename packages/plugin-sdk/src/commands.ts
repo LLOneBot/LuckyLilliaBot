@@ -10,7 +10,7 @@ import type { Session } from './universal.js'
 export type ArgumentType = 'string' | 'text' | 'number' | 'integer' | 'posint' | 'natural' | 'user'
 
 export interface CommandConfig {
-  /** Left out of help and of the platforms' command menus. */
+  /** Left out of the platforms' command menus. */
   hidden?: boolean
   /** Per user, in milliseconds: how long a user waits between two runs. */
   cooldown?: number
@@ -48,9 +48,6 @@ export interface Command {
    * without a parameter is a flag, `true` when given.
    */
   option(name: string, syntax: string, config?: OptionConfig): this
-  /** Shown by `help <name>` under the parameters. */
-  usage(text: string): this
-  example(text: string): this
   action(action: CommandAction): this
   /** Removes it early; the plugin's disposal removes it anyway. */
   dispose(): void

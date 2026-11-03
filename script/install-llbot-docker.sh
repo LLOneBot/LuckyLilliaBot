@@ -23,14 +23,14 @@ while [ -z "$AUTO_LOGIN_QQ" ]; do
     [[ "$AUTO_LOGIN_QQ" =~ ^[0-9]+$ ]] || { echo "错误：QQ 号必须是数字！"; AUTO_LOGIN_QQ=""; continue; }
 done
 
-# 连接模式: direct=无头, 纯代码复刻协议(省内存); pmhq=有头, QQ 客户端与原生 PMHQ 同进程宿主
+# 连接模式: direct=无头, 纯代码复刻协议(省内存); nativeqq=有头, 官方 QQ 客户端和 Bot 在同一个容器, 由 NativeQQ 桥接
 PROTOCOL_MODE="direct"
 echo ""
 echo "连接模式："
 echo "1) 无头（纯协议，省内存）"
 echo "2) 有头（需包含 QQ 与 LLBot 的原生镜像）"
 read -p "请选择 (默认 1): " mode_choice
-[ "$mode_choice" == "2" ] && PROTOCOL_MODE="pmhq"
+[ "$mode_choice" == "2" ] && PROTOCOL_MODE="nativeqq"
 
 echo ""
 echo "请选择配置方式："
@@ -305,7 +305,7 @@ if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
     return 1
   }
 
-  # direct 模式使用标准 Bot 镜像；PMHQ 模式稍后指定同宿主镜像
+  # direct 模式使用标准 Bot 镜像；NativeQQ 模式稍后指定包含 QQ 的镜像
   find_available_mirror() {
     local llbot_tag=$1
 
@@ -349,10 +349,10 @@ LLBOT_HEALTHCHECK="    healthcheck:
       retries: 3
       start_period: 40s"
 
-if [ "$PROTOCOL_MODE" == "pmhq" ]; then
-    read -p "原生 PMHQ 镜像（按 docker/Dockerfile.pmhq 构建，需包含 QQ）: " NATIVE_QQ_IMAGE
+if [ "$PROTOCOL_MODE" == "nativeqq" ]; then
+    read -p "NativeQQ 镜像（按 docker/Dockerfile.nativeqq 构建，需包含 QQ）: " NATIVE_QQ_IMAGE
     [ -n "$NATIVE_QQ_IMAGE" ] || { echo "必须提供包含 QQ 和 LLBot 的镜像"; exit 1; }
-    cat > llbot_config/pmhq_config.json << EOF
+    cat > llbot_config/nativeqq_config.json << EOF
 {"qq_path":"/opt/QQ/qq","quick_login_qq":"${AUTO_LOGIN_QQ}","hook_mode":"inline","qq_args":"--no-sandbox","work_dir":"/app/llbot/data"}
 EOF
     cat << EOF > docker-compose.yml
@@ -364,7 +364,7 @@ services:
 ${PORTS_CONFIG}
     environment:
       - WEBUI_PORT=${WEBUI_PORT}
-      - PROTOCOL_MODE=pmhq
+      - PROTOCOL_MODE=nativeqq
     volumes:
       - ./llbot_config:/app/llbot/data:rw
       - qq_volume:/root/.config/QQ
@@ -414,7 +414,7 @@ printLogin(){
     echo "WebUI 访问地址: http://localhost:${WEBUI_PORT}"
     echo "WebUI 密码: ${WEBUI_TOKEN}"
     echo ""
-    if [ "$PROTOCOL_MODE" == "pmhq" ]; then
+    if [ "$PROTOCOL_MODE" == "nativeqq" ]; then
         echo "连接模式: 有头 (QQ 和 Bot 在同一个原生宿主容器内)"
         echo ""
     fi

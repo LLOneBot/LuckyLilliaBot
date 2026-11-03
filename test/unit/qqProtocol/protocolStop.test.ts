@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DirectQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct'
 import { DirectProtocolClient, type SessionInfo } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
 import { deleteSession, loadSession } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/session'
-import { getCurrentLoginState } from '../../../src/plugin/internal/protocol/nt-protocol/llbot-ipc'
 import type { SelfInfo } from '../../../src/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 // Switching the NT protocol plugin off: everything the protocol started has to stop, and switching it back on
@@ -139,7 +138,6 @@ describe('switching the direct protocol off', () => {
     expect(sessionExpired).not.toHaveBeenCalled()
     expect(deleteSession).not.toHaveBeenCalled()
     expect(protocol.selfInfo).toMatchObject({ online: false, uin: '', uid: '', nick: '' })
-    expect(getCurrentLoginState()).toMatchObject({ state: 'initializing' })
     await vi.advanceTimersByTimeAsync(10_000)
     expect(reconnect).not.toHaveBeenCalled()
     expect(protocol.get_is_connected()).toBe(false)

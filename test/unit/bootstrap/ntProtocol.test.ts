@@ -35,7 +35,7 @@ vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol', async () => {
       }
     }
   }
-  return { DirectQQProtocolClient: fake('direct'), PmhqQQProtocolClient: fake('pmhq') }
+  return { DirectQQProtocolClient: fake('direct'), NativeQQProtocolClient: fake('nativeqq') }
 })
 
 // These services write into DATA_DIR (the database after login), so it gets a private temp dir
@@ -137,29 +137,29 @@ describe('builtin:nt-protocol', () => {
     await email.dispose()
   })
 
-  it('mounts the login method of its settings, and remounts only for another mode or PMHQ configuration', async () => {
+  it('mounts the login method of its settings, and remounts only for another mode or another QQ to bridge', async () => {
     const ctx = new Context()
     await ctx.plugin(TimerService)
     await ctx.plugin(MockConfig)
     protocol.mounted.length = 0
     const entry = await ctx.plugin(NTProtocol, { mode: 'direct', protocol: 'linux' })
     await vi.waitFor(() => expect(protocol.mounted).toEqual(['direct']))
-    expect(setProtocolSelection).toHaveBeenLastCalledWith({ mode: 'direct', protocol: 'linux', pmhq: { configPath: '', qqPath: '' } })
+    expect(setProtocolSelection).toHaveBeenLastCalledWith({ mode: 'direct', protocol: 'linux', nativeQQ: { qqPath: '' } })
 
     // The pure protocol reads its protocol as its client is created, so the account stays logged in
     await entry.update({ mode: 'direct', protocol: 'macos' })
     expect(protocol.mounted).toEqual(['direct'])
     expect(setProtocolSelection).toHaveBeenLastCalledWith(expect.objectContaining({ protocol: 'macos' }))
-    await entry.update({ mode: 'direct', protocol: 'macos', pmhq: { configPath: '/other.json', qqPath: '' } })
+    await entry.update({ mode: 'direct', protocol: 'macos', nativeQQ: { qqPath: '/other/QQ' } })
     expect(protocol.mounted).toEqual(['direct'])
 
-    await entry.update({ mode: 'pmhq', protocol: 'macos', pmhq: { configPath: '/other.json', qqPath: '' } })
-    await vi.waitFor(() => expect(protocol.mounted).toEqual(['direct', 'pmhq']))
-    await entry.update({ mode: 'pmhq', protocol: 'linux', pmhq: { configPath: '/other.json', qqPath: '' } })
-    expect(protocol.mounted).toEqual(['direct', 'pmhq'])
-    await entry.update({ mode: 'pmhq', protocol: 'linux', pmhq: { configPath: '/pmhq.json', qqPath: '' } })
-    await vi.waitFor(() => expect(protocol.mounted).toEqual(['direct', 'pmhq', 'pmhq']))
-    expect(setProtocolSelection).toHaveBeenLastCalledWith({ mode: 'pmhq', protocol: 'linux', pmhq: { configPath: '/pmhq.json', qqPath: '' } })
+    await entry.update({ mode: 'nativeqq', protocol: 'macos', nativeQQ: { qqPath: '/other/QQ' } })
+    await vi.waitFor(() => expect(protocol.mounted).toEqual(['direct', 'nativeqq']))
+    await entry.update({ mode: 'nativeqq', protocol: 'linux', nativeQQ: { qqPath: '/other/QQ' } })
+    expect(protocol.mounted).toEqual(['direct', 'nativeqq'])
+    await entry.update({ mode: 'nativeqq', protocol: 'linux', nativeQQ: { qqPath: '/QQ' } })
+    await vi.waitFor(() => expect(protocol.mounted).toEqual(['direct', 'nativeqq', 'nativeqq']))
+    expect(setProtocolSelection).toHaveBeenLastCalledWith({ mode: 'nativeqq', protocol: 'linux', nativeQQ: { qqPath: '/QQ' } })
 
     await entry.dispose()
   })

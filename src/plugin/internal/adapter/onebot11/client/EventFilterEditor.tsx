@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, X, Filter, ChevronDown, ChevronRight, Code, LayoutList } from 'lucide-react'
+import { SelectInput } from '@luckylillia/plugin-sdk/webui'
 
 const FIELD_OPTIONS = [
   { value: 'post_type', label: '事件类型', type: 'select', options: [
@@ -311,26 +312,20 @@ const EventFilterEditor: React.FC<EventFilterEditorProps> = ({ filter, onChange 
                     <div className="flex items-start gap-2">
                       <div className="flex-1 grid grid-cols-[1fr_auto] gap-2 items-start">
                         {/* 字段选择 */}
-                        <select
+                        <SelectInput<string>
                           value={rule.field}
-                          onChange={(e) => updateRule(rule.id, { field: e.target.value })}
-                          className="input-field text-sm !py-2"
-                        >
-                          {FIELD_OPTIONS.map(f => (
-                            <option key={f.value} value={f.value}>{f.label}</option>
-                          ))}
-                        </select>
+                          options={FIELD_OPTIONS}
+                          onChange={field => updateRule(rule.id, { field })}
+                          className="text-sm !py-2"
+                        />
 
                         {/* 操作符选择 */}
-                        <select
+                        <SelectInput<string>
                           value={rule.operator}
-                          onChange={(e) => updateRule(rule.id, { operator: e.target.value })}
-                          className="input-field text-sm !py-2 !w-auto"
-                        >
-                          {OPERATOR_OPTIONS.map(op => (
-                            <option key={op.value} value={op.value}>{op.label}</option>
-                          ))}
-                        </select>
+                          options={OPERATOR_OPTIONS}
+                          onChange={operator => updateRule(rule.id, { operator })}
+                          className="text-sm !py-2 !w-auto"
+                        />
                       </div>
 
                       <button
@@ -371,23 +366,14 @@ const EventFilterEditor: React.FC<EventFilterEditorProps> = ({ filter, onChange 
                           </div>
                         )}
                         {fieldDef && 'options' in fieldDef ? (
-                          <select
+                          <SelectInput<string>
                             value=""
-                            onChange={(e) => {
-                              if (!e.target.value) return
-                              if (listValues.includes(e.target.value)) return
-                              const newList = [...listValues, e.target.value]
-                              updateRule(rule.id, { value: newList.join(', ') })
-                            }}
-                            className="input-field text-sm !py-2"
-                          >
-                            <option value="">点击添加...</option>
-                            {fieldDef.options
-                              .filter(opt => !listValues.includes(opt.value))
-                              .map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                              ))}
-                          </select>
+                            placeholder="点击添加..."
+                            options={fieldDef.options.filter(opt => !listValues.includes(opt.value))}
+                            disabled={listValues.length >= fieldDef.options.length}
+                            onChange={added => updateRule(rule.id, { value: [...listValues, added].join(', ') })}
+                            className="text-sm !py-2"
+                          />
                         ) : (
                           <div className="flex gap-2">
                             <input
@@ -410,16 +396,12 @@ const EventFilterEditor: React.FC<EventFilterEditorProps> = ({ filter, onChange 
                         )}
                       </div>
                     ) : fieldDef && 'options' in fieldDef ? (
-                      <select
+                      <SelectInput<string>
                         value={rule.value}
-                        onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-                        className="input-field text-sm !py-2"
-                      >
-                        <option value="">请选择</option>
-                        {fieldDef.options.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
+                        options={fieldDef.options}
+                        onChange={value => updateRule(rule.id, { value })}
+                        className="text-sm !py-2"
+                      />
                     ) : (
                       <input
                         type={fieldDef?.type === 'number' ? 'number' : 'text'}

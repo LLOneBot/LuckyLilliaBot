@@ -5,7 +5,7 @@ import { ApiError } from './api'
 import type { GroupInternal } from './internal'
 import type { MenuItem, PanelItem, PanelRecord, SubMenuItem } from './types'
 
-// The C2C custom menu and the group command panel (Koishi adapter-qq-crack, menu.ts)
+// The C2C custom menu and the group command panel
 
 const PANEL_REMARK = 'llbot-qq-official'
 /** The panel API takes about one write per this many ms */

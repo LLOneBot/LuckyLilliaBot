@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { realpath } from 'node:fs/promises'
+import { readFile, realpath } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -9,8 +9,8 @@ import type Schema from 'schemastery'
 import { hydrate, SchemaNode } from '@/common/schema/model'
 import { stripDefaults, withDefaults } from '@/common/schema/diff'
 import {
-  isInside, normalizeService, PluginPackage, readPluginPackage, scanPluginRoots, SDK_PACKAGE, sdkIncompatibility,
-  ServiceDeclaration,
+  isImagePath, isInside, normalizeService, PluginAuthor, PluginPackage, readPluginPackage, scanPluginRoots, SDK_PACKAGE,
+  sdkIncompatibility, ServiceDeclaration,
 } from './manifest'
 import { installPluginResolver, ResolverState, sharedSpecifierMap } from './resolve-hook'
 import {
@@ -18,6 +18,7 @@ import {
 } from './store'
 import { watchPluginRoots } from './watcher'
 import { PluginDataDirs } from './storage'
+import { maskSecrets, restoreSecrets, secretPaths } from './secrets'
 import { acceptsScope, EntryScope, normalizeScope } from './scope'
 import type BotsService from '../../universal/bots'
 import type { ListenerPolicy } from '../../universal/bots'
@@ -86,6 +87,21 @@ export interface PluginStatus {
   listenerError?: ListenerError
   /** A third-party package the user agreed to run. */
   trusted?: boolean
+  /** package.json `author` */
+  author?: PluginAuthor
+  /** URL of the image its package names in `llbot.icon`; absent for a lucide icon */
+  iconUrl?: string
+  /** The package declares `llbot.details` or `llbot.screenshots`, which its card offers behind 详情 */
+  hasDetails?: boolean
+}
+
+/** What 详情 shows of a package; images go through `/plugin-assets` */
+export interface PluginDetails {
+  /** `llbot.details` */
+  markdown?: string
+  /** The URL of the details file's directory, which its relative image paths resolve against */
+  base: string
+  screenshots: { url: string; caption?: string }[]
 }
 
 export interface ListenerError {
@@ -128,8 +144,7 @@ export interface BuiltinPlugin {
   standby?: Plugin
 }
 
-/** What describe() shows for a stored secret; writing it back (or an empty string) keeps the stored one. */
-export const SECRET_MASK = '********'
+export { SECRET_MASK } from './secrets'
 
 /**
  * What a builtin's settings need beyond its plugin's Config schema. They are stored in plugins.json like any
@@ -142,7 +157,10 @@ export interface BuiltinConfig<T = any> {
   normalize?(value: T): T
   /** Also check when the card switches the entry on: for a rule that is a security gate. */
   checkOnEnable?: boolean
-  /** Dotted paths of secrets: masked by describe(), kept on a write that sends the mask or nothing. */
+  /**
+   * Dotted paths of secrets: masked by describe(), kept on a write that sends the mask or nothing. A package's
+   * are its `role('secret')` fields; a builtin names its own, as an adapter's token is shown on its page.
+   */
   secrets?: string[]
   /** What a new entry starts with, e.g. default_config.json's section, which docker and nix edit. */
   initial?(): { enabled: boolean; config?: T }
@@ -498,8 +516,9 @@ class PluginService extends Service {
       // already-diffed one), validate that (a diff alone would trip `required`), then store only what differs
       // from the defaults.
       const stored = withDefaults(node, rt.entry.config ?? null, defaults)
-      const secrets = this.builtins.get(rt.entry.name)?.config?.secrets
-      const effective = restoreSecrets(withDefaults(node, config, defaults), stored, secrets, clear)
+      const restored = restoreSecrets(withDefaults(node, config, defaults), stored, this.secretsOf(rt, node), clear, REV_SALT)
+      if (restored.issues.length) throw new PluginConfigError(restored.issues)
+      const effective = restored.value
       // fiber.update() only validates a loaded fiber; check up front so pending ones behave the same
       const value = this.checked(rt, Config, effective, !this.isDisabled(rt), options.rules !== false)
       rt.entry.config = stripDefaults(node, value, defaults)
@@ -598,6 +617,30 @@ class PluginService extends Service {
     return isInside(dir, target) ? target : undefined
   }
 
+  /**
+   * An image of an installed package, for `/plugin-assets/<key>/<version>/<file>`: its icon, its screenshots and what
+   * its details show. Any image inside the package and nothing else; being passive, they need no approval, unlike
+   * the WebUI module.
+   */
+  asset(key: string, file: string): string | undefined {
+    const pkg = this.packages.get(packageOfKey(key))
+    if (!pkg || !isImagePath(file)) return
+    const target = path.resolve(pkg.root, file)
+    return isInside(pkg.root, target) ? target : undefined
+  }
+
+  /** Read when asked, so an edited details file shows without a rescan. A builtin has none. */
+  async details(id: string): Promise<PluginDetails> {
+    const pkg = this.packages.get(this.runtime(id).entry.name)
+    if (!pkg) return { base: '', screenshots: [] }
+    const dir = pkg.detailsFile ? path.posix.dirname(pkg.detailsFile) : '.'
+    return {
+      ...pkg.detailsFile ? { markdown: await readFile(path.resolve(pkg.root, pkg.detailsFile), 'utf8') } : {},
+      base: assetUrl(pkg, dir === '.' ? '' : `${dir}/`),
+      screenshots: pkg.screenshots.map(({ file, caption }) => ({ url: assetUrl(pkg, file), ...caption ? { caption } : {} })),
+    }
+  }
+
   uiPrefs(): UiPrefs {
     return structuredClone(this.data.ui ?? normalizeUi(undefined))
   }
@@ -641,17 +684,23 @@ class PluginService extends Service {
     this.assertConfigurable(rt)
     return this.lock(rt.entry.name, async () => {
       const { schema, node, defaults } = this.configModel(await this.configSchemaOf(rt, false))
-      const secrets = this.builtins.get(rt.entry.name)?.config?.secrets
+      const secrets = this.secretsOf(rt, node)
       const config = rt.entry.config ?? null
       return {
         schema,
         defaults,
-        config: maskSecrets(config, secrets),
-        effective: maskSecrets(withDefaults(node, config, defaults), secrets),
+        config: maskSecrets(config, secrets, REV_SALT),
+        effective: maskSecrets(withDefaults(node, config, defaults), secrets, REV_SALT),
         rev: this.revOf(rt),
-        ...secrets && { secrets },
+        ...secrets.length ? { secrets } : {},
       }
     })
+  }
+
+  /** A builtin names its secrets; a package's are its `role('secret')` fields */
+  private secretsOf(rt: Runtime, node: SchemaNode | null): string[] {
+    const builtin = this.builtins.get(rt.entry.name)
+    return builtin ? builtin.config?.secrets ?? [] : secretPaths(node)
   }
 
   private configModel(Config: unknown): { schema: unknown; node: SchemaNode | null; defaults: unknown } {
@@ -766,6 +815,12 @@ class PluginService extends Service {
         return old && (old.root !== pkg.root || old.main !== pkg.main || old.version !== pkg.version)
       })
       .map(pkg => pkg.name)
+    // An edit of what the WebUI shows (title, icon, details) needs no reload, but the list goes out again
+    const shown = (pkg: PluginPackage) => JSON.stringify([pkg.manifest, pkg.description, pkg.author, pkg.iconFile, pkg.detailsFile, pkg.screenshots])
+    const edited = [...next.values()].some(pkg => {
+      const old = this.packages.get(pkg.name)
+      return old && shown(old) !== shown(pkg)
+    })
     this.packages = next
     this.resolver.roots = [...next.values()].map(pkg => pathToFileURL(pkg.root + path.sep).href)
     for (const name of [...changed, ...removed]) this.modules.delete(name)
@@ -781,7 +836,7 @@ class PluginService extends Service {
       created = true
     }
     if (created) await this.save()
-    if (added.length || removed.length || changed.length) this.changed()
+    if (added.length || removed.length || changed.length || edited) this.changed()
     return { added, changed, removed }
   }
 
@@ -919,6 +974,9 @@ class PluginService extends Service {
       service: this.serviceOf(rt),
       webui: pkg?.webui && webuiUrl(pkg, this.webuiVersions.get(pkg.name) ?? 0),
     }
+    if (pkg?.author) status.author = pkg.author
+    if (pkg?.iconFile) status.iconUrl = assetUrl(pkg, pkg.iconFile)
+    if (pkg?.detailsFile || pkg?.screenshots.length) status.hasDetails = true
     if (entry.scope) status.scope = entry.scope
     if (!builtin) status.trusted = this.isTrusted(entry.name)
     if (pkg?.webui) status.webuiApproved = this.webuiApproved(pkg.name)
@@ -1097,49 +1155,8 @@ function validateConfig(Config: unknown, config: unknown) {
   })))
 }
 
-// A config can hold a secret (the SMTP password): salted, so a rev cannot be brute-forced offline
+// A config can hold secrets: salted, so neither a rev nor a mask's token can be brute-forced offline
 const REV_SALT = randomBytes(16)
-
-function locate(root: unknown, dotted: string): { parent?: Record<string, unknown>; leaf: string } {
-  const keys = dotted.split('.')
-  let node = root
-  for (const key of keys.slice(0, -1)) {
-    if (!node || typeof node !== 'object') return { leaf: '' }
-    node = (node as Record<string, unknown>)[key]
-  }
-  return { parent: node && typeof node === 'object' ? node as Record<string, unknown> : undefined, leaf: keys[keys.length - 1] }
-}
-
-function maskSecrets(value: unknown, secrets: string[] = []): unknown {
-  if (!secrets.length) return value
-  const copy = structuredClone(value)
-  for (const dotted of secrets) {
-    const { parent, leaf } = locate(copy, dotted)
-    if (parent && typeof parent[leaf] === 'string' && parent[leaf]) parent[leaf] = SECRET_MASK
-  }
-  return copy
-}
-
-/**
- * A secret sent back masked or blank keeps the stored value, unless `clear` asks to empty it. A new value
- * always wins, so typing a password after pressing "clear" stores the typed one.
- */
-function restoreSecrets(next: unknown, current: unknown, secrets: string[] = [], clear: string[] = []): unknown {
-  if (!secrets.length) return next
-  const copy = structuredClone(next)
-  for (const dotted of secrets) {
-    const { parent, leaf } = locate(copy, dotted)
-    if (!parent) continue
-    if (parent[leaf] !== SECRET_MASK && parent[leaf] !== '' && parent[leaf] !== undefined) continue
-    if (clear.includes(dotted)) {
-      parent[leaf] = ''
-      continue
-    }
-    const stored = locate(current, dotted)
-    if (stored.parent && stored.parent[stored.leaf] !== undefined) parent[leaf] = stored.parent[stored.leaf]
-  }
-  return copy
-}
 
 // npm names allow at most one slash and never a plus, which keeps the key a single path segment
 function keyOfPackage(name: string): string {
@@ -1152,6 +1169,11 @@ function packageOfKey(key: string): string {
 
 function webuiUrl(pkg: PluginPackage, version: number): string {
   return `/plugin-webui/${keyOfPackage(pkg.name)}/${version}/${encodeURIComponent(path.basename(pkg.webui!))}`
+}
+
+/** `file` from the package root with forward slashes; the version only busts caches across updates */
+function assetUrl(pkg: PluginPackage, file: string): string {
+  return `/plugin-assets/${keyOfPackage(pkg.name)}/${encodeURIComponent(pkg.version)}/${file.split('/').map(encodeURIComponent).join('/')}`
 }
 
 function hostSdkVersion(): string | undefined {

@@ -4,7 +4,8 @@ import { showToast } from '../common'
 import { usePluginList } from '../../plugin-host/pluginList'
 import { PluginStatus } from '../../types/plugins'
 import { setMessageOrder } from '../../utils/pluginApi'
-import { pluginIcon, pluginTitle, scopeSummary } from './meta'
+import { pluginTitle, scopeSummary } from './meta'
+import PluginIcon from './PluginIcon'
 
 const COMMANDS = 'builtin:commands'
 
@@ -66,12 +67,11 @@ const MessageOrder: React.FC = () => {
           {order.map((id, index) => {
             const plugin = byId.get(id)
             if (!plugin) return null
-            const Icon = pluginIcon(plugin)
             const summary = scopeSummary(plugin.scope)
             return (
               <div key={id} className="flex items-center gap-3 p-4">
                 <span className="w-6 text-center text-sm text-theme-muted flex-shrink-0">{index + 1}</span>
-                <div className="w-9 h-9 rounded-xl bg-theme-item text-theme-secondary flex items-center justify-center flex-shrink-0"><Icon size={18} /></div>
+                <PluginIcon plugin={plugin} className="w-9 h-9 rounded-xl" fill="bg-theme-item text-theme-secondary" size={18} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-theme truncate">{pluginTitle(plugin)}</div>
                   <div className="text-xs text-theme-hint truncate">

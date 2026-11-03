@@ -1,10 +1,10 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
-import { getProtocol, isPmhqMode } from '@/common/utils/environment'
+import { getProtocol, isNativeQQMode } from '@/common/utils/environment'
 
 /**
  * The scanned account's figures for the plugin's Dashboard cards: always the mode, the rest once logged in, the
- * QQ process only where the protocol can read it (PMHQ).
+ * QQ process only where the protocol can read it (NativeQQ).
  */
 export function createNTStatsRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -27,7 +27,7 @@ export function createNTStatsRoutes(ctx: Context): Hono {
       }
       const qq = await protocol?.getQQResourceUsage()
       const device = await ctx.get('ntSystemApi')?.getDeviceInfo().catch(() => undefined)
-      const mode = isPmhqMode() ? 'pmhq' : 'direct'
+      const mode = isNativeQQMode() ? 'nativeqq' : 'direct'
       return c.json({
         success: true,
         data: {

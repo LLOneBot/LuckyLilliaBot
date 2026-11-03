@@ -7,7 +7,7 @@ export const builtin: BuiltinPlugin = {
   plugin: Logs,
   manifest: {
     category: 'tool',
-    icon: 'terminal',
+    icon: 'scroll-text',
     description: { zh: '在 WebUI 里实时看日志', en: 'Live logs in the WebUI' },
   },
 }

@@ -79,6 +79,7 @@ export function createPluginRoutes(ctx: Context): Hono {
   router.post('/:id/reload', c => respond(c, () => ctx.plugins.reload(c.req.param('id'))))
   router.get('/:id/schema', c => respond(c, () => ctx.plugins.describe(c.req.param('id'))))
   router.get('/:id/dependencies', c => respond(c, () => ctx.plugins.dependencies(c.req.param('id'))))
+  router.get('/:id/details', c => respond(c, () => ctx.plugins.details(c.req.param('id'))))
   router.delete('/:id/listener-error', c => respond(c, () => ctx.plugins.clearListenerError(c.req.param('id'))))
 
   router.put('/:id/scope', async (c) => {
@@ -132,12 +133,13 @@ function loginCookie(request: Request): string | undefined {
 /** What @hono/node-server hands a handler: the connection, for the address the access log names. */
 type ServerEnv = { incoming?: { socket?: { remoteAddress?: string } } } | undefined
 
+type Resolve = (key: string, file: string) => string | undefined
+
 /**
- * `/plugin-webui/<key>/<version>/<file>`: plugin WebUI modules and their chunks, once the user approved the
- * package's. import() sends the cookies but no headers, so the WebUI login is checked against its cookie, which
- * holds the same hash, with the API's lockout.
+ * `/<route>/<key>/<version>/<file>`, a file of a plugin package. import() and <img> send the cookies but no headers,
+ * so the WebUI login is checked against its cookie, which holds the same hash, with the API's lockout.
  */
-export async function servePluginAsset(ctx: Context, request: Request, env?: ServerEnv): Promise<Response> {
+async function servePackageFile(request: Request, env: ServerEnv, resolve: Resolve, headers: Record<string, string> = {}): Promise<Response> {
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405 })
   const { pathname } = new URL(request.url)
   const ip = env?.incoming?.socket?.remoteAddress ?? ''
@@ -145,18 +147,33 @@ export async function servePluginAsset(ctx: Context, request: Request, env?: Ser
   const [, , key, , ...file] = pathname.split('/')
   let target: string | undefined
   try {
-    target = key && file.length ? ctx.plugins.webuiAsset(decodeURIComponent(key), file.map(decodeURIComponent).join('/')) : undefined
+    target = key && file.length ? resolve(decodeURIComponent(key), file.map(decodeURIComponent).join('/')) : undefined
   } catch (e) {
     if (e instanceof PluginForbiddenError) return new Response(null, { status: 403 })
     // else malformed percent-encoding
   }
-  if (!target || !(await stat(target).catch(() => undefined))?.isFile()) return new Response(null, { status: 404 })
+  const info = target ? await stat(target).catch(() => undefined) : undefined
+  if (!target || !info?.isFile()) return new Response(null, { status: 404 })
+  const etag = `W/"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`
+  // The URL carries a version, but a plugin being edited changes without one
+  const common = { 'Cache-Control': 'no-cache', ETag: etag, ...headers }
+  if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: common })
   return new Response(request.method === 'HEAD' ? null : await readFile(target), {
-    headers: {
-      'Content-Type': CONTENT_TYPES[path.extname(target).toLowerCase()] ?? 'application/octet-stream',
-      // The URL carries the package's reload version, but a plugin being edited without a reload changes too
-      'Cache-Control': 'no-cache',
-    },
+    headers: { 'Content-Type': CONTENT_TYPES[path.extname(target).toLowerCase()] ?? 'application/octet-stream', ...common },
+  })
+}
+
+/** `/plugin-webui/...`: plugin WebUI modules and their chunks, once the user approved the package's */
+export function servePluginAsset(ctx: Context, request: Request, env?: ServerEnv): Promise<Response> {
+  return servePackageFile(request, env, (key, file) => ctx.plugins.webuiAsset(key, file))
+}
+
+/** `/plugin-assets/...`: the images of a package, its icon, screenshots and what its details show */
+export function servePluginImage(ctx: Context, request: Request, env?: ServerEnv): Promise<Response> {
+  return servePackageFile(request, env, (key, file) => ctx.plugins.asset(key, file), {
+    // An SVG opened on its own is a document, and would run its scripts with the WebUI's origin
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    'X-Content-Type-Options': 'nosniff',
   })
 }
 
@@ -167,5 +184,6 @@ export const PluginRoutes = {
   apply(ctx: Context) {
     ctx.webuiServer.route('/api/plugins', new Hono().route('/api/plugins', createPluginRoutes(ctx)))
     ctx.webuiServer.route('/plugin-webui', { fetch: (request, env) => servePluginAsset(ctx, request, env as ServerEnv) }, { public: true })
+    ctx.webuiServer.route('/plugin-assets', { fetch: (request, env) => servePluginImage(ctx, request, env as ServerEnv) }, { public: true })
   },
 }

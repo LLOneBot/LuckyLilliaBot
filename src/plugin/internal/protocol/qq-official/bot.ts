@@ -154,7 +154,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
       const me = await guildInternal(this.api).getMe()
       if (me?.username) this.user.name = me.username
       if (me?.avatar) this.user.avatar = me.avatar
-      // Koishi adapter-qq-crack falls back to it for mentions of the bot
+      // Stands for the bot in mentions until a group message shows its id there
       if (me?.union_openid) this.botOpenid ??= me.union_openid
     } catch (e) {
       logger.warn('获取机器人资料失败: %s', (e as Error).message)
@@ -310,7 +310,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
         delete request.content
       }
       if (options.streamText || options.autoStream) this.streams.apply(key, request, !!key, options.endStream)
-      // Rich media cannot reply to an event (found by koishi-plugin-adapter-qq-crack)
+      // Rich media cannot reply to an event
       if (request.event_id && request.msg_type === MessageType.Media) {
         delete request.event_id
         delete request.msg_seq
@@ -428,9 +428,8 @@ export interface GuildDeliverOptions extends DeliverOptions {
 }
 
 /**
- * The guilds (QQ 频道) of the same AppID, as a bot of their own platform `qqguild`, the way Koishi's QQ adapters
- * split them: guild ids, channels, members and messages share nothing with groups. A `private:` channel is still
- * a C2C chat, handed to the `qq` bot.
+ * The guilds (QQ 频道) of the same AppID, as a bot of their own platform `qqguild`: guild ids, channels, members
+ * and messages share nothing with groups. A `private:` channel is still a C2C chat, handed to the `qq` bot.
  */
 export class QQGuildBot implements Bot, GuildDecodeHost {
   readonly platform = 'qqguild'

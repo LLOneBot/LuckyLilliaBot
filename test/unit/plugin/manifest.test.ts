@@ -2,7 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { normalizeCategory, normalizeService, readPluginPackage, resolveMain, scanPluginRoots, sdkIncompatibility } from '@/plugin/host/manifest'
+import {
+  normalizeCategory, normalizeService, parseAuthor, readPluginPackage, resolveMain, scanPluginRoots, sdkIncompatibility,
+} from '@/plugin/host/manifest'
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-scan-'))
 
@@ -47,6 +49,17 @@ describe('resolveMain', () => {
     expect(resolveMain({ main: 'b.js' })).toBe('b.js')
     expect(resolveMain({})).toBe('index.js')
   })
+
+  it('takes the development export when the host runs from its sources and the file is there', () => {
+    pkg('dual', { name: 'dual' }, ['src/index.ts', 'lib/index.js'])
+    pkg('dual-unbuilt-src', { name: 'dual-unbuilt-src' }, ['lib/index.js'])
+    const exports = { '.': { types: './lib/index.d.ts', development: './src/index.ts', default: './lib/index.js' } }
+    expect(resolveMain({ exports }, path.join(root, 'dual'), true)).toBe('./src/index.ts')
+    // The release build ignores it
+    expect(resolveMain({ exports }, path.join(root, 'dual'), false)).toBe('./lib/index.js')
+    // A published package may leave its sources out
+    expect(resolveMain({ exports }, path.join(root, 'dual-unbuilt-src'), true)).toBe('./lib/index.js')
+  })
 })
 
 describe('sdkIncompatibility', () => {
@@ -59,6 +72,68 @@ describe('sdkIncompatibility', () => {
     expect(sdkIncompatibility('^2.0.0', '1.4.2')).toMatch(/host provides 1\.4\.2/)
     expect(sdkIncompatibility('^1.0.0', undefined)).toMatch(/ships none/)
     expect(sdkIncompatibility('not a range', '1.0.0')).toMatch(/invalid/)
+  })
+})
+
+describe('parseAuthor', () => {
+  it('reads the string form and the object form', () => {
+    expect(parseAuthor('Alice <a@b.c> (https://alice.dev)')).toEqual({ name: 'Alice', email: 'a@b.c', url: 'https://alice.dev' })
+    expect(parseAuthor('Alice Bob')).toEqual({ name: 'Alice Bob' })
+    expect(parseAuthor('Alice (https://alice.dev)')).toEqual({ name: 'Alice', url: 'https://alice.dev' })
+    expect(parseAuthor({ name: ' Alice ', email: 'a@b.c', url: 'https://alice.dev' })).toEqual({ name: 'Alice', email: 'a@b.c', url: 'https://alice.dev' })
+  })
+
+  it('drops an author without a name, and a URL that is not http(s), which would become a link', () => {
+    expect(parseAuthor(undefined)).toBeUndefined()
+    expect(parseAuthor('<a@b.c>')).toBeUndefined()
+    expect(parseAuthor({ email: 'a@b.c' })).toBeUndefined()
+    expect(parseAuthor({ name: 'Eve', url: 'javascript:alert(1)' })).toEqual({ name: 'Eve' })
+    expect(parseAuthor('Eve (javascript:alert(1))')).toEqual({ name: 'Eve' })
+  })
+})
+
+describe('readPluginPackage', () => {
+  it('reads an image icon, the details and the screenshots', async () => {
+    pkg('shown', {
+      name: 'shown',
+      type: 'module',
+      author: { name: 'Alice' },
+      llbot: { icon: 'assets/icon.svg', details: 'docs/details.md', screenshots: ['assets/a.png', { src: './assets/b.webp', caption: ' 群里 ' }] },
+    }, ['index.js', 'assets/icon.svg', 'docs/details.md', 'assets/a.png', 'assets/b.webp'])
+    expect(await readPluginPackage(path.join(root, 'shown'))).toMatchObject({
+      author: { name: 'Alice' },
+      iconFile: 'assets/icon.svg',
+      detailsFile: 'docs/details.md',
+      screenshots: [{ file: 'assets/a.png' }, { file: 'assets/b.webp', caption: '群里' }],
+      warnings: [],
+    })
+  })
+
+  it('takes an icon that is no image path for a lucide name', async () => {
+    pkg('lucide', { name: 'lucide', type: 'module', llbot: { icon: 'message-square' } })
+    const lucide = await readPluginPackage(path.join(root, 'lucide'))
+    expect(lucide).toMatchObject({ manifest: { icon: 'message-square' }, screenshots: [], warnings: [] })
+    expect(lucide?.iconFile).toBeUndefined()
+  })
+
+  it('drops what is missing, outside the package or of the wrong kind, with a warning each', async () => {
+    pkg('wrong', {
+      name: 'wrong',
+      type: 'module',
+      llbot: { icon: '../outside.png', details: 'README.txt', screenshots: ['missing.png', 'index.js', 7, { caption: 'no src' }] },
+    }, ['index.js', 'README.txt'])
+    const wrong = await readPluginPackage(path.join(root, 'wrong'))
+    expect(wrong).toMatchObject({ iconFile: undefined, detailsFile: undefined, screenshots: [] })
+    expect(wrong!.warnings).toEqual([
+      'llbot.icon should be a path inside the package',
+      'llbot.details should be a .md / .markdown file',
+      'llbot.screenshots[0] missing.png does not exist',
+      'llbot.screenshots[1] should be a .png / .jpg / .jpeg / .gif / .webp / .svg file',
+      'llbot.screenshots[2] should be a path inside the package',
+      'llbot.screenshots[3] should be a path inside the package',
+    ])
+    pkg('not-a-list', { name: 'not-a-list', type: 'module', llbot: { screenshots: 'a.png' } })
+    expect((await readPluginPackage(path.join(root, 'not-a-list')))!.warnings).toEqual(['llbot.screenshots should be a list of images in the package'])
   })
 })
 

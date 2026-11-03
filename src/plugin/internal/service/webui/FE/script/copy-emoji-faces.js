@@ -7,7 +7,6 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-// https://github.com/koishijs/QFace
 const SOURCE_DIR = path.join(__dirname, '../../../../dist/QFace/public/assets/qq_emoji')
 const OUTPUT_DIR = path.join(__dirname, '../public/face')
 

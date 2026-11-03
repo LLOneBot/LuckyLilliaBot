@@ -11,6 +11,7 @@ export interface ServiceDeclaration {
 }
 
 export interface PluginManifest {
+  title?: string | Record<string, string>
   description?: string | Record<string, string>
   /** One of CATEGORIES in components/plugins/listing.ts; anything else is listed under "other". */
   category?: string
@@ -53,6 +54,26 @@ export interface PluginStatus {
   listenerError?: { at: number; message: string; count: number }
   /** A third-party package the user agreed to run; enabling one that is not asks first. */
   trusted?: boolean
+  /** package.json `author` */
+  author?: PluginAuthor
+  /** The image its package names in `llbot.icon`; absent for a lucide icon */
+  iconUrl?: string
+  /** It declares details or screenshots, behind 详情 on its card */
+  hasDetails?: boolean
+}
+
+export interface PluginAuthor {
+  name: string
+  email?: string
+  url?: string
+}
+
+/** GET /api/plugins/:id/details */
+export interface PluginDetails {
+  markdown?: string
+  /** URL the markdown's relative image paths resolve against, ending in a slash */
+  base: string
+  screenshots: { url: string; caption?: string }[]
 }
 
 /** Mirrors src/plugin/host/scope.ts */
@@ -75,7 +96,7 @@ export interface UiPrefs {
   approved: string[]
   /** contributionKey / pageContributionKey (plugin-host/registry.ts) of what is left out. */
   hidden: string[]
-  /** Positions in `list` slots by contributionKey, over the contributions' own order. */
+  /** Positions of sidebar pages (pageContributionKey) and of contributions to `list` slots (contributionKey), over their own order */
   order: Record<string, number>
 }
 

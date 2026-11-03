@@ -14,14 +14,13 @@ export interface UserNamesOptions {
   appId: string
   /** Keep the names on disk */
   persist: boolean
-  /** A third-party service that names an openid (Koishi adapter-qq-crack uses https://oiapi.net/api/Openid) */
+  /** A third-party service that names an openid, e.g. https://oiapi.net/api/Openid */
   lookupApi?: string
 }
 
 /**
  * Names seen in events, by platform and user id: most events leave them out (C2C messages, interactions, member
- * events), so they are filled in from here. Koishi adapter-qq-crack keeps them in Koishi's user table; here they
- * go to a file in the plugin's data directory.
+ * events), so they are filled in from here, and kept in a file in the plugin's data directory.
  */
 export class UserNames {
   private names = new Map<string, string>()

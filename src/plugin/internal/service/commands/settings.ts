@@ -7,7 +7,6 @@ export const CommandsSchema: Schema<CommandSettings> = Schema.object({
   bare: Schema.boolean().default(DEFAULT_SETTINGS.bare).description('不写前缀也算指令'),
   owners: Schema.array(Schema.string()).default([])
     .description('主人：能用所有指令的人。写「平台:用户 id」，比如 luckylillia:12345、qq:用户的 openid；只写 id 时所有平台都算'),
-  help: Schema.boolean().default(DEFAULT_SETTINGS.help).description('help 指令（也叫「帮助」）：列出能用的指令和它们的用法'),
 }) as Schema<CommandSettings>
 
 export const commandsSettings: BuiltinConfig<CommandSettings> = {

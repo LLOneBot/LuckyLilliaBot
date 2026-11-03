@@ -36,7 +36,7 @@ export const DashboardPage: React.FC = () => (
         <SlotCard options={contribution.options as DashboardCardOptions}>{element as React.ReactNode}</SlotCard>
       )}
     >
-      <p className="card p-8 basis-full text-center text-sm text-theme-muted">卡片都隐藏了，可以在插件页的「界面」里重新打开</p>
+      <p className="card p-8 basis-full text-center text-sm text-theme-muted">没有可显示的卡片</p>
     </Slot>
   </div>
 )

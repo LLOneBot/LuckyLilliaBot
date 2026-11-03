@@ -254,8 +254,8 @@ export interface LuckyLilliaInternal {
 }
 
 /**
- * `bot.internal` of the QQ official bot (`qq`): the open platform's group and C2C endpoints, under the names of
- * Koishi's QQ adapter. Path parameters come first, in order; then the body, or the query for GET and DELETE.
+ * `bot.internal` of the QQ official bot (`qq`): the open platform's group and C2C endpoints. Path parameters
+ * come first, in order; then the body, or the query for GET and DELETE.
  */
 export interface QQInternal {
   acknowledgeInteraction: Call

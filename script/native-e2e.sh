@@ -3,7 +3,7 @@ set -euo pipefail
 case "${1:-}" in
   build)
     : "${QQ_BASE_IMAGE:?Configure QQ_BASE_IMAGE with the official QQ runtime image}"
-    docker build -f docker/Dockerfile.pmhq --build-arg QQ_BASE_IMAGE="$QQ_BASE_IMAGE" -t llbot-pr-test .
+    docker build -f docker/Dockerfile.nativeqq --build-arg QQ_BASE_IMAGE="$QQ_BASE_IMAGE" -t llbot-pr-test .
     ;;
   start)
     docker stop pmhq1 pmhq2
@@ -13,10 +13,10 @@ case "${1:-}" in
       # The existing self-hosted runner supplies test credentials. Do not print them.
       test -f "/srv/llbot-test/auth_token$n.txt"
       cp "/srv/llbot-test/auth_token$n.txt" "workspace$n/data/auth_token.txt"
-      printf '{"qq_path":"/opt/QQ/qq","quick_login_qq":"%s","hook_mode":"inline","qq_args":"--no-sandbox","work_dir":"/app/llbot/data"}' "$uin" > "workspace$n/data/pmhq_config.json"
+      printf '{"qq_path":"/opt/QQ/qq","quick_login_qq":"%s","hook_mode":"inline","qq_args":"--no-sandbox","work_dir":"/app/llbot/data"}' "$uin" > "workspace$n/data/nativeqq_config.json"
       docker run -d --name "llbot-pr$n" --init --stop-timeout 30 \
         --network llbot-test_test_network \
-        -e PROTOCOL_MODE=pmhq -e WEBUI_PORT="$webui" \
+        -e PROTOCOL_MODE=nativeqq -e WEBUI_PORT="$webui" \
         -v "llbot-test_qq_volume$n:/root/.config/QQ" \
         -v "$PWD/workspace$n/data:/app/llbot/data:rw" \
         llbot-pr-test

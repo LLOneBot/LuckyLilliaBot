@@ -15,10 +15,10 @@ interface Open {
 }
 
 /**
- * Streaming replies (Koishi adapter-qq-crack, stream.ts), keyed by the message or event the replies cite; crack
- * keys them by the Koishi session. In C2C each part continues the stream the first one opened, by its message id and
- * the next index. Groups have no streams (2026-10-31: every part came out as a message of its own), so there the
- * parts gather instead. A stream ends with its end part, or STREAM_IDLE after its last part.
+ * Streaming replies, keyed by the message or event the replies cite. In C2C each part continues the stream the
+ * first one opened, by its message id and the next index. Groups have no streams (2026-10-31: every part came out
+ * as a message of its own), so there the parts gather instead. A stream ends with its end part, or STREAM_IDLE
+ * after its last part.
  */
 export class StreamStates {
   private states = new Map<string, Open>()

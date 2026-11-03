@@ -7,11 +7,11 @@ import { PluginBoundary } from './context'
 import { usePluginList } from './pluginList'
 import {
   activeOwners, configEditorOf, contributionKey, contributionLabel, declarationOf, fieldRendererOf, PageContribution,
-  pageContributionKey, slotContents, SlotContribution, SlotDeclaration, slotMatches, useRegistry, visiblePages,
+  PagePurpose, pageContributionKey, slotContents, SlotContribution, SlotDeclaration, slotMatches, useRegistry, visiblePages,
 } from './registry'
 
-/** Pages for the sidebar, or with `open`, pages a tab may show. */
-export function useVisiblePages(purpose: 'sidebar' | 'open' = 'sidebar'): PageContribution[] {
+/** Pages for the sidebar; see PagePurpose for the others. */
+export function useVisiblePages(purpose: PagePurpose = 'sidebar'): PageContribution[] {
   const contributions = useRegistry(state => state.contributions)
   const plugins = usePluginList(state => state.plugins)
   const prefs = usePluginList(state => state.prefs)
@@ -92,6 +92,14 @@ export const SlotOutlet: React.FC<SlotOutletProps> = ({ name, props, match, wrap
   )
 }
 
+/** What a slot shows right now, for its owner to lay out itself, e.g. the plugin page's tabs. */
+export function useSlotContents(name: string): SlotContribution[] {
+  const contributions = useRegistry(state => state.contributions)
+  const plugins = usePluginList(state => state.plugins)
+  const prefs = usePluginList(state => state.prefs)
+  return useMemo(() => slotContents(contributions, activeOwners(plugins), name, prefs), [contributions, plugins, prefs, name])
+}
+
 /** The keys a `keyed` slot has a contribution for right now. */
 export function useSlotMatches(name: string): string[] {
   const contributions = useRegistry(state => state.contributions)
@@ -160,6 +168,15 @@ const go = (tab: string) => () => {
   window.location.hash = tab
 }
 
+/** A notice at the top of a plugin page: the WebUI's own (PluginPage) and the plugin's (SDK StatusNotice) */
+export const PageNotice: React.FC<{ children: React.ReactNode; action?: { label: string; onClick(): void } }> = ({ children, action }) => (
+  <div className="card p-4 mb-6 flex items-center gap-3 border border-amber-300/60 dark:border-amber-500/40">
+    <AlertTriangle size={20} className="text-amber-500 flex-shrink-0" />
+    <p className="flex-1 text-sm text-theme-secondary">{children}</p>
+    {action && <button type="button" onClick={action.onClick} className="btn-glass text-sm flex-shrink-0">{action.label}</button>}
+  </div>
+)
+
 /** In place of a page whose plugin does not run: why, and where to see to it. */
 const PluginNotRunning: React.FC<{ plugin: PluginStatus; plugins: PluginStatus[]; blocker?: Blocker }> = ({ plugin, plugins, blocker }) => {
   if (!blocker) {
@@ -197,15 +214,7 @@ export const PluginPage: React.FC<{ page: PageContribution; fullscreen?: boolean
     : page.settings && plugin?.notice ? `「${pluginTitle(plugin)}」${plugin.notice}` : undefined
   return (
     <>
-      {notice && (
-        <div className="card p-4 mb-6 flex items-center gap-3 border border-amber-300/60 dark:border-amber-500/40">
-          <AlertTriangle size={20} className="text-amber-500 flex-shrink-0" />
-          <p className="flex-1 text-sm text-theme-secondary">{notice}</p>
-          {blocker?.action && (
-            <button type="button" onClick={go(blocker.action.tab)} className="btn-glass text-sm flex-shrink-0">{blocker.action.label}</button>
-          )}
-        </div>
-      )}
+      {notice && <PageNotice action={blocker?.action && { label: blocker.action.label, onClick: go(blocker.action.tab) }}>{notice}</PageNotice>}
       {/* One boundary per page, so that an error on one page does not stick to the next one of the same plugin */}
       <PageViewContext.Provider value={fullscreen ? FULLSCREEN : WINDOWED}>
         <PluginBoundary key={page.key} owner={owner} failure={{ key: pageContributionKey(page), where: `页面「${page.title}」` }}>
@@ -244,7 +253,7 @@ export const PluginPageUnavailable: React.FC<{ tab: string }> = ({ tab }) => {
   let detail = '提供它的插件可能没有安装或没有启用'
   if (owner?.webui && !owner.webuiApproved) {
     title = `「${pluginTitle(owner)}」的界面还没有批准`
-    detail = '在插件页的「界面」里批准后，它的页面才会加载'
+    detail = '在插件页它的卡片上点「批准界面」，它的页面才会加载'
   } else if (owner?.disabled) {
     title = `「${pluginTitle(owner)}」已在插件页停用`
     detail = '启用后才能用这个页面'

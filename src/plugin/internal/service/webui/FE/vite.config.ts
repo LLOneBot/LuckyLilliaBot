@@ -78,9 +78,14 @@ export default defineConfig({
         target: backend,
         changeOrigin: true,
       },
+      // These check the login cookie, named after the port in the Host header: the browser's, so it stays
       '/plugin-webui': {
         target: backend,
-        changeOrigin: true,
+        changeOrigin: false,
+      },
+      '/plugin-assets': {
+        target: backend,
+        changeOrigin: false,
       },
     },
   },

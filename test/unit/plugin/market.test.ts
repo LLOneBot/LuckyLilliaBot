@@ -189,7 +189,7 @@ async function startRegistry() {
       const objects = [...documents.values()]
         .map(doc => doc.versions[doc['dist-tags'].latest])
         .filter(version => text.includes('keywords:luckylillia-plugin') && version.keywords?.includes('luckylillia-plugin'))
-        .map(version => ({ package: { name: version.name, version: version.version, description: version.description, keywords: version.keywords } }))
+        .map(version => ({ package: { name: version.name, version: version.version, description: version.description, keywords: version.keywords, author: version.author } }))
       return send(200, { objects, total: objects.length })
     }
     const tarball = tarballs.get(url.pathname)
@@ -215,7 +215,7 @@ async function startRegistry() {
       version,
       type: 'module',
       main: 'index.js',
-      ...options.plugin ? { keywords: ['luckylillia-plugin'], llbot: {}, description: `${name} plugin` } : {},
+      ...options.plugin ? { keywords: ['luckylillia-plugin'], llbot: {}, description: `${name} plugin`, author: 'Alice <alice@example.com>' } : {},
       ...options.dependencies ? { dependencies: options.dependencies } : {},
       ...options.optionalDependencies ? { optionalDependencies: options.optionalDependencies } : {},
       ...options.peerDependencies ? { peerDependencies: options.peerDependencies } : {},
@@ -292,7 +292,7 @@ describe('the market', () => {
   const versionAt = (...parts: string[]) => JSON.parse(readFileSync(dir(...parts, 'package.json'), 'utf8')).version
 
   it('finds plugins by their keyword and marks the installed ones', async () => {
-    expect((await market.search('', 1)).items).toEqual([expect.objectContaining({ name: PLUGIN, version: '1.0.0', installed: undefined })])
+    expect((await market.search('', 1)).items).toEqual([expect.objectContaining({ name: PLUGIN, version: '1.0.0', author: 'Alice', installed: undefined })])
     await market.install(PLUGIN)
     expect((await market.search('', 1)).items[0].installed).toBe('1.0.0')
   })

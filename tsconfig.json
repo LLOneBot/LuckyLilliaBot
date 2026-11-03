@@ -17,6 +17,9 @@
       ],
       "@luckylillia/plugin-sdk": [
         "./packages/plugin-sdk/src/index.ts"
+      ],
+      "luckylillia-plugin-ai-gateway": [
+        "./examples/plugins/ai-gateway/src/types.ts"
       ]
     },
     "noEmit": true
@@ -29,6 +32,7 @@
   ],
   "exclude": [
     "src/plugin/internal/service/webui/FE",
-    "src/**/client"
+    "src/**/client",
+    "examples/plugins/*/lib"
   ]
 }

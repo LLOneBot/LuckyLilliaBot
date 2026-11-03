@@ -125,6 +125,15 @@
     outline-offset: 2px;
   }
 
+  /* Tailwind v4's preflight no longer gives buttons the pointer, and the browser never gives it to the other
+     controls. Global so plugin pages get it too; a cursor-* utility still wins. */
+  button:not(:disabled),
+  select:not(:disabled),
+  input:is([type='checkbox'], [type='radio'], [type='range']):not(:disabled),
+  label:has(> input:is([type='checkbox'], [type='radio']):not(:disabled)) {
+    cursor: pointer;
+  }
+
   /* Reduced motion: no transitions anywhere. !important because Tailwind's transition utilities sit in the
      utilities layer and outrank component rules; a color transition left running would also make the glass
      runtime read a mid-transition tint after a theme switch. */

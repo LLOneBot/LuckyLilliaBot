@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { findConflicts, pendingReason, serviceLabel, waitingFor } from '@/plugin/internal/service/webui/FE/components/plugins/meta'
+import {
+  findConflicts, pendingReason, pluginDescription, pluginTitle, serviceLabel, waitingFor,
+} from '@/plugin/internal/service/webui/FE/components/plugins/meta'
 import { PluginStatus } from '@/plugin/internal/service/webui/FE/types/plugins'
 
 function entry(id: string, implementsList: string[], disabled = false): PluginStatus {
@@ -32,6 +34,22 @@ describe('findConflicts', () => {
   it('ignores disabled entries', () => {
     const conflicts = findConflicts([entry('deepl', ['translator']), entry('google', ['translator'], true)])
     expect(conflicts.size).toBe(0)
+  })
+})
+
+describe('pluginTitle', () => {
+  it('takes llbot.title, in Chinese when it is a map, else the package name without the plugin prefix', () => {
+    const named = (name: string, manifest: PluginStatus['manifest']) => ({ ...entry('x', []), name, manifest })
+    expect(pluginTitle(named('luckylillia-plugin-echo', { title: '复读' }))).toBe('复读')
+    expect(pluginTitle(named('luckylillia-plugin-echo', { title: { en: 'Echo', zh: '复读' } }))).toBe('复读')
+    expect(pluginTitle(named('luckylillia-plugin-echo', { title: { en: 'Echo' } }))).toBe('Echo')
+    expect(pluginTitle(named('@me/luckylillia-plugin-echo', { title: '  ' }))).toBe('echo')
+    // A builtin's own title comes first
+    expect(pluginTitle({ ...named('builtin:proxy', { title: 'x' }), title: '代理' })).toBe('代理')
+  })
+
+  it('falls back from an empty llbot.description to the one in package.json', () => {
+    expect(pluginDescription({ ...entry('x', []), manifest: { description: ' ' }, description: '包的说明' })).toBe('包的说明')
   })
 })
 
