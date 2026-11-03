@@ -55,9 +55,9 @@ const PluginDetailsDialog: React.FC<{ plugin: PluginStatus; onClose(): void }> =
           <div className="flex items-start gap-4 p-6 hairline-b">
             <PluginIcon plugin={plugin} className="w-14 h-14 rounded-2xl" fill="gradient-primary-br text-white" size={28} />
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-theme truncate">{pluginTitle(plugin)}</h3>
-              <p className="text-xs text-theme-hint truncate">{plugin.name}{plugin.version ? ` · v${plugin.version}` : ''}</p>
-              {plugin.author && <p className="text-xs text-theme-secondary mt-1 truncate">作者 <AuthorName author={plugin.author} /></p>}
+              <h3 className="text-lg font-semibold text-theme break-words">{pluginTitle(plugin)}</h3>
+              <p className="text-xs text-theme-hint break-all">{plugin.name}{plugin.version ? ` · v${plugin.version}` : ''}</p>
+              {plugin.author && <p className="text-xs text-theme-secondary mt-1 break-words">作者 <AuthorName author={plugin.author} /></p>}
             </div>
             <button type="button" title="关闭" onClick={onClose} className="p-2 -m-2 text-theme-hint hover:text-theme transition-colors">
               <X size={22} />

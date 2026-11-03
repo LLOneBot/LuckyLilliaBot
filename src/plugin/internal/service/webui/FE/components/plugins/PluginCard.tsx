@@ -65,7 +65,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="text-lg font-semibold text-theme truncate">{pluginTitle(plugin)}</h4>
+            <h4 className="min-w-0 text-lg font-semibold text-theme break-words">{pluginTitle(plugin)}</h4>
             {instanceTag && <span className="text-xs text-theme-hint font-mono">{instanceTag}</span>}
             {plugin.builtin && (
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300">
@@ -76,10 +76,13 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">开发中</span>
             )}
           </div>
-          {/* A builtin's entry name (builtin:...) means nothing to a user */}
-          {!plugin.builtin && (
-            <p className="text-xs text-theme-hint truncate">
-              {plugin.name}{plugin.version ? ` · v${plugin.version}` : ''}{plugin.author ? ` · 作者 ${plugin.author.name}` : ''}
+          {/* No package name: it is in the details and the config dialog. Each part stays whole and wraps as a
+              unit, so a narrow card drops the author to its own line instead of breaking the name */}
+          {!plugin.builtin && (plugin.version || plugin.author) && (
+            <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-theme-hint">
+              {plugin.version && <span className="whitespace-nowrap">v{plugin.version}</span>}
+              {plugin.version && plugin.author && <span aria-hidden="true">·</span>}
+              {plugin.author && <span className="whitespace-nowrap">作者 {plugin.author.name}</span>}
             </p>
           )}
         </div>
@@ -93,7 +96,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
         />
       </div>
 
-      <p className="text-sm text-theme-secondary mt-3 line-clamp-2 flex-1">{pluginDescription(plugin) ?? '没有描述'}</p>
+      <p className="text-sm text-theme-secondary mt-3 flex-1 break-words">{pluginDescription(plugin) ?? '没有描述'}</p>
 
       <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-theme-divider">
         <div className="flex items-center gap-2 min-w-0">

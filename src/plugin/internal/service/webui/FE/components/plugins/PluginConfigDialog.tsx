@@ -137,9 +137,9 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened,
             <div className="flex items-center gap-3 min-w-0">
               <PluginIcon plugin={plugin} className="w-10 h-10 rounded-xl" fill="gradient-primary-br text-white" size={20} />
               <div className="min-w-0">
-                <h3 className="text-lg font-semibold text-theme truncate">{pluginTitle(plugin)} 配置</h3>
+                <h3 className="text-lg font-semibold text-theme break-words">{pluginTitle(plugin)} 配置</h3>
                 {!plugin.builtin && (
-                  <p className="text-xs text-theme-hint truncate">
+                  <p className="text-xs text-theme-hint break-all">
                     {plugin.name}{plugin.version ? ` · v${plugin.version}` : ''}{removable ? ` · #${plugin.id}` : ''}
                   </p>
                 )}
