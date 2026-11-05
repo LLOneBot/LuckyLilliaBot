@@ -17,7 +17,11 @@ export class SetGroupSpecialTitle extends BaseAction<Payload, null> {
 
   async _handle(payload: Payload) {
     const groupCode = +payload.group_id
-    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id, groupCode)
+    let uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id, groupCode)
+    if (!uid) {
+      await this.ctx.ntGroupApi.getGroupMembers(groupCode, true).catch(() => {})
+      uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id, groupCode)
+    }
     if (!uid) throw new Error(`用户信息获取失败`)
     const result = await this.ctx.ntGroupApi.setGroupMemberSpecialTitle(
       groupCode,
@@ -25,7 +29,7 @@ export class SetGroupSpecialTitle extends BaseAction<Payload, null> {
       payload.special_title
     )
     if (result.errorCode !== 0) {
-      throw new Error(result.errorMsg)
+      throw new Error(result.errorMsg || `OIDB 错误 [${result.errorCode}]`)
     }
     return null
   }
