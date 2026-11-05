@@ -24,7 +24,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
           expireTime: -1,
         },
       })
-      return await this.sendOidb(0x8fc, 2, body)
+      return await this.sendOidb(0x8fc, 2, body, 'OidbSvcTrpcTcp.0x8FC_2')
     }
 
     async groupClockIn(groupCode: string) {
