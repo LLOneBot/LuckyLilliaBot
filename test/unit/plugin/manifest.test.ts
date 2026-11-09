@@ -3,7 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
-  normalizeCategory, normalizeService, parseAuthor, readPluginPackage, resolveMain, scanPluginRoots, sdkIncompatibility,
+  matchesPluginVersion, normalizeCategory, normalizeService, parseAuthor, parsePluginDependencies, readPluginPackage,
+  resolveMain, scanPluginRoots, sdkIncompatibility,
 } from '@/plugin/host/manifest'
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-scan-'))
@@ -72,6 +73,48 @@ describe('sdkIncompatibility', () => {
     expect(sdkIncompatibility('^2.0.0', '1.4.2')).toMatch(/host provides 1\.4\.2/)
     expect(sdkIncompatibility('^1.0.0', undefined)).toMatch(/ships none/)
     expect(sdkIncompatibility('not a range', '1.0.0')).toMatch(/invalid/)
+  })
+})
+
+describe('plugin package dependencies', () => {
+  it('reads full npm names and semver ranges independently of ordinary library and peer dependencies', async () => {
+    expect(parsePluginDependencies(undefined)).toEqual({})
+    expect(parsePluginDependencies({ '@scope/gateway': ' ^1.2.0 || >=2.0.0 <3 ', renderer: '*' }))
+      .toEqual({ '@scope/gateway': '^1.2.0 || >=2.0.0 <3', renderer: '*' })
+    pkg('consumer-package', {
+      name: 'consumer-package', type: 'module', dependencies: { library: '^1.0.0' },
+      peerDependencies: { '@luckylillia/plugin-sdk': '^1.0.0', types: '^2.0.0' },
+      llbot: { dependencies: { '@scope/gateway': '^1.2.0' } },
+    })
+    expect((await readPluginPackage(path.join(root, 'consumer-package')))!.manifest.dependencies)
+      .toEqual({ '@scope/gateway': '^1.2.0' })
+  })
+
+  it.each([null, false, [], 'gateway', 3])('rejects a malformed dependency map: %j', value => {
+    expect(() => parsePluginDependencies(value)).toThrow(/llbot.dependencies should map/)
+  })
+
+  it.each(['', '../gateway', 'https://host/gateway', '@scope', 'MixedCase', 'node_modules', '__proto__'])
+    ('rejects an invalid plugin name: %j', name => {
+      expect(() => parsePluginDependencies({ [name]: '^1.0.0' })).toThrow(/invalid plugin package name/)
+    })
+
+  it.each(['', 'latest', 'npm:other@1', 'file:../gateway', 'https://host/gateway.tgz', '^1 || invalid', '1.2.3.4', 1, null])
+    ('rejects an invalid range instead of weakening its requirements: %j', range => {
+      expect(() => parsePluginDependencies({ gateway: range })).toThrow(/should be a semver range/)
+    })
+
+  it('fails reading a plugin with malformed requirements', async () => {
+    pkg('bad-requirements', { name: 'bad-requirements', type: 'module', llbot: { dependencies: ['gateway'] } })
+    await expect(readPluginPackage(path.join(root, 'bad-requirements'))).rejects.toThrow(/llbot.dependencies/)
+  })
+
+  it('uses npm semver for partial ranges, alternatives and prereleases', () => {
+    expect(matchesPluginVersion('1.2.9', '1.2')).toBe(true)
+    expect(matchesPluginVersion('3.0.0', '^1.0.0 || >=2 <3')).toBe(false)
+    expect(matchesPluginVersion('1.3.0-beta.1', '^1.0.0')).toBe(false)
+    expect(matchesPluginVersion('1.2.0', '^1.2.0-beta.1')).toBe(true)
+    expect(matchesPluginVersion('invalid', '*')).toBe(false)
   })
 })
 
@@ -157,7 +200,7 @@ describe('normalizeService', () => {
   })
 
   it('keeps labels of the provided services when they are all text', () => {
-    expect(normalizeService({ implements: ['account'], labels: { account: 'QQ 登录' } }).labels).toEqual({ account: 'QQ 登录' })
+    expect(normalizeService({ implements: ['translator'], labels: { translator: '翻译服务' } }).labels).toEqual({ translator: '翻译服务' })
     const warnings: string[] = []
     expect(normalizeService({ labels: { account: 1 } }, warnings).labels).toBeUndefined()
     expect(warnings).toEqual(['llbot.service.labels should map service names to what they stand for'])

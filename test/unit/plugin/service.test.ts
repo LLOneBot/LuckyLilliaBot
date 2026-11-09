@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { realpath } from 'node:fs/promises'
 import path from 'node:path'
-import { Context, Fiber, Service } from 'cordis'
+import { Context, Fiber, type Message, Service } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Schema from 'schemastery'
@@ -261,6 +261,105 @@ describe('PluginService', () => {
   })
 })
 
+describe('PluginService log sources', () => {
+  function capture(plugins: PluginService) {
+    const records: { message: Message; source: ReturnType<PluginService['logSource']> }[] = []
+    ctx.logger.exporter({
+      export(message) {
+        const fiber = message.fiber?.deref()
+        records.push({ message, source: fiber ? plugins.logSource(fiber) : undefined })
+      },
+    })
+    return records
+  }
+
+  it('attributes default, explicitly named and nested loggers to the owning package at emission', async () => {
+    const name = 'luckylillia-plugin-logging'
+    writePlugin(pluginRoot, name, {
+      'index.js': `
+        export const name = 'runtime-name'
+        export async function apply(ctx) {
+          ctx.logger.info('default')
+          ctx.logger('shared-channel').info('explicit')
+          await ctx.plugin({
+            name: 'NestedHelper',
+            apply(child) { child.logger.info('nested') },
+          })
+        }
+      `,
+    }, { llbot: { title: { zh: '日志插件', 'zh-CN': '备用中文', en: 'Logging' } } })
+    const plugins = await boot()
+    const records = capture(plugins)
+    const { id } = byName(name)
+    await plugins.enable(id)
+    expect(records.map(record => ({ name: record.message.name, source: record.source }))).toEqual([
+      { name: 'runtime-name', source: { id, name, title: '日志插件' } },
+      { name: 'shared-channel', source: { id, name, title: '日志插件' } },
+      { name: 'nested-helper', source: { id, name, title: '日志插件' } },
+    ])
+
+    // An unrelated logger can use the very same namespace without belonging to that package.
+    ctx.logger('shared-channel').info('host')
+    expect(records.at(-1)).toMatchObject({ message: { name: 'shared-channel' }, source: undefined })
+  })
+
+  it('uses the builtin title while keeping its independent standby logger unassigned', async () => {
+    const name = 'builtin:logged'
+    const plugins = await boot([{
+      name,
+      title: '协议端日志',
+      manifest: { title: 'Manifest title' },
+      plugin: {
+        inject: ['gate'],
+        apply(child: Context) { child.logger('transport').info('builtin') },
+      },
+      standby: {
+        name: 'setup-helper',
+        inject: ['gate'],
+        apply(child: Context) { child.logger.info('standby') },
+      },
+    }])
+    const records = capture(plugins)
+    await ctx.plugin(Gate)
+    await expect.poll(() => records.length).toBe(2)
+    expect(records.find(record => record.message.args[0] === 'builtin')).toMatchObject({
+      source: { id: byName(name).id, name, title: '协议端日志' },
+    })
+    expect(records.find(record => record.message.args[0] === 'standby')).toMatchObject({
+      message: { name: 'setup-helper' }, source: undefined,
+    })
+  })
+
+  it('keeps disposal logs attributed and falls back after the entry is removed', async () => {
+    const name = 'luckylillia-plugin-disposal'
+    writePlugin(pluginRoot, name, {
+      'index.js': `
+        export function apply(ctx) {
+          const logger = ctx.logger('cleanup-channel')
+          logger.info('started')
+          ctx.effect(() => () => logger.info('disposed'))
+        }
+      `,
+    }, { llbot: { title: '   ' } })
+    const plugins = await boot()
+    const records = capture(plugins)
+    const { id } = byName(name)
+    const expected = { id, name, title: 'disposal' }
+    await plugins.enable(id)
+    await plugins.disable(id)
+    expect(records.map(record => ({ text: record.message.args[0], source: record.source }))).toEqual([
+      { text: 'started', source: expected },
+      { text: 'disposed', source: expected },
+    ])
+    const fiber = records[0].message.fiber!.deref()!
+    expect(plugins.logSource(fiber)).toEqual(expected)
+    await plugins.remove(id)
+    expect(plugins.logSource(fiber)).toBeUndefined()
+    // Already captured records do not depend on the entry remaining installed.
+    expect(records[0].source).toEqual(expected)
+  })
+})
+
 class Gate extends Service {
   constructor(ctx: Context) {
     super(ctx, 'gate')
@@ -512,6 +611,138 @@ function translator(dir: string) {
   }, { llbot: { service: { implements: ['translator'] } } })
 }
 
+describe('PluginService package dependencies', () => {
+  function consumer(dependencies = { gateway: '^1.0.0' }, inject: string[] = []) {
+    writePlugin(pluginRoot, 'package-consumer', {
+      'index.js': `
+        globalThis.__pluginTest.push('consumer:import')
+        export const inject = ${JSON.stringify(inject)}
+        export function apply(ctx) {
+          globalThis.__pluginTest.push('consumer:start')
+          ctx.effect(() => () => globalThis.__pluginTest.push('consumer:stop'))
+        }
+      `,
+    }, { llbot: { dependencies } })
+  }
+
+  function provider(version = '1.0.0') {
+    writePlugin(pluginRoot, 'gateway', { 'index.js': 'export function apply() {}' }, { version })
+  }
+
+  function changeManifest(name: string, patch: Record<string, unknown>) {
+    const filename = path.join(pluginRoot, name, 'package.json')
+    const current = JSON.parse(readFileSync(filename, 'utf8'))
+    writeFileSync(filename, JSON.stringify({ ...current, ...patch }))
+  }
+
+  it('requires the named plugin package even when another plugin provides its service', async () => {
+    consumer({ gateway: '^1.0.0' }, ['translator'])
+    translator('alternate')
+    const plugins = await boot()
+    await plugins.enable(byName('alternate').id)
+    const { id } = byName('package-consumer')
+    expect(await plugins.enable(id)).toMatchObject({ state: 'pending', missingDeps: [], error: expect.stringContaining('gateway ^1.0.0') })
+    expect(plugins.dependencies(id).packages).toEqual([{ name: 'gateway', range: '^1.0.0', entries: [], state: 'missing' }])
+    expect(globalThis.__pluginTest).toEqual([])
+  })
+
+  it('checks installed packages without enabling them, and leaves service availability to inject', async () => {
+    consumer({ gateway: '^1.0.0' }, ['translator'])
+    translator('gateway')
+    const plugins = await boot()
+    const { id } = byName('package-consumer')
+    const gateway = byName('gateway').id
+    expect(await plugins.enable(id)).toMatchObject({ state: 'pending', missingDeps: ['translator'] })
+    expect(plugins.dependencies(id).packages).toEqual([{ name: 'gateway', range: '^1.0.0', version: '1.0.0', entries: [gateway], state: 'disabled' }])
+    expect(byName('gateway').disabled).toBe(true)
+    await plugins.enable(gateway)
+    await expect.poll(() => byName('package-consumer').state).toBe('active')
+    expect(plugins.dependencies(id).packages?.[0].state).toBe('active')
+    await plugins.disable(gateway)
+    await expect.poll(() => byName('package-consumer').state).toBe('pending')
+    expect(plugins.dependencies(id).packages?.[0].state).toBe('disabled')
+  })
+
+  it('starts after installation, stops after removal or incompatible upgrades, and recovers on a compatible rescan', async () => {
+    consumer()
+    const plugins = await boot()
+    const { id } = byName('package-consumer')
+    await plugins.enable(id)
+    provider()
+    await plugins.scan()
+    await expect.poll(() => byName('package-consumer').state).toBe('active')
+    expect(byName('gateway').disabled).toBe(true)
+    rmSync(path.join(pluginRoot, 'gateway'), { recursive: true, force: true })
+    await plugins.scan()
+    expect(byName('package-consumer')).toMatchObject({ state: 'pending', error: expect.stringContaining('not installed') })
+    expect(globalThis.__pluginTest.at(-1)).toBe('consumer:stop')
+    provider('1.1.0')
+    await plugins.scan()
+    await expect.poll(() => byName('package-consumer').state).toBe('active')
+    changeManifest('gateway', { version: '2.0.0' })
+    await plugins.scan()
+    expect(byName('package-consumer')).toMatchObject({ state: 'incompatible', error: expect.stringContaining('installed version is 2.0.0') })
+    expect(plugins.dependencies(id).packages?.[0]).toMatchObject({ state: 'incompatible', version: '2.0.0' })
+    expect(globalThis.__pluginTest.at(-1)).toBe('consumer:stop')
+    changeManifest('gateway', { version: '1.2.0' })
+    await plugins.scan()
+    await expect.poll(() => byName('package-consumer').state).toBe('active')
+    expect(globalThis.__pluginTest).toEqual([
+      'consumer:import', 'consumer:start', 'consumer:stop', 'consumer:start', 'consumer:stop', 'consumer:start',
+    ])
+  })
+
+  it('enforces changed requirements on both rescan and reload without keeping the old consumer running', async () => {
+    consumer()
+    provider()
+    const plugins = await boot()
+    const { id } = byName('package-consumer')
+    await plugins.enable(id)
+    changeManifest('package-consumer', { llbot: { dependencies: { gateway: '^2.0.0' } } })
+    await plugins.scan()
+    expect(byName('package-consumer').state).toBe('incompatible')
+    expect(globalThis.__pluginTest.at(-1)).toBe('consumer:stop')
+    changeManifest('package-consumer', { llbot: { dependencies: { gateway: '^1.0.0' } } })
+    await plugins.scan()
+    await expect.poll(() => byName('package-consumer').state).toBe('active')
+    changeManifest('package-consumer', { llbot: { dependencies: { gateway: '^3.0.0' } } })
+    await plugins.reload(id)
+    expect(byName('package-consumer').state).toBe('incompatible')
+    expect(globalThis.__pluginTest.at(-1)).toBe('consumer:stop')
+  })
+
+  it('reevaluates consumers when a provider package reload changes its version', async () => {
+    consumer()
+    provider()
+    const plugins = await boot()
+    await plugins.enable(byName('package-consumer').id)
+    changeManifest('gateway', { version: '2.0.0' })
+    await plugins.reload(byName('gateway').id)
+    expect(byName('package-consumer').state).toBe('incompatible')
+    expect(globalThis.__pluginTest.at(-1)).toBe('consumer:stop')
+    changeManifest('gateway', { version: '1.5.0' })
+    await plugins.reload(byName('gateway').id)
+    await expect.poll(() => byName('package-consumer').state).toBe('active')
+  })
+
+  it('does not wait for recovered initializers that call scan themselves', async () => {
+    consumer()
+    writeFileSync(path.join(pluginRoot, 'package-consumer', 'index.js'), `
+      export const inject = ['plugins']
+      export async function apply(ctx) {
+        await ctx.plugins.scan()
+        globalThis.__pluginTest.push('consumer:ready')
+      }
+    `)
+    const plugins = await boot()
+    await plugins.enable(byName('package-consumer').id)
+    provider()
+    await plugins.scan()
+    await expect.poll(() => byName('package-consumer').state).toBe('active')
+    expect(globalThis.__pluginTest).toEqual(['consumer:ready'])
+  })
+})
+
 describe('PluginService dependencies', () => {
   beforeEach(() => {
     translator('deepl')
@@ -583,7 +814,6 @@ describe('PluginService webui', () => {
     expect(byName('@scope/ui').webui).toBe('/plugin-webui/@scope+ui/0/index.js')
     expect(byName('alpha').webui).toBeUndefined()
 
-    await plugins.updateUiPrefs({ approve: ['ui', '@scope/ui'] })
     expect(plugins.webuiAsset('ui', 'chunks/page.js')?.endsWith(path.join('ui', 'webui', 'chunks', 'page.js'))).toBe(true)
     expect(plugins.webuiAsset('@scope+ui', 'index.js')?.endsWith(path.join('@scope', 'ui', 'webui', 'index.js'))).toBe(true)
     // Only the module directory: not the backend code next to it, nor other packages
@@ -597,38 +827,24 @@ describe('PluginService webui', () => {
     expect(byName('ui').webui).toBe('/plugin-webui/ui/1/index.js')
   })
 
-  it('serves a module only once the user approved it, and keeps that in plugins.json', async () => {
+  it('persists UI visibility and ordering while serving modules directly', async () => {
     uiPlugin('ui')
     const plugins = await boot()
     const announced: UiPrefs[] = []
-    const changes: (string | undefined)[] = []
     ctx.on('plugins/ui', prefs => announced.push(prefs))
-    ctx.on('plugins/changed', id => changes.push(id))
-    expect(byName('ui').webuiApproved).toBe(false)
-    expect(byName('alpha').webuiApproved).toBeUndefined()
-    expect(() => plugins.webuiAsset('ui', 'index.js')).toThrow(PluginForbiddenError)
-    // Approving is for installed packages that have a module to approve
-    await expect(plugins.updateUiPrefs({ approve: ['alpha'] })).rejects.toBeInstanceOf(PluginNotFoundError)
-    await expect(plugins.updateUiPrefs({ approve: ['nope'] })).rejects.toBeInstanceOf(PluginNotFoundError)
-
-    await plugins.updateUiPrefs({ approve: ['ui'] })
-    expect(byName('ui').webuiApproved).toBe(true)
+    expect(plugins.uiPrefs()).toEqual({ hidden: [], order: {} })
     expect(plugins.webuiAsset('ui', 'index.js')).toBeDefined()
-    // The statuses carry the approval, so the list goes out again
-    expect(changes).toContain(undefined)
 
     const prefs = await plugins.updateUiPrefs({
       hide: ['ui|dashboard.cards|x', 'ui|page|ui:home', 7 as never],
       order: { 'ui|dashboard.cards|x': 20, 'ui|dashboard.cards|y': 10 },
     })
     expect(prefs).toEqual({
-      approved: ['ui'],
       hidden: ['ui|dashboard.cards|x', 'ui|page|ui:home'],
       order: { 'ui|dashboard.cards|x': 20, 'ui|dashboard.cards|y': 10 },
     })
     expect(announced.at(-1)).toEqual(prefs)
-    expect(await plugins.updateUiPrefs({ show: ['ui|page|ui:home'], order: { 'ui|dashboard.cards|y': null }, revoke: ['ui'] })).toEqual({
-      approved: [],
+    expect(await plugins.updateUiPrefs({ show: ['ui|page|ui:home'], order: { 'ui|dashboard.cards|y': null } })).toEqual({
       hidden: ['ui|dashboard.cards|x'],
       order: { 'ui|dashboard.cards|x': 20 },
     })
@@ -637,7 +853,7 @@ describe('PluginService webui', () => {
     await service!.dispose()
     await boot()
     expect(ctx.plugins.uiPrefs().hidden).toEqual(['ui|dashboard.cards|x'])
-    expect(byName('ui').webuiApproved).toBe(false)
+    expect(ctx.plugins.webuiAsset('ui', 'index.js')).toBeDefined()
   })
 })
 
@@ -697,7 +913,7 @@ describe('PluginService details', () => {
     expect(byName('edited')).toMatchObject({ manifest: { title: '新名字' }, iconUrl: '/plugin-assets/edited/1.0.0/a.png' })
   })
 
-  it('serves the images inside a package and nothing else, approved or not', async () => {
+  it('serves only the images inside a package', async () => {
     showcase('pics', {}, { 'a.png': '', 'deep/b.SVG': '', 'notes.md': '' })
     const plugins = await boot()
     expect(plugins.asset('pics', 'a.png')).toBe(path.join(await realpath(path.join(pluginRoot, 'pics')), 'a.png'))

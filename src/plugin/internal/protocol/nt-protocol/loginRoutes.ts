@@ -2,6 +2,7 @@ import { Context } from 'cordis'
 import { isNativeQQMode } from '@/common/utils/environment'
 import { Hono } from 'hono'
 import { createAuthTokenRoutes } from './authTokenRoutes'
+import { QuickLoginUnsupportedError } from './qqProtocol/base'
 
 /** QR / quick login and logout of the scanned account; mounted by NTLoginRoutes while the NT protocol runs. */
 export function createLoginRoutes(ctx: Context): Hono {
@@ -27,11 +28,12 @@ export function createLoginRoutes(ctx: Context): Hono {
         data,
       })
     } catch (e) {
-      return c.json({ success: false, message: '获取快速登录账号列表失败', error: e }, 500)
+      return c.json({ success: false, message: e instanceof Error ? e.message : '获取快速登录账号列表失败' },
+        e instanceof QuickLoginUnsupportedError ? 501 : 500)
     }
   })
 
-  // 只负责触发, 结果由 FE 轮询 /api/login-info 的 online 判断
+  // Protocol implementations wait for the selected account to be online; FE then refreshes login-info.
   router.post('/quick-login', async (c) => {
     const { uin } = await c.req.json()
     if (!uin) {
@@ -46,7 +48,7 @@ export function createLoginRoutes(ctx: Context): Hono {
         success: false,
         message: (e as Error).message || '快速登录失败',
         data: { result: '-1', loginErrorInfo: { errMsg: (e as Error).message || '快速登录失败' } },
-      }, 500)
+      }, e instanceof QuickLoginUnsupportedError ? 501 : 500)
     }
   })
 

@@ -69,10 +69,12 @@ export class Gateway {
 
   start() {
     this.stopped = false
+    this.logger.info('正在连接 QQ 官方机器人网关')
     void this.connect()
   }
 
   stop() {
+    if (!this.stopped) this.logger.info('QQ 官方机器人网关已停止')
     this.stopped = true
     this.stopRetry?.()
     this.stopHeartbeat?.()

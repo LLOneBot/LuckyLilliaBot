@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { readdir, readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { satisfies } from 'compare-versions'
+import { satisfies as satisfiesRange, validRange } from 'semver'
 import type { LLBotManifest, PluginCategory } from '@luckylillia/plugin-sdk'
 
 export const SDK_PACKAGE = '@luckylillia/plugin-sdk'
@@ -114,6 +115,7 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
     main,
     manifest: {
       ...pkg.llbot,
+      dependencies: parsePluginDependencies(pkg.llbot.dependencies),
       service: normalizeService(pkg.llbot.service, warnings),
       category: normalizeCategory(pkg.llbot.category, warnings),
     },
@@ -193,6 +195,31 @@ export function normalizeCategory(value: unknown, warnings: string[] = []): Plug
   if (value === undefined) return
   if (PLUGIN_CATEGORIES.includes(value as PluginCategory)) return value as PluginCategory
   warnings.push(`llbot.category should be one of ${PLUGIN_CATEGORIES.join(' / ')}, got ${JSON.stringify(value)}`)
+}
+
+/** Plugin dependencies are installation requirements: malformed declarations must never be silently dropped. */
+export function parsePluginDependencies(value: unknown): Record<string, string> {
+  if (value === undefined) return {}
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('llbot.dependencies should map plugin package names to semver ranges')
+  }
+  const dependencies: [string, string][] = []
+  for (const [name, range] of Object.entries(value)) {
+    if (name.length > 214 || !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(name)
+      || name === 'node_modules' || name === 'favicon.ico') {
+      throw new Error(`llbot.dependencies has an invalid plugin package name ${JSON.stringify(name)}`)
+    }
+    if (typeof range !== 'string' || !range.trim() || validRange(range) === null) {
+      throw new Error(`llbot.dependencies[${JSON.stringify(name)}] should be a semver range, got ${JSON.stringify(range)}`)
+    }
+    dependencies.push([name, range.trim()])
+  }
+  return Object.fromEntries(dependencies)
+}
+
+/** npm semver matching, shared by runtime package gates and the market's plugin dependency planner. */
+export function matchesPluginVersion(version: string, range: string): boolean {
+  return satisfiesRange(version, range)
 }
 
 /** Fills in the missing lists; a malformed field is dropped with a warning instead of failing the package. */

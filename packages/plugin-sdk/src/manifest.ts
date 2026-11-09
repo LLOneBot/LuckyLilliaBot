@@ -34,8 +34,14 @@ export interface LLBotManifest {
   /** Flags the plugin as work in progress in the WebUI. */
   preview?: boolean
   /**
+   * Required plugin packages, by full npm package name and semver range. The market installs them as separate
+   * plugins; the host requires matching installed versions. Keep service requirements in `inject` as well.
+   * Unlike package.json `dependencies`, these never become private copies in this package's node_modules.
+   */
+  dependencies?: Record<string, string>
+  /**
    * Services this plugin needs, can make use of and provides, readable without loading its code: the
-   * WebUI shows them and warns about missing providers and conflicts. `inject` is still what gates loading.
+   * WebUI shows them and warns about missing providers and conflicts. `inject` still gates service availability.
    */
   service?: {
     /** Needed to run; list them in `inject` as well. */
@@ -45,7 +51,7 @@ export interface LLBotManifest {
     /** Services this plugin provides. Two enabled plugins providing the same one conflict. */
     implements?: string[]
     /**
-     * What the services it provides stand for to a user, e.g. `{ account: 'NTQQ 账号登录' }`: the WebUI says
+     * What the services it provides stand for to a user, e.g. `{ translator: '翻译服务' }`: the WebUI says
      * what a plugin waiting for one of them waits for with it.
      */
     labels?: Record<string, string>

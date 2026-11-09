@@ -4,7 +4,7 @@ import { usePluginList } from '../../plugin-host/pluginList'
 import { pageContributionKey, useRegistry, visiblePages } from '../../plugin-host/registry'
 import SidebarDialog from './SidebarDialog'
 
-/** The settings dialog's line about the sidebar; the pages are arranged in a dialog of their own. */
+/** The WebUI page's sidebar settings; the pages are arranged in a dialog of their own. */
 const SidebarSettings: React.FC = () => {
   const contributions = useRegistry(state => state.contributions)
   const plugins = usePluginList(state => state.plugins)

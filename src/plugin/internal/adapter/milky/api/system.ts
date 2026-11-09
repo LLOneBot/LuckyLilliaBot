@@ -53,8 +53,8 @@ const GetLoginInfo = defineApi(
       }
     }
     return Ok({
-      uin: +ctx.account.uin,
-      nickname: ctx.account.nick,
+      uin: +ctx.qqProtocol.selfInfo.uin,
+      nickname: ctx.qqProtocol.selfInfo.nick,
     })
   },
 )

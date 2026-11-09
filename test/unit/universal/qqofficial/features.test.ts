@@ -1,14 +1,16 @@
 import h from '@satorijs/element'
-import { Status } from '@satorijs/protocol'
-import { Context } from 'cordis'
+import { Opcode, Status } from '@satorijs/protocol'
+import { Context, Logger } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { WebSocket, WebSocketServer } from 'ws'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Bot, Session } from '@luckylillia/plugin-sdk'
 import type { QQOfficialConfig } from '@/common/types'
 import BotsService from '@/universal/bots'
+import { CommandService } from '@/universal/commands'
+import SatoriAdapter from '@/plugin/internal/adapter/satori/adapter'
 import * as QQOfficial from '@/plugin/internal/protocol/qq-official'
-import type { QQGuildBot, QQOfficialBot } from '@/plugin/internal/protocol/qq-official'
+import type { QQOfficialBot } from '@/plugin/internal/protocol/qq-official'
 import { crossPlatform } from '../crossPlatform'
 
 // Markdown and buttons, the platform's own payloads, group management, guilds, interactions and menus, against a
@@ -81,6 +83,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  await ctx?.registry.delete(CommandService)
+  await ctx?.registry.delete(SatoriAdapter)
   await ctx?.registry.delete(QQOfficial)
   await new Promise(resolve => wss.close(resolve))
   vi.unstubAllGlobals()
@@ -95,7 +99,6 @@ async function start(config: Partial<QQOfficialConfig> = {}) {
 }
 
 const qq = () => ctx.bots.get('qq:APPID') as unknown as QQOfficialBot & Bot
-const guild = () => ctx.bots.get('qqguild:APPID') as unknown as QQGuildBot & Bot
 
 function push(t: string, d: object, id?: string) {
   gatewaySocket!.send(JSON.stringify({ op: 0, s: 2, t, d, id }))
@@ -113,6 +116,9 @@ function groupAt(id: string, content: string) {
 }
 
 const messages = () => calls.filter(call => call.method === 'POST' && call.path.endsWith('/messages'))
+const messageLogs = () => ctx.logger.buffer
+  .filter(record => record.name === 'qq-official' && record.type === 'info')
+  .map(record => Logger.format({}, record)).filter(line => /^\[(收|发)-/.test(line))
 
 /** The bytes of a PNG its size is read from */
 function pngHeader(width: number, height: number) {
@@ -137,6 +143,29 @@ function collect() {
 async function settle() {
   await new Promise(resolve => setTimeout(resolve, 50))
 }
+
+describe('subscriptions', () => {
+  it('uses the twelve crack defaults and sends their bitmask to the gateway', async () => {
+    expect([...QQOfficial.Config({}).intents].sort()).toEqual([
+      'GUILDS',
+      'GROUP_MEMBER_EVENT',
+      'GUILD_MEMBERS',
+      'GUILD_MESSAGE_REACTIONS',
+      'DIRECT_MESSAGE',
+      'OPEN_FORUMS_EVENT',
+      'AUDIO_OR_LIVE_CHANNEL_MEMBER',
+      'GROUP_AND_C2C_EVENT',
+      'INTERACTION',
+      'MESSAGE_AUDIT',
+      'AUDIO_ACTION',
+      'PUBLIC_GUILD_MESSAGES',
+    ].sort())
+
+    await start()
+    expect(identified).toEqual({ token: 'QQBot tok', intents: 1863062531, shard: [0, 1] })
+    expect([...ctx.bots]).toEqual([qq()])
+  })
+})
 
 describe('markdown and buttons', () => {
   it('sends markdown with buttons as one markdown message with a keyboard', async () => {
@@ -321,6 +350,8 @@ describe('sending', () => {
     expect(messages().map(({ body }) => [body.msg_id, body.msg_seq, body.stream.index])).toEqual([
       ['C1', 1, 0], ['C1', 2, 1], ['C1', 3, 2], ['C1', 4, 3], ['C1', 5, 4], ['C1', 6, 5],
     ])
+    expect(messageLogs()).toEqual(['[收-私] U3 U3：hello', '[发-私] U3 (流式回复)：part 1'])
+    expect(qq().stats.snapshot(qq())).toMatchObject({ messageReceived: 1, messageSent: 1 })
   })
 
   it('ends a C2C stream with its end part, or before a message that follows it', async () => {
@@ -345,15 +376,22 @@ describe('sending', () => {
   it('gathers the parts of a group stream, which groups lack, into one message sent when it ends', async () => {
     await start()
     const sent: { id?: string }[][] = []
+    const counts: number[] = []
     ctx.on('bot/message', async (session) => {
       sent.push(await session.send(h('markdown', { stream: true }, '第一段，')))
+      counts.push(qq().stats.snapshot(qq()).messageSent)
       sent.push(await session.send(h('markdown', { stream: true }, '第二段，')))
+      counts.push(qq().stats.snapshot(qq()).messageSent)
       sent.push(await session.send(h('markdown', { stream: 'end' }, '完。')))
+      counts.push(qq().stats.snapshot(qq()).messageSent)
     })
     groupAt('M1', ' hi')
     await vi.waitFor(() => expect(sent).toHaveLength(3))
     expect(messages().map(({ body }) => body)).toEqual([{ msg_type: 2, markdown: { content: '第一段，第二段，完。' }, msg_id: 'M1', msg_seq: 1 }])
     expect(sent.map(([resource]) => resource.id)).toEqual([undefined, undefined, 'sent-1'])
+    expect(counts).toEqual([0, 0, 1])
+    expect(messageLogs().filter(line => line.startsWith('[发-'))).toEqual(['[发-群] G1：[Markdown]第一段，第二段，完。'])
+    expect(qq().stats.snapshot(qq())).toMatchObject({ messageReceived: 1, messageSent: 1 })
   })
 
   it('answers the message a session came from, not the latest of the channel, a stream each', async () => {
@@ -400,9 +438,22 @@ describe('sending', () => {
     }
     const sending = qq().sendMessage('G1', 'hi')
     await vi.waitFor(() => expect(messages()).toHaveLength(1))
+    expect(qq().stats.snapshot(qq()).messageSent).toBe(0)
     push('MESSAGE_AUDIT_PASS', { audit_id: 'A1', message_id: 'REAL1', create_time: '2026-10-28T00:00:00Z' })
     const [sent] = await sending
     expect(sent.id).toBe('REAL1')
+    expect(qq().stats.snapshot(qq()).messageSent).toBe(1)
+  })
+
+  it('does not count an audited message when the platform rejects it', async () => {
+    await start({ intents: ['GROUP_AND_C2C_EVENT', 'MESSAGE_AUDIT'] })
+    reply = call => call.path.endsWith('/messages') ? { body: { audit_id: 'A2' } } : undefined
+    const sending = qq().sendMessage('G1', 'rejected')
+    await vi.waitFor(() => expect(messages()).toHaveLength(1))
+    push('MESSAGE_AUDIT_REJECT', { audit_id: 'A2' })
+    const [sent] = await sending
+    expect(sent.id).toBeUndefined()
+    expect(qq().stats.snapshot(qq())).toMatchObject({ messageSent: 0, lastMessageAt: undefined })
   })
 })
 
@@ -499,14 +550,16 @@ describe('guilds', () => {
     ...overrides,
   })
 
-  it('needs a guild event subscribed for the qqguild bot', async () => {
-    await start()
+  it('keeps one bot with group-only subscriptions', async () => {
+    await start({ intents: ['GROUP_AND_C2C_EVENT'] })
+    expect(identified.intents).toBe(1 << 25)
     expect(ctx.bots.get('qqguild:APPID')).toBeUndefined()
+    expect([...ctx.bots]).toEqual([qq()])
   })
 
-  it('turns an @ message in a guild into a session of the qqguild bot and replies in its channel', async () => {
+  it('turns a guild @ message into a session of the same QQ bot and replies in its namespaced channel', async () => {
     await start({ intents: ['GROUP_AND_C2C_EVENT', 'PUBLIC_GUILD_MESSAGES'] })
-    expect(guild().status).toBe(Status.ONLINE)
+    expect([...ctx.bots]).toEqual([qq()])
     const sessions: Session[] = []
     ctx.on('bot/message', async (session) => {
       sessions.push(session)
@@ -515,24 +568,179 @@ describe('guilds', () => {
     push('AT_MESSAGE_CREATE', guildMessage())
     await vi.waitFor(() => expect(messages()).toHaveLength(1))
     expect(sessions[0]).toMatchObject({
-      platform: 'qqguild', userId: 'U9', channelId: 'CH1', guildId: 'GU1', content: '<at id="APPID"/> hello', isDirect: false,
+      platform: 'qq', userId: 'qqguild:U9', channelId: 'qqguild:CH1', guildId: 'qqguild:GU1', content: '<at id="APPID"/> hello', isDirect: false,
     })
+    expect(sessions[0].bot).toBe(qq())
     expect(messages()[0]).toMatchObject({ path: '/channels/CH1/messages', body: { content: 'hi', msg_id: 'GM1' } })
+    expect(messageLogs()).toEqual(['[收-频道] CH1 Carol(qqguild:U9)：@APPID hello', '[发-频道] CH1：hi'])
+    expect(qq().stats.snapshot(qq())).toMatchObject({ messageReceived: 1, messageSent: 1 })
   })
 
   it('addresses guild DMs by their DM guild', async () => {
     await start({ intents: ['DIRECT_MESSAGE'] })
-    ctx.on('bot/message', session => session.send('hi').then(() => {}))
+    const sessions: Session[] = []
+    ctx.on('bot/message', session => {
+      sessions.push(session)
+      return session.send('hi').then(() => {})
+    })
     push('DIRECT_MESSAGE_CREATE', guildMessage({ direct_message: true, src_guild_id: 'SRC', guild_id: 'DMG', channel_id: 'DMC', content: 'dm' }))
     await vi.waitFor(() => expect(messages()).toHaveLength(1))
     expect(messages()[0]).toMatchObject({ path: '/dms/DMG/messages', body: { content: 'hi', msg_id: 'GM1' } })
+    expect(sessions[0]).toMatchObject({ platform: 'qq', channelId: 'private:qqguild:DMG_DMC', guildId: 'qqguild:SRC_DMG', isDirect: true })
+    expect(sessions[0].bot).toBe(qq())
+    expect(messageLogs()).toEqual(['[收-频道私信] DMG_DMC Carol(qqguild:U9)：dm', '[发-频道私信] DMG_DMC：hi'])
+    expect(qq().stats.snapshot(qq())).toMatchObject({ messageReceived: 1, messageSent: 1 })
+  })
+
+  it('keeps identically named group/guild messages separate and exposes only one bot to send hooks', async () => {
+    await start()
+    const sessions: Session[] = []
+    const sending: [Bot, string][] = []
+    ctx.on('bot/message', session => { sessions.push(session) })
+    ctx.on('bot/before-send', (bot, channel, content) => { sending.push([bot, channel]); return content })
+    groupAt('GM1', ' group')
+    push('AT_MESSAGE_CREATE', guildMessage({ content: '<@!B> <@U9> <#CH2>', message_reference: { message_id: 'OLDER' } }))
+    await vi.waitFor(() => expect(sessions).toHaveLength(2))
+    const group = sessions.find(session => session.channelId === 'G1')!
+    const channel = sessions.find(session => session.channelId === 'qqguild:CH1')!
+    expect(channel.content).toBe('<quote id="qqguild:OLDER"/><at id="APPID"/> <at id="qqguild:U9"/> <sharp id="qqguild:CH2"/>')
+    expect(group.messageId).toBe('GM1')
+    expect(channel.messageId).toBe('qqguild:GM1')
+    expect(channel.event.referrer).toEqual({ msg_id: 'qqguild:GM1' })
+    await group.send('group reply')
+    const results = await channel.reply([h.at(channel.userId!), h('sharp', { id: 'qqguild:CH2' })])
+    expect(sending).toEqual([[qq(), 'G1'], [qq(), 'qqguild:CH1']])
+    expect(messages()[0]).toMatchObject({ path: '/v2/groups/G1/messages', body: { msg_id: 'GM1', msg_seq: 1 } })
+    expect(messages()[1]).toMatchObject({ path: '/channels/CH1/messages', body: { content: '<@U9><#CH2>', msg_id: 'GM1', message_reference: { message_id: 'GM1' } } })
+    expect(results[0]).toMatchObject({ id: 'qqguild:sent-2', channel: { id: 'qqguild:CH1' }, user: { id: 'APPID' } })
+    expect(results[0].content).toBe('<at id="qqguild:U9"/><sharp id="qqguild:CH2"/>')
+    expect(sessions.every(session => session.bot === qq())).toBe(true)
+    expect(new Set(sessions.map(session => session.event.sn)).size).toBe(2)
+  })
+
+  it('opens and deletes guild DMs through the main bot without confusing C2C', async () => {
+    await start()
+    reply = call => call.path === '/users/@me/dms' ? { body: { guild_id: 'DMG', channel_id: 'DMC' } } : undefined
+    const channel = await qq().createDirectChannel('qqguild:U9', 'qqguild:SRC_DMG')
+    expect(channel).toEqual({ id: 'private:qqguild:DMG_DMC', type: 1 })
+    expect(calls.find(call => call.path === '/users/@me/dms')?.body).toEqual({ recipient_id: 'U9', source_guild_id: 'SRC' })
+    const [message] = await qq().sendPrivateMessage('qqguild:U9', 'guild dm', { guildId: 'qqguild:SRC' })
+    expect(message).toMatchObject({ id: 'qqguild:sent-1', channel })
+    await qq().deleteMessage(channel.id, message.id)
+    await qq().sendPrivateMessage('U9', 'c2c')
+    expect(messages().map(call => call.path)).toEqual(['/dms/DMG/messages', '/v2/users/U9/messages'])
+    expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/dms/DMG/messages/sent-1' }))
+  })
+
+  it('routes guild resource APIs with namespaced IDs and preserves raw internal endpoints', async () => {
+    await start()
+    reply = call => {
+      if (call.path === '/users/@me/guilds') return { body: [{ id: 'GU1', name: 'Guild' }] }
+      if (call.path === '/guilds/GU1') return { body: { id: 'GU1', name: 'Guild' } }
+      if (call.path === '/guilds/GU1/channels') return { body: call.method === 'POST' ? { id: 'NEW', name: 'New', type: 0, parent_id: 'CAT' } : [{ id: 'CH1', type: 0 }] }
+      if (call.path === '/guilds/GU1/members') return { body: [{ user: { id: 'U9', username: 'Carol' }, roles: ['2'] }] }
+      if (call.path === '/guilds/GU1/members/U9' && call.method === 'GET') return { body: { user: { id: 'U9', username: 'Carol' }, roles: ['2'] } }
+      if (call.path === '/guilds/GU1/members/B' && call.method === 'GET') return { body: { user: { id: 'B', username: 'TestBot', bot: true }, roles: ['1'] } }
+      if (call.path === '/channels/CH1/messages/GM1') return { body: { message: guildMessage({ content: '<@U9>' }) } }
+      if (call.path === '/channels/CH1/messages/GM1/reactions/1/4' && call.method === 'GET') return { body: { users: [{ id: 'U9', username: 'Carol' }], cookie: 'NEXT' } }
+      if (call.path === '/v2/groups/GU1/info') return { body: { group_openid: 'GU1', group_name: 'Group' } }
+    }
+    expect(await qq().getGuild('GU1')).toMatchObject({ id: 'GU1', name: 'Group' })
+    expect(await qq().getGuild('qqguild:GU1')).toMatchObject({ id: 'qqguild:GU1', name: 'Guild' })
+    expect(await qq().getGuildList()).toMatchObject({ data: [{ id: 'qqguild:GU1' }] })
+    expect(await qq().getChannelList('qqguild:GU1')).toMatchObject({ data: [{ id: 'qqguild:CH1' }] })
+    expect(await qq().getGuildMember('qqguild:GU1', 'qqguild:U9')).toMatchObject({ user: { id: 'qqguild:U9' }, roles: [{ id: '2' }] })
+    expect(await qq().getGuildMember('qqguild:GU1_DMG', 'APPID')).toMatchObject({ user: { id: 'APPID', is_bot: true } })
+    expect(await qq().getGuildMemberList('qqguild:GU1', 'LAST')).toMatchObject({ data: [{ user: { id: 'qqguild:U9' } }], next: 'U9' })
+    expect(await qq().getUser('qqguild:U9', 'qqguild:GU1')).toMatchObject({ id: 'qqguild:U9', name: 'Carol' })
+    expect(await qq().getMessage('qqguild:CH1', 'qqguild:GM1')).toMatchObject({ id: 'qqguild:GM1', content: '<at id="qqguild:U9"/>', user: { id: 'qqguild:U9' }, channel: { id: 'qqguild:CH1' } })
+    expect(await qq().createChannel('qqguild:GU1', { name: 'New', parentId: 'qqguild:CAT', private_user_ids: ['qqguild:U9'] })).toMatchObject({ id: 'qqguild:NEW', parent_id: 'qqguild:CAT' })
+    expect(calls.find(call => call.method === 'POST' && call.path === '/guilds/GU1/channels')?.body).toMatchObject({ parent_id: 'CAT', private_user_ids: ['U9'] })
+    await qq().muteGuildMember('qqguild:GU1', 'qqguild:U9', 60_000)
+    await qq().kickGuildMember('qqguild:GU1', 'qqguild:U9')
+    await qq().createReaction('qqguild:CH1', 'qqguild:GM1', '1:4')
+    await qq().deleteReaction('qqguild:CH1', 'qqguild:GM1', '1:4')
+    expect(await qq().getReactionList('qqguild:CH1', 'qqguild:GM1', '1:4')).toMatchObject({ data: [{ id: 'qqguild:U9' }], next: 'NEXT' })
+    expect(calls).toContainEqual(expect.objectContaining({ method: 'PATCH', path: '/guilds/GU1/members/U9/mute', body: { mute_seconds: 60 } }))
+    await qq().internal.sendMessage('GROUP', { content: 'raw group' })
+    await qq().internal.sendGuildMessage('CHANNEL', { content: 'raw guild' })
+    await qq().internal.deleteGuildMessage('CHANNEL', 'MESSAGE')
+    expect(messages().slice(-2).map(call => call.path)).toEqual(['/v2/groups/GROUP/messages', '/channels/CHANNEL/messages'])
+    expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/channels/CHANNEL/messages/MESSAGE' }))
+    expect(await qq().getUser('APPID')).toMatchObject({ id: 'APPID', name: 'TestBot' })
+    await expect(qq().createChannel('GU1', { name: 'wrong namespace' })).rejects.toThrow('qqguild:')
+  })
+
+  it('dispatches guild button callbacks on the same bot and replies using their event ID', async () => {
+    await start()
+    const sessions: Session[] = []
+    ctx.on('bot/event', async session => {
+      if (session.type !== 'interaction/button') return
+      sessions.push(session)
+      await session.send('clicked')
+    })
+    push('INTERACTION_CREATE', { id: 'I9', chat_type: 3, guild_id: 'GU1', channel_id: 'CH1', data: { resolved: { user_id: 'U9', button_id: 'button', button_data: 'keep:raw' } } }, 'EV9')
+    await vi.waitFor(() => expect(messages()).toHaveLength(1))
+    expect(sessions[0]).toMatchObject({ platform: 'qq', userId: 'qqguild:U9', channelId: 'qqguild:CH1', event: { referrer: { event_id: 'qqguild:EV9' }, button: { id: 'button', data: 'keep:raw' } } })
+    expect(sessions[0].bot).toBe(qq())
+    expect(messages()[0]).toMatchObject({ path: '/channels/CH1/messages', body: { content: 'clicked', event_id: 'EV9' } })
+    expect(messages()[0].body.msg_id).toBeUndefined()
+    expect(calls).toContainEqual(expect.objectContaining({ method: 'PUT', path: '/interactions/I9' }))
+  })
+
+  it('runs the same registered command in a group and a guild without treating its own guild messages as input', async () => {
+    await start()
+    await ctx.plugin(CommandService)
+    const bots: Bot[] = []
+    ctx.command('unified').action(({ session }) => { bots.push(session.bot); return 'ok' })
+    groupAt('CMD1', ' /unified')
+    push('AT_MESSAGE_CREATE', guildMessage({ id: 'CMD1', content: '<@!B> /unified' }))
+    push('MESSAGE_CREATE', guildMessage({ id: 'OWN', author: { id: 'B', bot: true }, content: '/unified' }))
+    await vi.waitFor(() => expect(messages()).toHaveLength(2))
+    await settle()
+    expect(bots).toEqual([qq(), qq()])
+    expect(messages().map(call => call.path).sort()).toEqual(['/channels/CH1/messages', '/v2/groups/G1/messages'])
+    expect(qq().stats.snapshot(qq())).toMatchObject({ messageReceived: 2, messageSent: 2 })
+  })
+
+  it('publishes a single Satori login for group and guild events and routes guild sends through it', async () => {
+    await start()
+    await ctx.plugin(SatoriAdapter, { enable: true, host: '127.0.0.1', port: 0, token: '' })
+    const server = (ctx.satori as any).server
+    await vi.waitFor(() => expect(server.httpServer?.listening).toBe(true))
+    const socket = new WebSocket(`ws://127.0.0.1:${server.httpServer.address().port}/v1/events`)
+    const frames: any[] = []
+    socket.on('message', data => frames.push(JSON.parse(data.toString())))
+    try {
+      await new Promise<void>((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject) })
+      socket.send(JSON.stringify({ op: Opcode.IDENTIFY, body: {} }))
+      await vi.waitFor(() => expect(frames.some(frame => frame.op === Opcode.READY)).toBe(true))
+      const ready = frames.find(frame => frame.op === Opcode.READY)
+      expect(ready.body.logins).toHaveLength(1)
+      expect(ready.body.logins[0]).toMatchObject({ platform: 'qq', user: { id: 'APPID' } })
+      groupAt('S1', ' group')
+      push('AT_MESSAGE_CREATE', guildMessage({ id: 'S1' }))
+      await vi.waitFor(() => expect(frames.filter(frame => frame.body?.type === 'message-created')).toHaveLength(2))
+      const events = frames.filter(frame => frame.body?.type === 'message-created').map(frame => frame.body)
+      expect(new Set(events.map(event => event.login.sn)).size).toBe(1)
+      expect(events.every(event => event.platform === 'qq' && event.login.platform === 'qq')).toBe(true)
+      const response = await server.app.fetch(new Request('http://localhost/v1/message.create', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Satori-Platform': 'qq', 'Satori-User-ID': 'APPID' },
+        body: JSON.stringify({ channel_id: 'qqguild:CH1', content: 'from Satori', referrer: { msg_id: 'qqguild:S1' } }),
+      }))
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject([{ id: 'qqguild:sent-1', channel: { id: 'qqguild:CH1' } }])
+      expect(messages()[0]).toMatchObject({ path: '/channels/CH1/messages', body: { msg_id: 'S1' } })
+    } finally {
+      socket.terminate()
+    }
   })
 
   it('sends markdown with its AppID, remote images by URL, local ones as multipart', async () => {
     await start({ intents: ['PUBLIC_GUILD_MESSAGES'] })
-    await guild().sendMessage('CH1', [h('markdown', '**hi**'), h('button', { text: 'go' })])
-    await guild().sendMessage('CH1', h.image('https://example.com/a.png'))
-    await guild().sendMessage('CH1', h.image('data:image/png;base64,AAAA'))
+    await qq().sendMessage('qqguild:CH1', [h('markdown', '**hi**'), h('button', { text: 'go' })])
+    await qq().sendMessage('qqguild:CH1', h.image('https://example.com/a.png'))
+    await qq().sendMessage('qqguild:CH1', h.image('data:image/png;base64,AAAA'))
     expect(messages()[0].body).toMatchObject({ msg_type: 2, markdown: { content: '**hi**' }, bot_appid: 'APPID' })
     expect(messages()[1].body).toEqual({ image: 'https://example.com/a.png' })
     const form = messages()[2].form!
@@ -549,7 +757,7 @@ describe('guilds', () => {
     push('MESSAGE_CREATE', guildMessage({ id: 'B2' }))
     await vi.waitFor(() => expect(sessions).toHaveLength(1))
     await settle()
-    expect(sessions.map(session => session.messageId)).toEqual(['B2'])
+    expect(sessions.map(session => session.messageId)).toEqual(['qqguild:B2'])
   })
 
   it('reports reactions, channels and members', async () => {
@@ -562,9 +770,9 @@ describe('guilds', () => {
     push('GUILD_MEMBER_ADD', { guild_id: 'GU1', user: { id: 'U10', username: 'Eve' }, nick: 'E', roles: ['1'], joined_at: sentAt() })
     await vi.waitFor(() => expect(events).toHaveLength(3))
     expect(events.map(session => session.type)).toEqual(['reaction-added', 'channel-added', 'guild-member-added'])
-    expect(events[0].event.message).toEqual({ id: 'M5', content: '1:4' })
-    expect(events[1].event.channel).toMatchObject({ id: 'CH2', name: '新频道' })
-    expect(events[2]).toMatchObject({ userId: 'U10', guildId: 'GU1', platform: 'qqguild' })
+    expect(events[0].event.message).toEqual({ id: 'qqguild:M5', content: '1:4' })
+    expect(events[1].event.channel).toMatchObject({ id: 'qqguild:CH2', name: '新频道' })
+    expect(events[2]).toMatchObject({ userId: 'qqguild:U10', guildId: 'qqguild:GU1', platform: 'qq' })
   })
 
   it('reads and writes QQ faces as <emoji:id>', async () => {
@@ -577,7 +785,7 @@ describe('guilds', () => {
     await vi.waitFor(() => expect(sessions).toHaveLength(1))
     expect(sessions[0].content).toBe('<at id="APPID"/> hi<face id="4"/>')
 
-    await guild().sendMessage('CH1', [h.text('好的'), h('face', { id: '13', name: '呲牙' })])
+    await qq().sendMessage('qqguild:CH1', [h.text('好的'), h('face', { id: '13', name: '呲牙' })])
     expect(messages()[0].body).toMatchObject({ content: '好的<emoji:13>' })
   })
 })
@@ -616,8 +824,7 @@ describe('what the official bot sends of the cross-platform elements', () => {
 
   it('says what it sends natively', async () => {
     await start({ intents: ['GROUP_AND_C2C_EVENT', 'PUBLIC_GUILD_MESSAGES'] })
-    expect(qq().features).toEqual(['message.markdown', 'message.button', 'message.card', 'message.stream', 'message.proactive', 'guild.plain'])
-    expect(guild().features).toEqual(['message.markdown', 'message.button', 'message.card', 'message.face'])
+    expect(qq().features).toEqual(['message.markdown', 'message.button', 'message.card', 'message.face', 'message.stream', 'message.proactive', 'guild.plain'])
   })
 
   it('covers every case', () => {
@@ -659,7 +866,7 @@ describe('what the official bot sends of the cross-platform elements', () => {
 
   it('sends a card to a guild as ark', async () => {
     await start({ intents: ['PUBLIC_GUILD_MESSAGES'] })
-    await guild().sendMessage('CH1', h('card', { title: '标题', url: 'https://example.com/a', desc: '描述' }))
+    await qq().sendMessage('qqguild:CH1', h('card', { title: '标题', url: 'https://example.com/a', desc: '描述' }))
     expect(messages()[0]).toMatchObject({ path: '/channels/CH1/messages', body: { ark: { template_id: 23 } } })
   })
 })

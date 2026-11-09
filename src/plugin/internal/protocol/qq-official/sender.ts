@@ -8,7 +8,7 @@ import {
 } from './elements'
 import { loadMedia, uploadMedia, webImageSize } from './media'
 import { Button, ChannelSendRequest, FileType, MessageType, SendRequest } from './types'
-import type { DeliverOptions, QQGuildBot, QQOfficialBot } from './bot'
+import type { DeliverOptions, QQGuildClient, QQOfficialBot } from './bot'
 
 const MEDIA_TYPES: Record<string, number> = {
   img: FileType.Image,
@@ -351,7 +351,7 @@ export class GuildMessageSender extends Encoder {
   private fileUrl?: string
   private readonly direct: boolean
 
-  constructor(private bot: QQGuildBot, private channelId: string, private replyTo?: string) {
+  constructor(private bot: QQGuildClient, private channelId: string, private replyTo?: string) {
     super()
     this.direct = channelId.includes('_')
   }

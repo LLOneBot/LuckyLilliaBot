@@ -106,7 +106,6 @@ export const SERVICE_LABEL: Record<string, string> = {
   bots: '收发消息',
   commands: '指令',
   database: '数据库',
-  account: 'NTQQ 账号',
   timer: '定时器',
   http: '网络请求',
   webuiServer: 'WebUI',

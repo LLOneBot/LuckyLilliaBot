@@ -26,7 +26,7 @@ export namespace OB11Entities {
     msg: RawMessage,
     config?: ParseMessageConfig
   ): Promise<OB11Message> {
-    const selfUin = +ctx.account.uin
+    const selfUin = +ctx.qqProtocol.selfInfo.uin
     const msgShortId = ctx.store.createMsgShortId(msg)
     const { segments, cqCode } = await transformIncomingSegments(ctx, msg)
     const resMsg: OB11Message = {

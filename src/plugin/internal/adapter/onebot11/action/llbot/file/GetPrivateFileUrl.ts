@@ -16,7 +16,7 @@ export class GetPrivateFileUrl extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const result = await this.ctx.ntFileApi.getFileUrl(payload.file_id, false, this.ctx.account.uid)
+    const result = await this.ctx.ntFileApi.getFileUrl(payload.file_id, false, this.ctx.qqProtocol.selfInfo.uid)
     if (result.retCode !== 0) {
       throw new Error(result.retMsg)
     }

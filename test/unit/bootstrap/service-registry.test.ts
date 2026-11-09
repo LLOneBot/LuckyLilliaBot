@@ -33,7 +33,6 @@ import { Dashboard } from '@/plugin/internal/tool/dashboard'
 import { Logs } from '@/plugin/internal/tool/logs'
 import { WebQQ } from '@/plugin/internal/tool/webqq'
 import EmailNotificationService from '@/plugin/internal/tool/email-notification'
-import AccountService from '@/plugin/internal/protocol/nt-protocol/account'
 import BotsService from '@/universal/bots'
 import * as NTQQUniversal from '@/plugin/internal/service/ntqq-universal'
 
@@ -101,7 +100,6 @@ describe('service registry under the pinned cordis version', () => {
     mount('timer', TimerService)
     mount('config', MockConfig)
     mount('qqProtocol', MockProtocol)
-    mount('account', AccountService)
     mount('bots', BotsService)
     mount('ntFileApi', NTFileApi)
     mount('ntFriendApi', NTFriendApi)
@@ -141,7 +139,7 @@ describe('service registry under the pinned cordis version', () => {
     }, { timeout: 4_000, interval: 200 })
 
     for (const name of [
-      'config', 'qqProtocol', 'account', 'bots', 'timer', 'database', 'model', 'store', 'app',
+      'config', 'qqProtocol', 'bots', 'timer', 'database', 'model', 'store', 'app',
       'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntLoginApi', 'ntMsgApi', 'ntUserApi', 'ntWebApi', 'ntSystemApi',
       'onebot', 'satori', 'milky', 'emailNotification', 'webuiServer',
     ]) {

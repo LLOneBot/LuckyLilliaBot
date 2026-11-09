@@ -8,11 +8,11 @@ export const builtin: BuiltinPlugin = {
   title: 'Satori',
   config: satoriSettings,
   // Not waiting for the NT account: it serves the QQ official bot as well
-  plugin: adapterEntry('builtin:satori', SatoriAdapter, SatoriSchema, undefined, false),
+  plugin: adapterEntry('builtin:satori', SatoriAdapter, SatoriSchema),
   manifest: {
     category: 'adapter',
     icon: 'cpu',
     service: { implements: ['satori'] },
-    description: { zh: 'Satori 协议适配器', en: 'Satori protocol adapter' },
+    description: { zh: '支持全部协议端的 Satori 适配器', en: 'Supports all protocol backends through Satori' },
   },
 }

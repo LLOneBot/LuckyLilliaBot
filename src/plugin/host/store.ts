@@ -14,8 +14,6 @@ export interface PluginEntry {
 
 /** What the user decided about plugins' parts of the WebUI; the plugin page edits it. */
 export interface UiPrefs {
-  /** Packages whose WebUI module may load. Builtins need no approval. */
-  approved: string[]
   /** Slot contributions and sidebar pages left out: `<package>|<slot>|<id>`, `<package>|page|<tab>`. */
   hidden: string[]
   /** Positions of sidebar pages and of contributions to `list` slots, by the same keys, over their own order */
@@ -91,5 +89,5 @@ export function normalizeUi(value: unknown): UiPrefs {
       if (typeof position === 'number' && Number.isFinite(position)) order[key] = position
     }
   }
-  return { approved: strings(input.approved), hidden: strings(input.hidden), order }
+  return { hidden: strings(input.hidden), order }
 }

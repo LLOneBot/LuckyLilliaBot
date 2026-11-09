@@ -91,6 +91,7 @@ export function createWebUIContext(owner: string, builtin: boolean, track: (disp
       title: declaration.title,
       description: declaration.description,
       cardinality: declaration.cardinality,
+      configurable: declaration.configurable,
     }),
     config: component => register({ kind: 'config', owner, component: component as ComponentType<any> }),
     field: (role, component) => register({ kind: 'field', owner, role, component: component as ComponentType<any> }),

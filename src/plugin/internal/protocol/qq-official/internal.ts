@@ -160,3 +160,12 @@ function define<T extends Internal>(api: QQOfficialApi, routes: Routes): T {
 export const groupInternal = (api: QQOfficialApi) => define<GroupInternal>(api, GROUP_ROUTES)
 
 export const guildInternal = (api: QQOfficialApi) => define<GuildInternal>(api, GUILD_ROUTES)
+
+/** Both API surfaces on the one QQ bot. The old group send/delete names keep their meaning. */
+export function officialInternal(api: QQOfficialApi) {
+  const guild = guildInternal(api)
+  return Object.assign(guild, {
+    sendGuildMessage: guild.sendMessage,
+    deleteGuildMessage: guild.deleteMessage,
+  }, groupInternal(api))
+}

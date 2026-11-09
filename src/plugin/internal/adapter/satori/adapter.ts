@@ -23,6 +23,7 @@ class SatoriAdapter extends Service {
   private server: SatoriServer
   // Event and login numbers are the adapter's: each bot counts its own events from 1
   private eventSn = 0
+  private nextLoginSn = 0
   private loginSns = new Map<string, number>()
 
   constructor(public ctx: Context, public config: SatoriAdapter.Config) {
@@ -38,15 +39,17 @@ class SatoriAdapter extends Service {
       this.dispatch(session.bot, toWire(session.event, session.bot.platform) as unknown as WireEvent)
     })
     this.ctx.on('bot/status', (bot) => {
-      const type = this.loginSns.has(bot.sid) ? 'login-updated' : 'login-added'
+      const removed = this.ctx.bots.get(bot.sid) !== bot
+      const type = removed ? 'login-removed' : this.loginSns.has(bot.sid) ? 'login-updated' : 'login-added'
       this.dispatch(bot, { type, self_id: bot.selfId, platform: wirePlatform(bot.platform), timestamp: Date.now(), login: this.login(bot) } as WireEvent)
+      if (removed) this.loginSns.delete(bot.sid)
     })
     return () => this.server.stop()
   }
 
   private loginSn(bot: Bot): number {
     let sn = this.loginSns.get(bot.sid)
-    if (sn === undefined) this.loginSns.set(bot.sid, sn = this.loginSns.size + 1)
+    if (sn === undefined) this.loginSns.set(bot.sid, sn = ++this.nextLoginSn)
     return sn
   }
 

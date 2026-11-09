@@ -24,6 +24,8 @@ declare module 'cordis' {
   interface Events {
     /** uid / uin 都已就绪 */
     'qq/online': () => void
+    /** The login identity was explicitly cleared; transient network disconnects do not emit this. */
+    'qq/logout': () => void
     /** 重连后会再次 emit `qq/online` */
     'protocol/disconnect': () => void
     /** An online QQ session was rejected; notify consumers without applying KickNT recovery. */
@@ -45,6 +47,9 @@ export interface QuickLoginAccounts {
   accounts: QuickLoginAccount[]
 }
 
+/** The installed protocol implementation cannot offer saved-account login. */
+export class QuickLoginUnsupportedError extends Error {}
+
 export abstract class QQProtocolBase extends Service {
   static inject = ['config']
 
@@ -53,7 +58,7 @@ export abstract class QQProtocolBase extends Service {
   private disconnectCheckTimer: NodeJS.Timeout | undefined
   protected logger
 
-  /** The account this protocol logs in. Other plugins read it through the account service (account.ts). */
+  /** Protocol-owned login identity. General-purpose plugins use session.bot or ctx.bots. */
   readonly selfInfo: SelfInfo = { uid: '', uin: '', nick: '', online: false }
 
   /** How logging in with the auth token goes. Each protocol instance owns its authorization state. */
@@ -78,7 +83,7 @@ export abstract class QQProtocolBase extends Service {
   private static readonly QR_FETCH_RETRY_MS = 2_000
   private static readonly QR_FETCH_RETRY_MAX_MS = 30_000
 
-  constructor(protected ctx: Context) {
+  constructor(protected ctx: Context, protected readonly loginOptions: { autoLoginUin?: string } = {}) {
     super(ctx, 'qqProtocol')
     this.logger = ctx.logger('qq-protocol')
   }
@@ -111,13 +116,19 @@ export abstract class QQProtocolBase extends Service {
     return undefined
   }
 
-  /** 仅 Direct 实现; 抛错时 FE 退回扫码 */
+  /** Resolves only once the selected account is online; errors let the WebUI offer QR login. */
   public async quickLogin(_uin: string): Promise<void> {
     throw new Error('quickLogin not supported in this mode')
   }
 
   /** 仅 Direct 实现 */
   public async logout(): Promise<void> {}
+
+  protected async clearLogin(): Promise<void> {
+    this.onlineEmitted = false
+    Object.assign(this.selfInfo, { online: false, uin: '', uid: '', nick: '' })
+    await this.ctx.parallel('qq/logout')
+  }
 
   /** WebUI 存了新的 auth token, 立刻校验, 不等下一轮查文件 */
   public checkAuthToken(): void {}
@@ -170,7 +181,7 @@ export abstract class QQProtocolBase extends Service {
   protected maybeEmitOnline() {
     if (this.disposed || this.onlineEmitted) return
     if (!this.selfInfo.online) return
-    if (!this.selfInfo.uid && !this.selfInfo.uin) return
+    if (!this.selfInfo.uid || !this.selfInfo.uin) return
     this.onlineEmitted = true
     this.qrAutoRefreshCount = 0
     this.authTokenStatus.loginError = ''

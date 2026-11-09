@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ChevronDown, ChevronUp, Settings } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { BotInfo } from '@luckylillia/plugin-sdk/webui'
 import { useBots } from '../../stores/botsStore'
 
@@ -18,6 +18,8 @@ const STATUS: Record<number, { label: string; dot: string }> = {
   [RECONNECT]: { label: '正在重连', dot: 'bg-amber-400' },
 }
 const statusOf = (bot: BotInfo) => STATUS[bot.status] ?? { label: '离线', dot: 'bg-neutral-400' }
+const PROTOCOL_LABEL: Record<string, string> = { luckylillia: 'NTQQ', qq: 'QQ 官方机器人', qqguild: 'QQ 频道' }
+const protocolOf = (bot: BotInfo) => PROTOCOL_LABEL[bot.platform] ?? bot.platform
 // Online first, then the ones on their way, then the rest; a stable sort keeps each group in the order given
 const rank = (bot: BotInfo) => (bot.status === ONLINE ? 0 : bot.status === CONNECT || bot.status === RECONNECT ? 1 : 2)
 
@@ -38,36 +40,26 @@ const Avatar: React.FC<{ bot: BotInfo }> = ({ bot }) => {
 }
 
 /**
- * The foot of the sidebar: every account the protocol plugins have, each with its avatar, nickname and number and
- * a dot for its status; and the settings gear.
+ * The foot of the sidebar: each account's avatar, nickname, number, protocol and connection status.
  */
-const AccountsCard: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSettings }) => {
+const AccountsCard: React.FC = () => {
   const bots = useBots(state => state.bots) ?? []
   const [unfolded, setUnfolded] = useState(false)
   const sorted = [...bots].sort((a, b) => rank(a) - rank(b))
   const folds = sorted.length > UNFOLDED
   const shown = folds && !unfolded ? sorted.slice(0, FOLDED) : sorted
-  const gear = (
-    <button
-      onClick={onOpenSettings}
-      className='p-2 rounded-lg transition-colors duration-200 text-theme-muted hover:bg-theme-item-hover hover:text-theme flex-shrink-0'
-      title='设置'
-    >
-      <Settings size={18} />
-    </button>
-  )
 
   return (
     <div className='p-3'>
       <div className='fill-quiet r-card p-2 max-h-[45vh] overflow-y-auto'>
-        {shown.length ? shown.map((bot, index) => (
-          <div key={bot.sid} className='flex items-center gap-3 px-1 py-1' title={statusOf(bot).label}>
+        {shown.length ? shown.map(bot => (
+          <div key={bot.sid} className='flex items-center gap-3 px-1 py-1' title={`${protocolOf(bot)} · ${statusOf(bot).label}`}>
             <Avatar bot={bot} />
             <div className='flex-1 min-w-0'>
               <p className='text-sm font-medium text-theme truncate'>{bot.name || bot.selfId}</p>
               <p className='text-xs text-theme-muted truncate'>{bot.selfId}</p>
+              <p className='mt-0.5 text-[11px] leading-4 text-theme-secondary truncate'>{protocolOf(bot)}</p>
             </div>
-            {index === 0 && gear}
           </div>
         )) : (
           <div className='flex items-center gap-3 px-1 py-1'>
@@ -79,7 +71,6 @@ const AccountsCard: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSetting
               className='w-9 h-9 rounded-full object-cover flex-shrink-0'
             />
             <p className='flex-1 min-w-0 text-sm text-theme-muted truncate'>还没有登录的账号</p>
-            {gear}
           </div>
         )}
         {folds && (

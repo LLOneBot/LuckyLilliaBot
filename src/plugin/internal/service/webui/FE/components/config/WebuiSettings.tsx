@@ -15,7 +15,7 @@ const LockedHint: React.FC<{ text: string }> = ({ text }) => (
   </p>
 )
 
-/** The WebUI's own settings, in the settings dialog: where it listens (settings.json) and its password */
+/** The WebUI's own connection settings: where it listens (settings.json) and its password. */
 const WebuiSettings: React.FC = () => {
   const [loaded, setLoaded] = useState<ResConfig | null>(null)
   const [host, setHost] = useState('')

@@ -2,11 +2,13 @@ import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { lstat, mkdir, readdir, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { promisify } from 'node:util'
 import { gunzip } from 'node:zlib'
 import { isInside } from '../../../host/manifest'
-import { matches, PackageVersion, Packument, parseSpec, pickVersion, RegistryClient } from './registry'
+import { matches, PackageVersion, Packument, parseSpec, pickVersion, RegistryClient, type PackageManifest } from './registry'
 import { extractPackage } from './tar'
+import type { LocalPackage } from './archive'
 
 const gunzipAsync = promisify(gunzip)
 
@@ -17,6 +19,9 @@ const DOWNLOADS = 8
 
 // validate-npm-package-name without its length and reserved-name checks
 const PACKAGE_NAME = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
+
+/** Registry packages are downloaded; local packages already have a validated directory on disk. */
+export type PackageSource = { manifest: PackageVersion; directory?: undefined } | LocalPackage
 
 export interface InstallResult {
   name: string
@@ -32,7 +37,7 @@ export interface InstallResult {
 interface Node {
   /** The directory under node_modules: an alias's own name, not the package's */
   alias: string
-  manifest: PackageVersion
+  source: PackageSource
   parent?: Node
   children: Map<string, Node>
 }
@@ -61,24 +66,29 @@ export class Installer {
   }
 
   /** Lays `main` and its dependencies out in a scratch directory, then swaps it in for what was there. */
-  async install(main: PackageVersion): Promise<InstallResult> {
+  async install(source: PackageSource): Promise<InstallResult> {
+    const main = source.manifest
     const target = this.target(main.name)
     if (!target) throw new Error(`invalid package name ${main.name}`)
     await this.assertReal(target)
-    const { root, skipped } = await this.plan(main)
+    const { root, skipped } = await this.plan(source)
     await mkdir(this.root, { recursive: true })
     const scratch = this.scratch()
     try {
       const nodes = layout(root, scratch)
-      await mapLimit(nodes, DOWNLOADS, async ({ node, dir }) => {
-        const tar = await gunzipAsync(await this.registry.tarball(node.manifest))
+      const extract = async ({ node, dir }: typeof nodes[number]) => {
+        if (node.source.directory !== undefined) return renamePackage(node.source.directory, dir)
+        const tar = await gunzipAsync(await this.registry.tarball(node.source.manifest))
         await extractPackage(tar, dir)
-      })
+      }
+      // Bundled files must be in place before downloaded dependencies, never racing to overwrite them.
+      await extract(nodes[0])
+      await mapLimit(nodes.slice(1), DOWNLOADS, extract)
       await this.swap(scratch, target)
       return {
         name: main.name,
         version: main.version,
-        scripts: [...new Set(nodes.filter(({ node }) => hasScripts(node.manifest)).map(({ node }) => node.manifest.name))],
+        scripts: [...new Set(nodes.filter(({ node }) => hasScripts(node.source.manifest)).map(({ node }) => node.source.manifest.name))],
         skipped,
         packages: nodes.length,
       }
@@ -94,7 +104,7 @@ export class Installer {
     await this.assertReal(target)
     if (!existsSync(target)) return
     const away = this.scratch()
-    await rename(target, away).catch((e) => {
+    await renamePackage(target, away).catch((e) => {
       throw busy(e, name)
     })
     await rm(away, { recursive: true, force: true }).catch(() => {})
@@ -115,8 +125,8 @@ export class Installer {
    * already, then under the package that needs it. That never shadows what an earlier package resolved: a node's
    * children are all placed before any of its descendants look them up.
    */
-  private async plan(main: PackageVersion): Promise<{ root: Node; skipped: string[] }> {
-    const root: Node = { alias: main.name, manifest: main, children: new Map() }
+  private async plan(source: PackageSource): Promise<{ root: Node; skipped: string[] }> {
+    const root: Node = { alias: source.manifest.name, source, children: new Map() }
     const skipped: string[] = []
     const queue = [root]
     // Each document once per install, asked for as soon as a package needing it is placed: the walk then rarely
@@ -131,7 +141,7 @@ export class Installer {
       }
       return document
     }
-    const prefetch = (manifest: PackageVersion) => {
+    const prefetch = (manifest: PackageManifest) => {
       for (const dep of dependenciesOf(manifest)) {
         if (this.shared.has(dep.alias)) continue
         try {
@@ -141,10 +151,11 @@ export class Installer {
         }
       }
     }
-    prefetch(main)
+    prefetch(source.manifest)
     for (let node = queue.shift(); node; node = queue.shift()) {
-      if (depthOf(node) > MAX_DEPTH) throw new Error(`dependencies nest too deep at ${node.manifest.name}`)
-      for (const dep of dependenciesOf(node.manifest)) {
+      const manifest = node.source.manifest
+      if (depthOf(node) > MAX_DEPTH) throw new Error(`dependencies nest too deep at ${manifest.name}`)
+      for (const dep of dependenciesOf(manifest)) {
         if (this.shared.has(dep.alias)) continue
         let spec: { name: string; range: string }
         try {
@@ -157,7 +168,7 @@ export class Installer {
           throw e
         }
         const existing = lookup(node, dep.alias)
-        if (existing && existing.manifest.name === spec.name && matches(existing.manifest.version, spec.range)) continue
+        if (existing && existing.source.manifest.name === spec.name && matches(existing.source.manifest.version, spec.range)) continue
         const version = await packument(spec.name).then(
           document => pickVersion(document, spec.range),
           (e) => {
@@ -170,10 +181,10 @@ export class Installer {
             skipped.push(dep.alias)
             continue
           }
-          if (!version) throw new Error(`${node.manifest.name} needs ${spec.name}@${spec.range}, which has no matching version`)
-          throw new Error(`${node.manifest.name} needs ${spec.name}@${version.version}, which is not made for ${process.platform}-${process.arch}`)
+          if (!version) throw new Error(`${manifest.name} needs ${spec.name}@${spec.range}, which has no matching version`)
+          throw new Error(`${manifest.name} needs ${spec.name}@${version.version}, which is not made for ${process.platform}-${process.arch}`)
         }
-        const child: Node = { alias: dep.alias, manifest: version, children: new Map() }
+        const child: Node = { alias: dep.alias, source: { manifest: version }, children: new Map() }
         // Another version on the way up: only right under this node does this one come first
         const parent = existing ? node : root
         child.parent = parent
@@ -189,15 +200,15 @@ export class Installer {
     await mkdir(path.dirname(target), { recursive: true })
     const old = existsSync(target) ? this.scratch() : undefined
     if (old) {
-      await rename(target, old).catch((e) => {
+      await renamePackage(target, old).catch((e) => {
         throw busy(e, path.basename(target))
       })
     }
     try {
-      await rename(scratch, target)
+      await renamePackage(scratch, target)
     } catch (e) {
-      if (old) await rename(old, target).catch(() => {})
-      throw e
+      if (old) await renamePackage(old, target).catch(() => {})
+      throw busy(e, path.basename(target))
     }
     if (old) await rm(old, { recursive: true, force: true }).catch(() => {})
   }
@@ -217,6 +228,20 @@ export class Installer {
   }
 }
 
+/** Windows scanners can briefly hold newly extracted files. Persistent locks still fail without replacing the package. */
+async function renamePackage(source: string, target: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(source, target)
+      return
+    } catch (error) {
+      if (process.platform !== 'win32' || attempt >= 5
+        || !['EPERM', 'EACCES', 'EBUSY'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error
+      await delay(50 * 2 ** attempt)
+    }
+  }
+}
+
 function busy(error: unknown, name: string): Error {
   const code = (error as NodeJS.ErrnoException).code
   if (code === 'EPERM' || code === 'EBUSY' || code === 'EACCES') {
@@ -225,16 +250,19 @@ function busy(error: unknown, name: string): Error {
   return error as Error
 }
 
-function dependenciesOf(manifest: PackageVersion): { alias: string; spec: string; optional: boolean }[] {
+function dependenciesOf(manifest: PackageManifest): { alias: string; spec: string; optional: boolean }[] {
   // Bundled ones come inside the tarball; `true` bundles them all
   const bundle = manifest.bundleDependencies ?? manifest.bundledDependencies
   if (bundle === true) return []
   const bundled = new Set(Array.isArray(bundle) ? bundle : [])
   const deps = new Map<string, { alias: string; spec: string; optional: boolean }>()
+  // These belong to the host's plugin list and are resolved by Market before installation. Even if an author
+  // also lists one under npm dependencies, it must never become an unregistered copy in node_modules.
+  const plugins = new Set(Object.keys((manifest.llbot as { dependencies?: Record<string, string> } | undefined)?.dependencies ?? {}))
   for (const [alias, spec] of Object.entries(manifest.dependencies ?? {})) deps.set(alias, { alias, spec, optional: false })
   // npm lists an optional dependency in both; the optional entry wins
   for (const [alias, spec] of Object.entries(manifest.optionalDependencies ?? {})) deps.set(alias, { alias, spec, optional: true })
-  return [...deps.values()].filter(dep => !bundled.has(dep.alias))
+  return [...deps.values()].filter(dep => !bundled.has(dep.alias) && !plugins.has(dep.alias))
 }
 
 function lookup(node: Node, alias: string): Node | undefined {
@@ -256,7 +284,7 @@ function layout(root: Node, dir: string): { node: Node; dir: string }[] {
   return result
 }
 
-function hasScripts(manifest: PackageVersion): boolean {
+function hasScripts(manifest: PackageManifest): boolean {
   if (manifest.hasInstallScript) return true
   const scripts = manifest.scripts ?? {}
   return !!(scripts.preinstall || scripts.install || scripts.postinstall)

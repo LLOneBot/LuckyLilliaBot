@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import { usePluginContext } from '@luckylillia/plugin-sdk/webui';
+import { isQuickLoginUnsupported, readQuickLoginList } from './quickLoginList';
 
 interface Account {
   uin: string;
@@ -31,10 +32,6 @@ interface GetLoginListResult {
   LocalLoginInfoList: Account[];
 }
 
-const LIST_RETRY_MS = 2000;
-// About two minutes for QQ to come up
-const LIST_RETRIES = 60;
-
 interface QQLoginProps {
   /** A quick login went through: the account is online now */
   onLogin?: () => void;
@@ -44,10 +41,12 @@ interface QQLoginProps {
 const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
   const ctx = usePluginContext();
   const showToast = ctx.toast;
-  // Quick login only once the list says there is someone to log in: the bridge lists none (yet)
+  // Quick login only once QQ has returned a saved account.
   const [loginMode, setLoginMode] = useState<'loading' | 'quick' | 'qr'>('loading');
   const [waitingQQ, setWaitingQQ] = useState(false);
-  const aliveRef = useRef(true);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState('');
+  const [listUnsupported, setListUnsupported] = useState(false);
   // Why the quick login did not get online, kept on screen: a toast is easily missed
   const [error, setError] = useState('');
   const [showAccountList, setShowAccountList] = useState(false);
@@ -58,7 +57,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
 
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const qrRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const hasFetchedRef = useRef(false);
+  const listRequestRef = useRef<AbortController | null>(null);
   const generateQrCodeRef = useRef<(() => void) | undefined>(undefined);
 
   const displayQrCode = useCallback((base64Data: string) => {
@@ -100,41 +99,41 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
   }, [generateQrCode, showToast]);
 
   const fetchQuickLoginList = useCallback(async () => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-    // The bridge's QQ lists its saved accounts only once it is up: ask again until it says
-    for (let attempt = 0; attempt < LIST_RETRIES; attempt++) {
-      let data: GetLoginListResult;
-      try {
-        data = await ctx.api<GetLoginListResult>('/api/quick-login-list');
-      } catch {
-        if (!aliveRef.current) return;
-        showToast('获取快速登录列表失败', 'error');
-        setAccounts([]);
-        setLoginMode('qr');
-        return;
-      }
-      if (!aliveRef.current) return;
-      if (data?.ready === false) {
-        setWaitingQQ(true);
-        await new Promise(resolve => setTimeout(resolve, LIST_RETRY_MS));
-        if (!aliveRef.current) return;
-        continue;
-      }
-      setWaitingQQ(false);
+    listRequestRef.current?.abort();
+    const controller = new AbortController();
+    listRequestRef.current = controller;
+    setListLoading(true);
+    setListError('');
+    setListUnsupported(false);
+    setWaitingQQ(false);
+    try {
+      const data = await readQuickLoginList(
+        () => ctx.api<GetLoginListResult>('/api/quick-login-list'),
+        controller.signal,
+        setWaitingQQ,
+      );
+      if (!data || controller.signal.aborted) return;
       const quickLoginAccounts = (data?.LocalLoginInfoList ?? []).filter(item => item.isQuickLogin && !item.isUserLogin);
       setAccounts(quickLoginAccounts);
       if (quickLoginAccounts.length > 0) {
-        setSelectedAccount(prev => prev ?? quickLoginAccounts[0]);
+        setSelectedAccount(prev => quickLoginAccounts.find(account => account.uin === prev?.uin) ?? quickLoginAccounts[0]);
+        // A user can choose QR while the list loads; finishing the request must keep that choice.
         setLoginMode(mode => (mode === 'loading' ? 'quick' : mode));
       } else {
         setLoginMode('qr');
       }
-      return;
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setListError(error instanceof Error ? error.message : '读取快速登录账号失败，请重试');
+      setListUnsupported(isQuickLoginUnsupported(error));
+      setLoginMode('qr');
+    } finally {
+      if (!controller.signal.aborted) {
+        setListLoading(false);
+        setWaitingQQ(false);
+      }
     }
-    setWaitingQQ(false);
-    setLoginMode('qr');
-  }, [ctx, showToast]);
+  }, [ctx]);
 
   // The request returns once the login has an outcome: online, or the reason it is not
   const handleQuickLogin = useCallback(async () => {
@@ -159,10 +158,9 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
   const selectAccount = (account: Account) => { setSelectedAccount(account); setShowAccountList(false); };
 
   useEffect(() => {
-    aliveRef.current = true;
-    if (!hasFetchedRef.current) fetchQuickLoginList();
+    void fetchQuickLoginList();
     return () => {
-      aliveRef.current = false;
+      listRequestRef.current?.abort();
       if (qrRefreshIntervalRef.current) clearTimeout(qrRefreshIntervalRef.current);
     };
   }, []);
@@ -173,10 +171,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
     } else if (qrRefreshIntervalRef.current) {
       clearTimeout(qrRefreshIntervalRef.current);
     }
-    if (loginMode === 'quick' && accounts.length === 0 && !hasFetchedRef.current) {
-      fetchQuickLoginList();
-    }
-  }, [loginMode, accounts.length, generateQrCode]);
+  }, [loginMode, generateQrCode]);
 
   useEffect(() => {
     generateQrCodeRef.current = generateQrCode;
@@ -189,11 +184,22 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
           {error}
         </div>
       )}
+      {listError && (
+        <div className="w-full max-w-md mb-6 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-700 dark:text-amber-300 text-sm" role="status">
+          <p>{listError}</p>
+          {!listUnsupported && (
+            <button onClick={() => void fetchQuickLoginList()} className="mt-2 text-pink-500 hover:underline">重新读取账号</button>
+          )}
+        </div>
+      )}
 
       {loginMode === 'loading' && (
-        <div className="flex items-center justify-center gap-2 py-10 text-sm text-theme-secondary">
-          <Loader2 size={18} className="animate-spin text-pink-500" />
-          {waitingQQ ? '正在等待 QQ 启动完成...' : '正在读取可快速登录的账号...'}
+        <div className="flex flex-col items-center gap-4 py-10 text-sm text-theme-secondary">
+          <div className="flex items-center gap-2">
+            <Loader2 size={18} className="animate-spin text-pink-500" />
+            {waitingQQ ? '正在等待 QQ 启动完成...' : '正在读取可快速登录的账号...'}
+          </div>
+          <button onClick={() => setLoginMode('qr')} className="text-pink-500 hover:underline">扫码登录</button>
         </div>
       )}
 
@@ -249,6 +255,18 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
             </div>
           </div>
           <div className="text-theme-secondary">请使用手机QQ扫码登录</div>
+          {listLoading && (
+            <div className="flex items-center gap-2 text-xs text-theme-muted">
+              <Loader2 size={14} className="animate-spin" />
+              正在读取可快速登录的账号...
+            </div>
+          )}
+          {!listLoading && !listError && accounts.length === 0 && (
+            <div className="text-sm text-theme-muted">
+              <p>没有可快速登录的账号</p>
+              <button onClick={() => void fetchQuickLoginList()} className="mt-2 text-pink-500 hover:underline">重新读取账号</button>
+            </div>
+          )}
           {qrExpired && (
             <div className="text-sm px-4 py-2 rounded-lg bg-red-100 text-red-800">二维码已过期，请刷新</div>
           )}

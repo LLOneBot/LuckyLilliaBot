@@ -2,7 +2,7 @@ import { Config, ResConfig } from '../../types'
 
 export type EnvLock = ResConfig['envLocked'][number]
 
-/** What the WebUI section of the settings dialog saves: where it listens, less what a flag or a variable pins */
+/** What the WebUI page saves: where it listens, less what a flag or a variable pins. */
 export function webuiPatch(webui: Pick<Config['webui'], 'host' | 'port'>, locked: EnvLock[]): Partial<Config['webui']> {
   const patch: Partial<Config['webui']> = { host: webui.host, port: webui.port }
   for (const { path } of locked) {

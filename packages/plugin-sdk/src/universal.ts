@@ -266,7 +266,10 @@ declare module 'cordis' {
     'bot/message'(session: Session, next: () => Promise<void>): void | Promise<void>
     /** @mode parallel. Every other event, including the bot's own messages. */
     'bot/event'(session: Session): void
-    /** @mode parallel. A bot was registered or went on / offline. */
+    /**
+     * @mode parallel. A bot was registered, unregistered, or changed status.
+     * `ctx.bots.get(bot.sid) === bot` tells whether this bot is still registered.
+     */
     'bot/status'(bot: Bot): void
     /**
      * @mode waterfall. Sees what bot.sendMessage is about to send: mutate `content` in place or

@@ -87,7 +87,8 @@ describe('the instance settings file', () => {
     const config = await boot()
     config.patch({ webui: { port: 4100 } })
     // The settings are the instance's: another account logging in changes nothing
-    ctx.provide('account', { uin: '777', uid: 'u_777', nick: 'other', online: true })
+    ctx.provide('qqProtocol', { selfInfo: { uin: '777', uid: 'u_777', nick: 'other', online: true } })
+    await ctx.parallel('qq/online')
     expect(config.get(false).webui.port).toBe(4100)
     expect(config.file).toBe(settingsFile)
   })
@@ -127,6 +128,17 @@ describe('settings written by an older version', () => {
 })
 
 describe('LLBOT_* overrides', () => {
+  it.each(['warn', 'error'] as const)('accepts the %s logging threshold without persisting the override', async level => {
+    write({ logLevel: 'info' })
+    process.env.LLBOT_LOG_LEVEL = level
+    const config = await boot()
+    expect(config.get().logLevel).toBe(level)
+    expect(config.envLocks()).toContainEqual({ path: 'logLevel', by: 'LLBOT_LOG_LEVEL' })
+    config.patch({ logLevel: 'debug', log: false })
+    expect(config.get().logLevel).toBe(level)
+    expect(read()).toMatchObject({ logLevel: 'info', log: false })
+  })
+
   it('shows up in get() but never reaches the file', async () => {
     process.env.LLBOT_WEBUI_PORT = '9999'
     const config = await boot()
@@ -237,6 +249,23 @@ describe('--webui-port', () => {
     const config = await boot()
     expect(config.get(false).webui.port).toBe(read().webui.port)
     expect(config.envLockedPaths()).not.toContain('webui.port')
+  })
+})
+
+describe('--debug logging override', () => {
+  const realArgv = process.argv
+  afterEach(() => { process.argv = realArgv })
+
+  it('wins over the environment, reports its lock, and preserves the saved level', async () => {
+    write({ logLevel: 'warn' })
+    process.env.LLBOT_LOG_LEVEL = 'error'
+    process.argv = ['node', 'main.ts', '--debug']
+    const config = await boot()
+    expect(config.get().logLevel).toBe('debug')
+    expect(config.envLocks()).toContainEqual({ path: 'logLevel', by: '--debug' })
+    config.patch({ logLevel: 'info', log: false })
+    expect(config.get().logLevel).toBe('debug')
+    expect(read()).toMatchObject({ logLevel: 'warn', log: false })
   })
 })
 

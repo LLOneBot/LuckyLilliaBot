@@ -50,6 +50,7 @@ export function pinnedBy(by: string): string {
 /** The settings with what the launch fixes in place: what LLBot runs with. */
 export function effectiveMethod(settings: NTProtocolConfig, pins: ProtocolPins): NTProtocolConfig {
   return {
+    ...settings,
     mode: pins.mode?.value ?? settings.mode,
     protocol: pins.protocol?.value ?? settings.protocol,
     nativeQQ: pins.nativeQQ?.value ?? settings.nativeQQ,

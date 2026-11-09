@@ -162,6 +162,8 @@ export interface SlotDeclaration {
   title: string
   description?: string
   cardinality: SlotCardinality
+  /** Lets users arrange and hide this list's contributions in the declaring plugin's config dialog. */
+  configurable?: boolean
 }
 
 export interface ConfigEditorProps<T = any> {
@@ -306,8 +308,8 @@ export declare const SchemaForm: WebUIComponent<SchemaFormProps>
 export interface SchemaSettingsProps {
   /** Only these top-level fields of the Config, in this order. */
   fields?: string[]
-  /** Top-level fields boxed under a title, after the rest; `collapsed` starts folded. */
-  sections?: { title: string; fields: string[]; collapsed?: boolean }[]
+  /** Top-level fields boxed under a title, after the rest; `description` sits beside it, `collapsed` starts folded. */
+  sections?: { title: string; description?: string; fields: string[]; collapsed?: boolean }[]
   /** Shown next to the title, e.g. the documentation. */
   links?: { label: string; href: string }[]
   /** Below the form, above the save button; a function gets the config being edited. */
@@ -445,3 +447,18 @@ export declare function useSlotMatches(name: keyof SlotMap): string[]
 
 /** An icon from the `llbot.icon` list by its lucide name; unknown names get the puzzle piece. */
 export declare const Icon: WebUIComponent<{ name?: string; size?: number; className?: string }>
+
+export interface LightboxImage {
+  url: string
+  caption?: string
+}
+
+export interface LightboxProps {
+  images: LightboxImage[]
+  index: number
+  onIndex(index: number): void
+  onClose(): void
+}
+
+/** Displays an image gallery over the page, with keyboard navigation and a close button. */
+export declare const Lightbox: WebUIComponent<LightboxProps>

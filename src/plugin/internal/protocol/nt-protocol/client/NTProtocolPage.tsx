@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Loader2, Power, Smartphone } from 'lucide-react'
-import { usePluginContext, usePluginStatus } from '@luckylillia/plugin-sdk/webui'
+import { usePluginConfig, usePluginContext, usePluginStatus } from '@luckylillia/plugin-sdk/webui'
+import type { NTProtocolConfig } from '../../../../../common/types'
 import AuthTokenCard from './AuthTokenCard'
 import AuthTokenForm, { type AuthTokenStatus } from './AuthTokenForm'
 import LaunchQQ from './LaunchQQ'
@@ -30,6 +31,7 @@ const QUICK_POLL_INTERVAL = 1000
 const NTProtocolPage: React.FC = () => {
   const ctx = usePluginContext()
   const entry = usePluginStatus()
+  const config = usePluginConfig<NTProtocolConfig>()
   const disabled = entry?.disabled ?? false
   const [info, setInfo] = useState<LoginInfo | null>(null)
   // The account last seen online: its card stays while it is offline
@@ -114,6 +116,13 @@ const NTProtocolPage: React.FC = () => {
     window.location.reload()
   }
 
+  const setAutoLogin = async (enabled: boolean) => {
+    if (!info?.online || !info.uin || !config.value || config.saving) return
+    await config.save({ ...config.value, autoLoginUin: enabled ? info.uin : '' }, {
+      message: enabled ? '已开启自动登录' : '已关闭自动登录',
+    })
+  }
+
   const loginError = tokenStatus?.loginError || (tokenStatus?.validation === 'error' ? tokenStatus.message : '')
   const waiting = (text: string) => (
     <div className="flex items-center justify-center gap-2 py-10 text-sm text-theme-secondary">
@@ -163,6 +172,25 @@ const NTProtocolPage: React.FC = () => {
             {info.online ? '在线' : '离线'}
           </span>
         </div>
+
+        {info.online && (
+          <label className="mt-4 flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={config.value?.autoLoginUin === account.uin}
+              disabled={!config.value || config.saving || !!config.error}
+              onChange={event => void setAutoLogin(event.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-pink-500 disabled:opacity-50"
+            />
+            <span>
+              <span className="flex items-center gap-2 text-sm text-theme">
+                自动登录
+                {config.saving && <Loader2 size={14} className="animate-spin text-pink-500" />}
+              </span>
+              <span className="block mt-1 text-xs text-theme-muted">启动此实例时自动登录 QQ {account.uin}</span>
+            </span>
+          </label>
+        )}
 
         {!info.online && (
           <div className="mt-4 flex items-center gap-3 text-sm">
@@ -246,6 +274,7 @@ const NTProtocolPage: React.FC = () => {
       </div>
       {info && (
         <LoginMethod
+          config={config}
           pins={info.pins}
           lockedProtocol={info.lockedProtocol}
           online={info.online}

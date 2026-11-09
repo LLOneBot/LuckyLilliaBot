@@ -70,8 +70,8 @@ const GetFriendRequests = defineApi(
           time: e.timestamp,
           initiator_id: Number(await ctx.ntUserApi.getUinByUid(e.sourceUid)),
           initiator_uid: e.sourceUid,
-          target_user_id: Number(ctx.account.uin),
-          target_user_uid: ctx.account.uid,
+          target_user_id: Number(ctx.qqProtocol.selfInfo.uin),
+          target_user_uid: ctx.qqProtocol.selfInfo.uid,
           state: 'pending',
           comment: e.comment,
           via: e.source,
@@ -83,13 +83,13 @@ const GetFriendRequests = defineApi(
       return Ok({
         requests: await Promise.all(result.map(async e => {
           const friendId = Number(await ctx.ntUserApi.getUinByUid(e.friendUid))
-          const selfId = Number(ctx.account.uin)
+          const selfId = Number(ctx.qqProtocol.selfInfo.uin)
           return {
             time: e.timestamp,
             initiator_id: e.isInitiator ? selfId : friendId,
-            initiator_uid: e.isInitiator ? ctx.account.uid : e.friendUid,
+            initiator_uid: e.isInitiator ? ctx.qqProtocol.selfInfo.uid : e.friendUid,
             target_user_id: e.isInitiator ? friendId : selfId,
-            target_user_uid: e.isInitiator ? e.friendUid : ctx.account.uid,
+            target_user_uid: e.isInitiator ? e.friendUid : ctx.qqProtocol.selfInfo.uid,
             state: ({
               [FriendReqType.PeerInitiator]: 'pending',
               [FriendReqType.MeInitiatorWaitPeerConfirm]: 'pending',

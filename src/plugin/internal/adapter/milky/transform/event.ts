@@ -417,7 +417,7 @@ export async function transformPrivateMessageEvent(
             file_name: element.fileElement.fileName,
             file_size: +element.fileElement.fileSize,
             file_hash: element.fileElement.fileMd5 ?? '',
-            is_self: message.senderUin === +ctx.account.uin
+            is_self: message.senderUin === +ctx.qqProtocol.selfInfo.uin
           } satisfies MilkyEventTypes['friend_file_upload']
         }
       }

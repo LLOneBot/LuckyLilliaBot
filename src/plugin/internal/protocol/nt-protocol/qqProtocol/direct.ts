@@ -1,4 +1,3 @@
-import { Context } from 'cordis'
 import type { PBData } from './types'
 import {
   DirectProtocolClient,
@@ -68,10 +67,6 @@ export class DirectQQProtocol extends QQProtocolBase {
   private runtimeUinOverride: string | null = null
   // Why the last session restore did not get online: init falls back to QR silently, quick login reports it
   private restoreError: string | null = null
-
-  constructor(ctx: Context) {
-    super(ctx)
-  }
 
   protected async start(): Promise<void> {
     this.ctx.on('nt/kicked-offline', (data) => {
@@ -164,15 +159,12 @@ export class DirectQQProtocol extends QQProtocolBase {
     if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
     this.directClient?.clearSession()
     this.directClient?.disconnect()
-    this.selfInfo.online = false
-    this.selfInfo.uin = ''
-    this.selfInfo.uid = ''
-    this.selfInfo.nick = ''
-    this.onlineEmitted = false
     this.runtimeUinOverride = null
     // 不然 180s 内登出会复用上一次的旧码
     this.resetQrState()
-    this.ensureQrLoop()
+    const logoutToken = this.initToken
+    await this.clearLogin()
+    if (!this.disposed && logoutToken === this.initToken) this.ensureQrLoop()
   }
 
   protected async fetchFreshQrCode(): Promise<{ qrcodeUrl: string; pngBase64: string; expireTimeSec: number; sig: string } | null> {
@@ -298,13 +290,13 @@ export class DirectQQProtocol extends QQProtocolBase {
     await updateAuthToken(authToken).catch((e) => this.logger.warn('[Sign] updateAuthToken failed:', (e as Error).message))
     if (this.initToken !== myToken) return
 
-    const specifiedUin = this.runtimeUinOverride || getSpecifiedUin()
+    const specifiedUin = this.runtimeUinOverride || getSpecifiedUin() || this.loginOptions.autoLoginUin || undefined
     if (specifiedUin) {
       this.logger.info('Specified login uin: %s, will try %s', specifiedUin, getSessionFilePathForUin(specifiedUin))
     } else {
       this.logger.info('No uin specified, will perform fresh QR login (session will be saved as %s)', getSessionFilePathForUin('<uin>'))
     }
-    const persisted = loadSession(this.runtimeUinOverride ?? undefined)
+    const persisted = loadSession(specifiedUin)
 
     // guid 以 session 为准
     if (persisted) {
@@ -365,6 +357,11 @@ export class DirectQQProtocol extends QQProtocolBase {
         session = refreshed.session
         this.logger.info('[EasyLogin] macOS 免扫码续期成功')
         saveSession(session, Buffer.from(persisted.tgtgtKey ?? '', 'hex'), this.directClient.getGuid(), Buffer.from(refreshed.a1106Hex, 'hex'), persisted.nick)
+      }
+      if ((this.selfInfo.uin || this.selfInfo.uid) &&
+        (this.selfInfo.uin !== persisted.uin || this.selfInfo.uid !== persisted.uid)) {
+        await this.clearLogin()
+        if (this.initToken !== myToken) return
       }
       this.directClient.setSession(session)
 
@@ -540,6 +537,11 @@ export class DirectQQProtocol extends QQProtocolBase {
 
     await client.awaitSignTokenAcquire()
     if (this.qrPollToken !== myToken || client.getSession() !== session) return
+    if ((this.selfInfo.uin || this.selfInfo.uid) &&
+      (this.selfInfo.uin !== String(uin) || this.selfInfo.uid !== loginResult.uid)) {
+      await this.clearLogin()
+      if (this.qrPollToken !== myToken || client.getSession() !== session) return
+    }
 
     // 上线失败要清掉半成品 session: 不然 isLoggedIn 为 true, 扫码 loop 不再出码, 成了收不到 MsgPush 的"假在线"
     try {

@@ -18,7 +18,7 @@ function stub(name: string, methods: Record<string, unknown> = {}) {
   }
 }
 
-// The logged-in account, as ctx.account has it
+// The identity kept by the NT protocol after login
 const ACCOUNT = { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: true }
 
 function rawMessage(senderUin: number, elements: unknown[]) {
@@ -44,6 +44,7 @@ const ARK = { arkElement: { bytesData: '{"prompt":"[分享]标题"}' } }
 
 let ctx: Context
 let adapter: Fiber
+let ntqq: Fiber
 let dispatched: Record<string, any>[]
 let sendMessage: ReturnType<typeof vi.fn>
 let setGroupMemberAdmin: ReturnType<typeof vi.fn>
@@ -67,15 +68,15 @@ beforeEach(async () => {
   setGroupMemberAdmin = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
   muteGroup = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
   await ctx.plugin(BotsService)
-  for (const name of ['ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntWebApi', 'ntSystemApi', 'config', 'timer', 'qqProtocol']) {
+  for (const name of ['ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntWebApi', 'ntSystemApi', 'config', 'timer']) {
     await ctx.plugin(stub(name))
   }
-  await ctx.plugin(stub('account', ACCOUNT))
+  await ctx.plugin(stub('qqProtocol', { selfInfo: { ...ACCOUNT } }))
   await ctx.plugin(stub('store', { getMsgBySeq: () => undefined }))
   await ctx.plugin(stub('app', { sendMessage }))
   await ctx.plugin(stub('ntGroupApi', { setGroupMemberAdmin, muteGroup }))
   await ctx.plugin(stub('ntUserApi', { getUidByUin: async () => 'u_555' }))
-  await ctx.plugin(NTQQUniversal)
+  ntqq = await ctx.plugin(NTQQUniversal)
   adapter = await ctx.plugin(SatoriAdapter, { enable: true, host: '127.0.0.1', port: 0, token: '' })
   const satori = ctx.satori as unknown as { server: { dispatch: (body: unknown) => void } }
   vi.spyOn(satori.server, 'dispatch').mockImplementation(body => {
@@ -145,6 +146,36 @@ describe('events', () => {
       ['message-created', 'qq', 3, 1],
     ])
     expect(dispatched[0].login).toMatchObject({ platform: 'qq', adapter: 'qq', user: { id: 'APPID', name: 'Official' } })
+  })
+
+  it('removes a logged-out NT login with its old identity and adds it again after login', async () => {
+    const previous = await (await request('login.get', 'llonebot', '123456', {})).json()
+    const oldBot = ctx.bots.get('luckylillia:123456')!
+    Object.assign(ctx.qqProtocol.selfInfo, { uin: '', uid: '', nick: '', online: false })
+    await ntqq.dispose()
+    expect(dispatched).toHaveLength(1)
+    expect(dispatched[0]).toMatchObject({
+      type: 'login-removed', self_id: '123456', platform: 'llonebot',
+      login: { sn: previous.sn, user: { id: '123456', name: 'TestBot' } },
+    })
+    expect((await request('login.get', 'llonebot', '123456', {})).status).toBe(403)
+
+    Object.assign(ctx.qqProtocol.selfInfo, ACCOUNT)
+    await ctx.plugin(NTQQUniversal)
+    expect(ctx.bots.get('luckylillia:123456')).not.toBe(oldBot)
+    expect(dispatched[1]).toMatchObject({ type: 'login-added', login: { user: { id: '123456' } } })
+    expect(dispatched[1].login.sn).toBeGreaterThan(previous.sn)
+  })
+
+  it('keeps active login numbers unique when another bot is removed and registered again', async () => {
+    const officialPlugin = { inject: ['bots'], apply: (ctx: Context) => { ctx.bots.register(official) } }
+    const first = await ctx.plugin(officialPlugin)
+    const ntLogin = await (await request('login.get', 'llonebot', '123456', {})).json()
+    await first.dispose()
+    await ctx.plugin(officialPlugin)
+    expect(dispatched.map(event => event.type)).toEqual(['login-added', 'login-removed', 'login-added'])
+    expect(dispatched[1].login.sn).toBe(dispatched[0].login.sn)
+    expect(dispatched[2].login.sn).toBeGreaterThan(ntLogin.sn)
   })
 })
 

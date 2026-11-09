@@ -39,7 +39,7 @@ export function createWebQQRoutes(ctx: Context, options: WebQQRoutesOptions): Ho
   // The account the page scopes its stores and caches to
   router.get('/self', c => c.json({
     success: true,
-    data: { online: ctx.account.online, uid: ctx.account.uid, uin: ctx.account.uin, nick: ctx.account.nick },
+    data: { online: ctx.qqProtocol.selfInfo.online, uid: ctx.qqProtocol.selfInfo.uid, uin: ctx.qqProtocol.selfInfo.uin, nick: ctx.qqProtocol.selfInfo.nick },
   }))
 
   router.get('/events', async (c) => {
@@ -67,7 +67,7 @@ export function createWebQQRoutes(ctx: Context, options: WebQQRoutesOptions): Ho
  */
 export const WebQQ = {
   name: 'webqq',
-  inject: ['account', 'webuiServer', 'app', 'store', 'qqProtocol', 'ntMsgApi', 'ntFileApi', 'ntUserApi', 'ntGroupApi', 'ntFriendApi'],
+  inject: ['webuiServer', 'app', 'store', 'qqProtocol', 'ntMsgApi', 'ntFileApi', 'ntUserApi', 'ntGroupApi', 'ntFriendApi'],
   Config: WebQQSchema,
   apply(ctx: Context) {
     // The settings are the WebUI's to read: taking them in place keeps the open chats' streams through a change

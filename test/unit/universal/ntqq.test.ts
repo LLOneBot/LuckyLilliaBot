@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import h from '@satorijs/element'
-import { Context, Service } from 'cordis'
+import { Context, Fiber, Service } from 'cordis'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Session } from '@luckylillia/plugin-sdk'
 import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
@@ -19,7 +19,7 @@ function stub(name: string, methods: Record<string, unknown> = {}) {
   }
 }
 
-// The logged-in account, as ctx.account has it
+// The identity kept by the NT protocol after login
 const ACCOUNT = { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: true }
 
 function rawMessage(overrides: Record<string, unknown> = {}) {
@@ -42,6 +42,8 @@ function rawMessage(overrides: Record<string, unknown> = {}) {
 }
 
 let ctx: Context
+let plugin: Fiber
+let getPttUrl: ReturnType<typeof vi.fn>
 let sendMessage: ReturnType<typeof vi.fn>
 let recallMsg: ReturnType<typeof vi.fn>
 let getMsgsBySeqAndCount: ReturnType<typeof vi.fn>
@@ -57,11 +59,13 @@ beforeEach(async () => {
   muteGroupMember = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
   kickGroupMember = vi.fn(async () => ({ errorCode: 1, errorMsg: '没有权限' }))
   setGroupMemberCard = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
+  getPttUrl = vi.fn(async () => 'file:///voice.silk')
   await ctx.plugin(BotsService)
-  for (const name of ['ntFileApi', 'ntFriendApi', 'ntWebApi', 'ntSystemApi', 'config', 'timer', 'qqProtocol']) {
+  for (const name of ['ntFriendApi', 'ntWebApi', 'ntSystemApi', 'config', 'timer']) {
     await ctx.plugin(stub(name))
   }
-  await ctx.plugin(stub('account', ACCOUNT))
+  await ctx.plugin(stub('ntFileApi', { getPttUrl }))
+  await ctx.plugin(stub('qqProtocol', { selfInfo: { ...ACCOUNT } }))
   await ctx.plugin(stub('ntMsgApi', { recallMsg, getMsgsBySeqAndCount, getLatestMsgSeq: async () => 50 }))
   await ctx.plugin(stub('ntGroupApi', { muteGroupMember, kickGroupMember, setGroupMemberCard }))
   await ctx.plugin(stub('ntUserApi', { getUidByUin: async () => 'u_555' }))
@@ -72,10 +76,28 @@ beforeEach(async () => {
     createMsgShortId: (msg: NT.RawMessage) => msg.msgSeq + 1000,
     getMsgInfoByShortId: async (shortId: number) => ({ msgId: '7001', msgSeq: shortId - 1000, peer: { chatType: NT.ChatType.Group, peerUid: '987654' } }),
   }))
-  await ctx.plugin(NTQQUniversal)
+  plugin = await ctx.plugin(NTQQUniversal)
 })
 
 describe('NTQQUniversal', () => {
+  it('drops delayed conversions after disposal, including when the same account has already returned', async () => {
+    const pending = Promise.withResolvers<string>()
+    getPttUrl.mockReturnValueOnce(pending.promise)
+    const sessions = vi.fn()
+    ctx.on('bot/session', sessions)
+    await ctx.parallel('nt/message-created', { message: rawMessage({
+      elements: [{ pttElement: { fileUuid: 'pending-voice', duration: 1 } }],
+    }) })
+    expect(getPttUrl).toHaveBeenCalledOnce()
+    await plugin.dispose()
+    plugin = await ctx.plugin(NTQQUniversal)
+    pending.resolve('file:///voice.silk')
+    await new Promise<void>(resolve => setImmediate(resolve))
+    expect(sessions).not.toHaveBeenCalled()
+    await ctx.parallel('nt/message-created', { message: rawMessage() })
+    await vi.waitFor(() => expect(sessions).toHaveBeenCalledOnce())
+  })
+
   it('registers the logged-in account as a bot', () => {
     expect(ctx.bots.get('luckylillia:123456')).toMatchObject({ platform: 'luckylillia', selfId: '123456' })
   })

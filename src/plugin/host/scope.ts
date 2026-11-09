@@ -12,7 +12,7 @@ export interface IdFilter {
  * `bot/before-send` does not see messages to it. Fields left out let everything through.
  */
 export interface EntryScope {
-  /** Only these platforms: `luckylillia` (the QQ account), `qq`, `qqguild` */
+  /** Only these platforms: `luckylillia` (the QQ account), `qq` (including official guilds) */
   platforms?: string[]
   /** Only these bots, as `platform:selfId` */
   bots?: string[]

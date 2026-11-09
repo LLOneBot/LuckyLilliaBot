@@ -156,8 +156,8 @@ export class MessageEncoder {
       } else {
         ntElems = item
       }
-      const nick = this.stack[0].author.name ?? this.ctx.account.nick
-      const uin = this.stack[0].author.id ?? this.ctx.account.uin
+      const nick = this.stack[0].author.name ?? this.ctx.qqProtocol.selfInfo.nick
+      const uin = this.stack[0].author.id ?? this.ctx.qqProtocol.selfInfo.uin
       nodes.push({
         senderUin: +uin,
         senderName: nick,

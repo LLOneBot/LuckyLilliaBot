@@ -148,9 +148,8 @@ async function servePackageFile(request: Request, env: ServerEnv, resolve: Resol
   let target: string | undefined
   try {
     target = key && file.length ? resolve(decodeURIComponent(key), file.map(decodeURIComponent).join('/')) : undefined
-  } catch (e) {
-    if (e instanceof PluginForbiddenError) return new Response(null, { status: 403 })
-    // else malformed percent-encoding
+  } catch {
+    // Malformed percent-encoding
   }
   const info = target ? await stat(target).catch(() => undefined) : undefined
   if (!target || !info?.isFile()) return new Response(null, { status: 404 })
@@ -163,7 +162,7 @@ async function servePackageFile(request: Request, env: ServerEnv, resolve: Resol
   })
 }
 
-/** `/plugin-webui/...`: plugin WebUI modules and their chunks, once the user approved the package's */
+/** `/plugin-webui/...`: plugin WebUI modules and their chunks, served to the logged-in WebUI. */
 export function servePluginAsset(ctx: Context, request: Request, env?: ServerEnv): Promise<Response> {
   return servePackageFile(request, env, (key, file) => ctx.plugins.webuiAsset(key, file))
 }

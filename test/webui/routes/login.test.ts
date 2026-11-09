@@ -4,6 +4,7 @@ import { createMockContext } from '../helpers/mockContext'
 import { createLoginRoutes } from '@/plugin/internal/protocol/nt-protocol/loginRoutes'
 import { createLoginInfoRoutes } from '@/plugin/internal/protocol/nt-protocol/loginInfoRoutes'
 import { isNativeQQMode, launchPins, lockedProtocol } from '@/common/utils/environment'
+import { QuickLoginUnsupportedError } from '@/plugin/internal/protocol/nt-protocol/qqProtocol/base'
 
 describe('login routes', () => {
   let ctx: ReturnType<typeof createMockContext>
@@ -36,6 +37,16 @@ describe('login routes', () => {
   })
 
   describe('GET /quick-login-list', () => {
+    it.each([
+      { error: new QuickLoginUnsupportedError('请更新原生包'), status: 501 },
+      { error: new Error('QQ 登录服务暂时不可用'), status: 500 },
+    ])('distinguishes unsupported login from a temporary error: $status', async ({ error, status }) => {
+      ctx.ntLoginApi.getQuickLoginList.mockRejectedValue(error)
+      const res = await createTestApp(createLoginRoutes(ctx)).request('/quick-login-list')
+      expect(res.status).toBe(status)
+      expect(await res.json()).toEqual({ success: false, message: error.message })
+    })
+
     it('returns account list', async () => {
       ctx.ntLoginApi.getQuickLoginList.mockResolvedValue(['111', '222'])
       const app = createTestApp(createLoginRoutes(ctx))
@@ -49,6 +60,22 @@ describe('login routes', () => {
   })
 
   describe('POST /quick-login', () => {
+    it('returns success after the protocol finishes logging in', async () => {
+      const completed = Promise.withResolvers<void>()
+      ctx.qqProtocol.quickLogin = vi.fn(() => completed.promise)
+      const request = createTestApp(createLoginRoutes(ctx)).request('/quick-login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uin: '123456' }),
+      })
+      let responded = false
+      void request.then(() => { responded = true })
+      await vi.waitFor(() => expect(ctx.qqProtocol.quickLogin).toHaveBeenCalledWith('123456'))
+      expect(responded).toBe(false)
+      completed.resolve()
+      const res = await request
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ success: true, data: { result: '0' } })
+    })
+
     it('returns 400 when uin is missing', async () => {
       const app = createTestApp(createLoginRoutes(ctx))
 
@@ -60,10 +87,11 @@ describe('login routes', () => {
       expect(res.status).toBe(400)
     })
 
-    it('returns login result on failure', async () => {
-      ctx.ntLoginApi.quickLoginWithUin.mockResolvedValue({
-        loginErrorInfo: { errMsg: '' },
-      })
+    it.each([
+      { error: new Error('QQ 登录票据已失效'), status: 500 },
+      { error: new QuickLoginUnsupportedError('请更新原生包'), status: 501 },
+    ])('preserves the quick login error: $status', async ({ error, status }) => {
+      ctx.qqProtocol.quickLogin = vi.fn().mockRejectedValue(error)
       const app = createTestApp(createLoginRoutes(ctx))
 
       const res = await app.request('/quick-login', {
@@ -71,9 +99,12 @@ describe('login routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uin: '123456' }),
       })
-      expect(res.status).toBe(500)
+      expect(res.status).toBe(status)
       const body = await res.json()
-      expect(body.success).toBe(false)
+      expect(body).toEqual({
+        success: false, message: error.message,
+        data: { result: '-1', loginErrorInfo: { errMsg: error.message } },
+      })
     })
   })
 

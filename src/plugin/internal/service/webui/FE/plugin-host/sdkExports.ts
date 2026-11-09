@@ -4,5 +4,5 @@
  */
 export const SDK_EXPORTS = [
   'usePluginContext', 'usePluginStatus', 'usePluginConfig', 'SchemaForm', 'SchemaSettings', 'HostInput', 'PathInput',
-  'DurationInput', 'SelectInput', 'usePlugins', 'useBots', 'usePageView', 'useSidebar', 'StatusNotice', 'Slot', 'useSlotMatches', 'Icon',
+  'DurationInput', 'SelectInput', 'usePlugins', 'useBots', 'usePageView', 'useSidebar', 'StatusNotice', 'Slot', 'useSlotMatches', 'Icon', 'Lightbox',
 ]

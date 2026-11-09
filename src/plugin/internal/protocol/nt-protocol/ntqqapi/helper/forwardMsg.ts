@@ -21,6 +21,7 @@ export async function rawElementsToSend(
   fromPeer: Peer
 ): Promise<{ elements: SendMessageElement[]; deleteAfterSentFiles: string[] }> {
   const isGroup = fromPeer.chatType === ChatType.Group
+  const selfUid = ctx.qqProtocol.selfInfo.uid
   const out: SendMessageElement[] = []
   const deleteAfterSentFiles: string[] = []
 
@@ -61,7 +62,7 @@ export async function rawElementsToSend(
       const { url } = await ctx.ntFileApi.getFileUrl(
         e.fileElement.fileUuid,
         isGroup,
-        isGroup ? fromPeer.peerUid : ctx.account.uid
+        isGroup ? fromPeer.peerUid : selfUid
       )
       const path = await fetchFile(url)
       out.push(await SendElement.file(ctx, path, e.fileElement.fileName))

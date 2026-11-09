@@ -1,11 +1,7 @@
 import { createHash } from 'node:crypto'
 import { compareVersions, satisfies } from 'compare-versions'
-import { parseAuthor } from '../../../host/manifest'
 
-/** The keyword a plugin package lists (`keywords` in package.json) to show up in the market */
-export const PLUGIN_KEYWORD = 'luckylillia-plugin'
-
-export interface PackageVersion {
+export interface PackageManifest {
   name: string
   version: string
   description?: string
@@ -22,9 +18,12 @@ export interface PackageVersion {
   /** Abbreviated documents only; full ones have `scripts` */
   hasInstallScript?: boolean
   scripts?: Record<string, string>
-  dist: { tarball: string; integrity?: string; shasum?: string }
   /** Full documents only */
   llbot?: unknown
+}
+
+export interface PackageVersion extends PackageManifest {
+  dist: { tarball: string; integrity?: string; shasum?: string }
 }
 
 export interface Packument {
@@ -33,30 +32,12 @@ export interface Packument {
   versions: Record<string, PackageVersion>
 }
 
-export interface SearchItem {
-  name: string
-  version: string
-  description?: string
-  keywords?: string[]
-  date?: string
-  /** package.json `author`'s name */
-  author?: string
-  /** Who published it on npm */
-  publisher?: string
-  links?: { npm?: string; homepage?: string; repository?: string }
-}
-
-export interface SearchResult {
-  total: number
-  items: SearchItem[]
-}
-
 /** What the installer needs of a registry; tests give it one in memory */
 export interface RegistryClient {
   /** `full`: the whole package.json of each version (custom fields like `llbot`), instead of what installs need */
   packument(name: string, full?: boolean): Promise<Packument>
   /** Checked against `dist.integrity` / `dist.shasum` */
-  tarball(version: PackageVersion): Promise<Buffer>
+  tarball(version: PackageVersion, maxBytes?: number): Promise<Buffer>
 }
 
 export class RegistryError extends Error {
@@ -71,41 +52,23 @@ export type Fetch = (url: string, init?: RequestInit) => Promise<Response>
 
 export class Registry implements RegistryClient {
   /** `fetch`: the market passes `ctx.http`'s, so that the builtin proxy applies */
-  constructor(readonly url: string, readonly searchUrl: string, private readonly fetch: Fetch = (url, init) => globalThis.fetch(url, init)) {}
+  constructor(readonly url: string, private readonly fetch: Fetch = (url, init) => globalThis.fetch(url, init)) {}
 
   packument(name: string, full = false): Promise<Packument> {
     return this.json<Packument>(`${base(this.url)}/${name.replace('/', '%2f')}`, full ? 'application/json' : ABBREVIATED, `package ${name}`)
   }
 
-  async tarball(version: PackageVersion): Promise<Buffer> {
-    const response = await this.fetch(version.dist.tarball, { signal: AbortSignal.timeout(120_000) })
-    if (!response.ok) throw new RegistryError(`${version.name}@${version.version}: ${response.status} fetching ${version.dist.tarball}`, response.status)
-    const data = Buffer.from(await response.arrayBuffer())
-    verify(data, version)
-    return data
-  }
-
-  async search(text: string, from: number, size: number): Promise<SearchResult> {
-    const query = new URLSearchParams({ text: `keywords:${PLUGIN_KEYWORD} ${text}`.trim(), from: String(from), size: String(size) })
-    const result = await this.json<{ total?: number; objects?: { package?: Record<string, any> }[] }>(
-      `${base(this.searchUrl)}/-/v1/search?${query}`, 'application/json', 'search',
-    )
-    const items = (result.objects ?? []).flatMap(({ package: pkg }) => {
-      if (typeof pkg?.name !== 'string' || typeof pkg.version !== 'string') return []
-      // A registry ignoring the `keywords:` qualifier searches for the words instead
-      if (Array.isArray(pkg.keywords) && !pkg.keywords.includes(PLUGIN_KEYWORD)) return []
-      return [{
-        name: pkg.name,
-        version: pkg.version,
-        description: typeof pkg.description === 'string' ? pkg.description : undefined,
-        keywords: Array.isArray(pkg.keywords) ? pkg.keywords : undefined,
-        date: typeof pkg.date === 'string' ? pkg.date : undefined,
-        author: parseAuthor(pkg.author)?.name,
-        publisher: typeof pkg.publisher?.username === 'string' ? pkg.publisher.username : undefined,
-        links: pkg.links && typeof pkg.links === 'object' ? pkg.links : undefined,
-      } satisfies SearchItem]
-    })
-    return { total: typeof result.total === 'number' ? result.total : items.length, items }
+  async tarball(version: PackageVersion, maxBytes?: number): Promise<Buffer> {
+    try {
+      const response = await this.fetch(version.dist.tarball, { signal: AbortSignal.timeout(120_000) })
+      if (!response.ok) throw new RegistryError(`${version.name}@${version.version}: ${response.status} fetching ${version.dist.tarball}`, response.status)
+      const data = maxBytes === undefined ? Buffer.from(await response.arrayBuffer()) : await boundedBody(response, maxBytes)
+      verify(data, version)
+      return data
+    } catch (e) {
+      if (e instanceof RegistryError) throw e
+      throw new RegistryError(`${version.name}@${version.version}: cannot download ${version.dist.tarball}: ${reasonOf(e)}`)
+    }
   }
 
   private async json<T>(url: string, accept: string, what: string): Promise<T> {
@@ -117,11 +80,55 @@ export class Registry implements RegistryClient {
     }
     if (response.status === 404) throw new RegistryError(`${what} not found on ${new URL(url).origin}`, 404)
     if (!response.ok) throw new RegistryError(`${what}: ${new URL(url).origin} answered ${response.status}`, response.status)
-    return await response.json() as T
+    try {
+      return await response.json() as T
+    } catch (e) {
+      throw new RegistryError(`${what}: invalid response from ${new URL(url).origin}: ${reasonOf(e)}`)
+    }
   }
 }
 
 const base = (url: string) => url.replace(/\/+$/, '')
+
+/** Catalog downloads have a small limit, enforced before buffering the entire response. */
+async function boundedBody(response: Response, maxBytes: number): Promise<Buffer> {
+  if (Number(response.headers.get('content-length')) > maxBytes) {
+    await response.body?.cancel()
+    throw new RegistryError('目录包下载超过允许的大小')
+  }
+  const reader = response.body?.getReader()
+  if (!reader) throw new RegistryError('目录包下载返回空响应')
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > maxBytes) {
+        await reader.cancel()
+        throw new RegistryError('目录包下载超过允许的大小')
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  return Buffer.concat(chunks, size)
+}
+
+const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/
+const EXACT_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+
+export function isPackageName(value: unknown): value is string {
+  return typeof value === 'string' && value === value.trim() && value.length <= 214
+    && PACKAGE_NAME.test(value) && value !== 'node_modules' && value !== 'favicon.ico'
+}
+
+/** Match the directory publisher's strict SemVer pins, never ranges or dist-tags. */
+export function isExactVersion(value: unknown): value is string {
+  return typeof value === 'string' && value === value.trim() && value.length <= 256 && EXACT_VERSION.test(value)
+}
 
 /** Down the cause chain: fetch() itself only says "fetch failed" */
 function reasonOf(error: unknown): string {

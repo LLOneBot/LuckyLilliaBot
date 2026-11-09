@@ -172,7 +172,7 @@ class OB11WebSocket {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
-    event.self_id = +this.ctx.account.uin
+    event.self_id = +this.ctx.qqProtocol.selfInfo.uin
     if (!matchEventFilter(this.config.filter, event)) return
     if (!this.activated) return
     this.wsClients.forEach(({ socket, emitEvent }) => {
@@ -216,7 +216,7 @@ class OB11WebSocket {
     if (socket.readyState !== WebSocket.OPEN) {
       return
     }
-    if ('post_type' in data) data.self_id = +this.ctx.account.uin
+    if ('post_type' in data) data.self_id = +this.ctx.qqProtocol.selfInfo.uin
     socket.send(JSON.stringify(data))
     if ('post_type' in data) {
       this.ctx.logger.info('WebSocket 事件上报', data.post_type)
@@ -283,7 +283,7 @@ class OB11WebSocket {
       }
 
       disposeHeartBeat = this.ctx.interval(() => {
-        const event = new OB11HeartbeatEvent(this.ctx.account.online, true, this.config.heartInterval)
+        const event = new OB11HeartbeatEvent(this.ctx.qqProtocol.selfInfo.online, true, this.config.heartInterval)
         this.reply(socket, event)
       }, this.config.heartInterval)
     }
@@ -336,7 +336,7 @@ class OB11WebSocketReverse {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
-    event.self_id = +this.ctx.account.uin
+    event.self_id = +this.ctx.qqProtocol.selfInfo.uin
     if (!matchEventFilter(this.config.filter, event)) return
     if (!this.activated) return
     if (this.wsClient && this.wsClient.readyState === WebSocket.OPEN) {
@@ -378,7 +378,7 @@ class OB11WebSocketReverse {
     if (socket.readyState !== WebSocket.OPEN) {
       return
     }
-    if ('post_type' in data) data.self_id = +this.ctx.account.uin
+    if ('post_type' in data) data.self_id = +this.ctx.qqProtocol.selfInfo.uin
     socket.send(JSON.stringify(data))
     if ('post_type' in data) {
       this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', data.post_type)
@@ -415,7 +415,7 @@ class OB11WebSocketReverse {
       handshakeTimeout: 2000,
       perMessageDeflate: false,
       headers: {
-        'X-Self-ID': this.ctx.account.uin,
+        'X-Self-ID': this.ctx.qqProtocol.selfInfo.uin,
         'Authorization': `Bearer ${this.config.token}`,
         // Part of the OneBot 11 reverse WebSocket handshake; some frameworks refuse the connection without it
         'x-client-role': 'Universal',
@@ -445,7 +445,7 @@ class OB11WebSocketReverse {
 
     const disposeHeartBeat = this.ctx.interval(() => {
       if (this.wsClient) {
-        const event = new OB11HeartbeatEvent(this.ctx.account.online, true, this.config.heartInterval)
+        const event = new OB11HeartbeatEvent(this.ctx.qqProtocol.selfInfo.online, true, this.config.heartInterval)
         this.reply(this.wsClient, event)
       }
     }, this.config.heartInterval)

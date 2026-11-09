@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePluginList } from '../../plugin-host/pluginList'
 import { SlotOutlet, useSettingsPages, useSlotContents } from '../../plugin-host/views'
 import { PluginBoundary } from '../../plugin-host/context'
-import { contributionKey, WEBUI } from '../../plugin-host/registry'
+import { contributionKey, useRegistry } from '../../plugin-host/registry'
+import { configurableSlots } from '../../plugin-host/slotLayout'
 import { ChevronLeft, ChevronRight, FolderSearch, Loader2, Puzzle, Search, X } from 'lucide-react'
 import { showToast } from '../common'
 import { Select } from '../common/Select'
 import { PluginStatus } from '../../types/plugins'
-import { addPluginInstance, reloadPlugin, scanPlugins, setPluginEnabled, TrustRequiredError } from '../../utils/pluginApi'
+import { reloadPlugin, scanPlugins, setPluginEnabled, TrustRequiredError } from '../../utils/pluginApi'
 import PluginCard from './PluginCard'
 import { findConflicts } from './meta'
 import {
@@ -15,7 +16,6 @@ import {
   StatusFilter,
 } from './listing'
 import PluginConfigDialog from './PluginConfigDialog'
-import WebuiDialog from '../config/WebuiDialog'
 import PluginDetailsDialog from './PluginDetailsDialog'
 import MessageOrder from './MessageOrder'
 import TrustDialog from './TrustDialog'
@@ -110,6 +110,7 @@ const PluginsPage: React.FC = () => {
   const { items, page, pages } = paginate(shown, view.page, PAGE_SIZE)
   const conflicts = useMemo(() => findConflicts(plugins ?? []), [plugins])
   const settingsPages = useSettingsPages()
+  const contributions = useRegistry(state => state.contributions)
   const openSettings = (plugin: PluginStatus) => {
     const key = settingsPages.get(plugin.name)
     return key ? () => { window.location.hash = key } : undefined
@@ -166,11 +167,6 @@ const PluginsPage: React.FC = () => {
     else showToast(`需要重启 Bot 才能生效：${result.reason}`, 'warning')
   })
 
-  const duplicate = (plugin: PluginStatus) => trustFirst(plugin, async (trust) => {
-    await addPluginInstance(plugin.name, trust)
-    showToast('已添加新实例', 'success')
-  })
-
   const scan = async () => {
     setScanning(true)
     try {
@@ -185,13 +181,14 @@ const PluginsPage: React.FC = () => {
     }
   }
 
-  // The gear: a builtin's settings page (App follows the hash), else its config dialog, for the WebUI one of its own;
-  // always the config dialog for a package, as only there are its scope, instances and approval
+  // The gear: a builtin's settings page (App follows the hash), else its config dialog;
+  // always the config dialog for a package, as only there are its scope and instance controls
   const configure = (plugin: PluginStatus): { open?: () => void; label?: string } => {
-    if (!plugin.builtin || plugin.name === WEBUI) return { open: () => setEditing(plugin), label: '配置' }
+    if (!plugin.builtin) return { open: () => setEditing(plugin), label: '配置' }
     const settings = openSettings(plugin)
     if (settings) return { open: settings, label: '前往设置' }
-    return plugin.hasConfig ? { open: () => setEditing(plugin), label: '配置' } : {}
+    return plugin.hasConfig || configurableSlots(contributions, plugin.name).length
+      ? { open: () => setEditing(plugin), label: '配置' } : {}
   }
 
   const card = (plugin: PluginStatus) => {
@@ -208,8 +205,6 @@ const PluginsPage: React.FC = () => {
         configureLabel={gear.label}
         onDetails={plugin.hasDetails ? () => setDetailsOf(plugin) : undefined}
         onReload={() => reload(plugin)}
-        // Builtins run as a single instance
-        onDuplicate={plugin.builtin ? undefined : () => duplicate(plugin)}
       />
     )
   }
@@ -356,14 +351,14 @@ const PluginsPage: React.FC = () => {
 
       {detailsOf && <PluginDetailsDialog plugin={detailsOf} onClose={closeDetails} />}
 
-      {editing && (editing.name === WEBUI ? <WebuiDialog plugin={editing} onClose={() => setEditing(null)} /> : (
+      {editing && (
         <PluginConfigDialog
           plugin={editing}
           plugins={plugins ?? []}
           removable={(countByName.get(editing.name) ?? 0) > 1}
           onClose={() => setEditing(null)}
         />
-      ))}
+      )}
     </div>
   )
 }

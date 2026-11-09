@@ -10,7 +10,7 @@ import { DATA_DIR, LOG_DIR, TEMP_DIR } from '../common/globalVars'
 import { existsSync, mkdirSync } from 'node:fs'
 import { version } from '../version'
 import { getPluginDirs, isPluginHmr } from '@/common/utils/environment'
-import { setConfigLogLevel, isDebugEnabled, bindLoggerFactory, getLogger } from '@/common/logger'
+import { setConfigLogLevel, getLogLevel, bindLoggerFactory, getLogger } from '@/common/logger'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
@@ -29,8 +29,8 @@ declare module 'cordis' {
   }
 }
 
-function applyDebugLevel(ctx: Context): void {
-  const level = isDebugEnabled() ? 3 : 2
+function applyLogLevel(ctx: Context): void {
+  const level = getLogLevel()
   ctx.logger.exporters.forEach((exp) => {
     exp.levels = { ...exp.levels, default: level }
   })
@@ -58,7 +58,7 @@ async function onLoad() {
   await ctx.plugin(LoggerConsole, {
     // 2 = INFO, 3 = DEBUG
     levels: {
-      default: isDebugEnabled() ? 3 : 2
+      default: getLogLevel()
     }
   })
   bindLoggerFactory((name) => ctx.logger(name))
@@ -97,8 +97,8 @@ async function onLoad() {
     ctx.logger.info(process.argv)
     const config = ctx.config.get()
     setConfigLogLevel(config.logLevel)
-    applyDebugLevel(ctx)
-    ctx.on('llob/config-updated', c => { setConfigLogLevel(c.logLevel); applyDebugLevel(ctx) })
+    applyLogLevel(ctx)
+    ctx.on('llob/config-updated', c => { setConfigLogLevel(c.logLevel); applyLogLevel(ctx) })
     ctx.config.listenChange(c => {
       ctx.parallel('llob/config-updated', c)
     })

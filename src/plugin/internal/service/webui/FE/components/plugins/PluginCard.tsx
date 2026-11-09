@@ -1,11 +1,11 @@
 import React from 'react'
-import { Copy, Info, RotateCw, Settings } from 'lucide-react'
+import { Info, RotateCw, Settings } from 'lucide-react'
 import { PluginStatus } from '../../types/plugins'
 import { useRenderFailures } from '../../plugin-host/failures'
 import { useClientErrors } from '../../plugin-host/host'
 import { usePluginList } from '../../plugin-host/pluginList'
 import { SlotOutlet } from '../../plugin-host/views'
-import { clearListenerError, patchUiPrefs } from '../../utils/pluginApi'
+import { clearListenerError } from '../../utils/pluginApi'
 import { showToast } from '../common'
 import {
   Conflict, NEEDS_SETTINGS, pendingReason, pluginDescription, pluginTitle, RELOAD_WARNING, scopeSummary, STATE_LABEL,
@@ -27,13 +27,11 @@ interface PluginCardProps {
   /** Opens what the package says about itself; absent when it declares nothing */
   onDetails?: () => void
   onReload: () => void
-  /** Absent for builtins, which run as a single instance. */
-  onDuplicate?: () => void
 }
 
 const actionButton = 'p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg transition-colors disabled:opacity-40 disabled:pointer-events-none'
 
-const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts, busy, onToggle, onConfigure, configureLabel = '配置', onDetails, onReload, onDuplicate }) => {
+const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts, busy, onToggle, onConfigure, configureLabel = '配置', onDetails, onReload }) => {
   const waiting = plugin.state === 'active' && !!plugin.notice
   const state = waiting ? NEEDS_SETTINGS : STATE_LABEL[plugin.state]
   const active = plugin.state === 'active' && !waiting
@@ -41,15 +39,9 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
   const detail = pendingReason(plugin, plugins) ?? plugin.error ?? plugin.notice
   const clientError = useClientErrors(state => state.errors[plugin.name])
   const failure = useRenderFailures(state => Object.values(state.failures).find(item => item.owner === plugin.name))
-  const unapproved = !plugin.builtin && !!plugin.webui && !plugin.webuiApproved
   const scope = scopeSummary(plugin.scope)
   const dismissError = () => {
     clearListenerError(plugin.id).catch(error => showToast(error instanceof Error ? error.message : String(error), 'error'))
-  }
-  const approve = () => {
-    patchUiPrefs({ approve: [plugin.name] })
-      .then(prefs => usePluginList.setState({ prefs }))
-      .catch(error => showToast(error instanceof Error ? error.message : String(error), 'error'))
   }
 
   return (
@@ -120,11 +112,6 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
               <RotateCw size={18} className={busy ? 'animate-spin' : ''} />
             </button>
           )}
-          {onDuplicate && (
-            <button type="button" title="添加一个实例" disabled={busy || plugin.state === 'missing'} onClick={onDuplicate} className={actionButton}>
-              <Copy size={18} />
-            </button>
-          )}
         </div>
       </div>
 
@@ -144,13 +131,6 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
           和{conflict.with.map(other => `「${pluginTitle(other)}」`).join('、')}都提供 {conflict.service}，同时只能运行一个
         </p>
       ))}
-
-      {unapproved && (
-        <div className="flex items-center gap-3 mt-3">
-          <p className="flex-1 text-xs text-amber-600 dark:text-amber-400">带着自己的界面，批准后才会加载到 WebUI 里</p>
-          <button type="button" onClick={approve} className="btn-glass text-xs px-3 py-1.5 flex-shrink-0">批准界面</button>
-        </div>
-      )}
 
       {(clientError || failure) && (
         <p className="text-xs text-red-500 mt-3 truncate" title={clientError ?? failure?.message}>

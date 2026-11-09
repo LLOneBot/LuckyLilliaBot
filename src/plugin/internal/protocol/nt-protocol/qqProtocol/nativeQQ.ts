@@ -3,13 +3,14 @@ import { randomUUID } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import type { BridgeStatus, NativeQQRes, NativeQQResSendPB, NativeQQHealth, PBData, QQResourceUsage, ResListener } from './types'
-import { Context } from 'cordis'
 import { currentNativeQQTarget, getCdn, getSpecifiedUin, isDockerEnvironment } from '@/common/utils/environment'
 import { getNativeAddon, type NativeQQ } from '@/native'
 import { authTokenUtil } from '@/main/config'
 import { AuthTokenWatcher } from './direct-lib/authTokenWatcher'
-import { QQProtocolBase, type QuickLoginAccounts } from './base'
+import { QQProtocolBase, QuickLoginUnsupportedError, type QuickLoginAccounts } from './base'
 import { detectQQPath } from '../qqPath'
+
+const QUICK_LOGIN_UNSUPPORTED = '当前原生模块不支持桥接快速登录，请更新 LLBot 原生包后重启；暂时可扫码登录'
 
 /**
  * The protocol owns one NativeQQ, its sessions (one at a time, started by launch()), each session's token watcher
@@ -25,16 +26,14 @@ export class NativeQQProtocol extends QQProtocolBase {
   private probeTimer?: NodeJS.Timeout
   private connected = false
   private generation = 0
+  private quickLoginPending?: { uin: string; generation: number; promise: Promise<void> }
   private resListeners = new Map<string, ResListener<any>>()
-
-  constructor(ctx: Context) { super(ctx) }
 
   protected async start(): Promise<void> {
     const addon = getNativeAddon()
     this.config = this.nativeConfig()
     this.native = new addon.NativeQQ()
-    // QQ starts by itself only where nobody is at the NTQQ page to press the button: an account given at launch,
-    // or docker
+    // Start QQ for an account given at launch or remembered by this instance, and in docker.
     if (this.config.quick_login_qq === undefined && !isDockerEnvironment()) return
     try {
       await this.launch()
@@ -60,6 +59,9 @@ export class NativeQQProtocol extends QQProtocolBase {
     if (requestedUin !== undefined) {
       if (!/^[1-9][0-9]*$/.test(requestedUin)) throw new Error('快速登录 QQ 号必须是正整数')
       config.quick_login_qq = requestedUin
+    } else if (config.quick_login_qq === undefined && this.loginOptions.autoLoginUin) {
+      // An explicit launch configuration takes precedence over the instance's preference.
+      config.quick_login_qq = this.loginOptions.autoLoginUin
     }
     // The Bot hosts the session itself: sub_cmd would start another Bot as a child process
     delete config.sub_cmd
@@ -101,7 +103,7 @@ export class NativeQQProtocol extends QQProtocolBase {
   private async startSession(native: NativeQQ): Promise<void> {
     await this.qqToStart()
     this.endSession()
-    const generation = ++this.generation
+    const generation = this.generation
     try {
       await native.start({ moduleDir: getNativeAddon().getNativeDirectory(), config: structuredClone(this.config), subCmdArgs: [] },
         event => this.onNativeEvent(event, generation))
@@ -109,7 +111,7 @@ export class NativeQQProtocol extends QQProtocolBase {
       await native.stop().catch(() => {})
       throw error
     }
-    if (this.disposed) { await native.stop(); return }
+    if (this.disposed || generation !== this.generation) { await native.stop(); return }
     this.connected = true
     this.lastConnectedTime = Date.now()
     this.authTokenStatus.loginError = ''
@@ -129,6 +131,8 @@ export class NativeQQProtocol extends QQProtocolBase {
 
   /** What a session leaves behind once it stopped or failed: its token watcher and its poll */
   private endSession(): void {
+    // A health request or native.start() may still be in flight when the session ends.
+    this.generation++
     this.connected = false
     this.watcher?.stop()
     this.watcher = undefined
@@ -149,7 +153,6 @@ export class NativeQQProtocol extends QQProtocolBase {
   }
 
   protected async stop(): Promise<void> {
-    this.generation++
     this.endSession()
     this.resListeners.clear()
     await super.stop()
@@ -158,38 +161,77 @@ export class NativeQQProtocol extends QQProtocolBase {
 
   public checkAuthToken(): void { this.watcher?.check() }
 
-  /** The saved accounts the injected QQ can log in now; a native build without getQuickLoginList lists none */
+  /** The saved accounts the injected QQ can log in now, once its login service is ready. */
   public async listQuickLoginAccounts(): Promise<QuickLoginAccounts> {
-    const native = this.native as (NativeQQ & { getQuickLoginList?(timeoutMs?: number): Promise<any> }) | undefined
-    if (!native?.getQuickLoginList) return { ready: true, accounts: [] }
+    const native = this.native
     if (!this.get_is_connected()) return { ready: false, accounts: [] }
+    // Older native bundles may still provide QR login, but cannot offer an account picker.
+    if (!native?.getQuickLoginList || !native.quickLogin) throw new QuickLoginUnsupportedError(QUICK_LOGIN_UNSUPPORTED)
     // code -1: QQ not up yet, or no Auth Token; 1: logged in already
     const res = await native.getQuickLoginList()
-    if (res?.code !== 0) return { ready: res?.code === 1, accounts: [] }
-    const accounts = (Array.isArray(res.data) ? res.data : []).flatMap((item: any) => {
+    if (res?.code === -1) return { ready: false, accounts: [] }
+    if (res?.code === 1) return { ready: true, accounts: [] }
+    if (res?.code !== 0 || !Array.isArray(res.data)) throw new Error(res?.message || 'QQ 返回的快速登录账号列表无效')
+    const accounts = res.data.flatMap((item: any) => {
       const uin = String(item?.uin ?? '')
       if (!/^[1-9][0-9]*$/.test(uin)) return []
-      return [{ uin, uid: String(item.uid ?? ''), nick: String(item.nickName ?? uin), faceUrl: item.faceUrl || undefined }]
+      return [{ uin, uid: String(item.uid ?? ''), nick: String(item.nickName || uin), faceUrl: item.faceUrl || undefined }]
     })
     return { ready: true, accounts }
   }
 
-  public async quickLogin(_uin: string): Promise<void> {
-    // The injected QQ quick-logs in only the account it was started with (quick_login_qq / -q)
-    throw new Error('官方 QQ 客户端桥接还不能在这里快速登录（原生模块没有提供快速登录接口），请扫码登录')
+  public quickLogin(uin: string): Promise<void> {
+    if (!/^[1-9][0-9]*$/.test(uin)) return Promise.reject(new Error('快速登录 QQ 号必须是正整数'))
+    const native = this.native
+    if (!native || !this.get_is_connected()) return Promise.reject(new Error('请先启动 QQ'))
+    if (!native.quickLogin) return Promise.reject(new QuickLoginUnsupportedError(QUICK_LOGIN_UNSUPPORTED))
+    const generation = this.generation
+    const pending = this.quickLoginPending
+    if (pending?.generation === generation) {
+      return pending.uin === uin ? pending.promise : Promise.reject(new Error('另一个 QQ 账号正在登录，请等待登录完成'))
+    }
+    const promise = this.loginAccount(native, uin, generation).finally(() => {
+      if (this.quickLoginPending?.promise === promise) this.quickLoginPending = undefined
+    })
+    this.quickLoginPending = { uin, generation, promise }
+    return promise
+  }
+
+  private async loginAccount(native: NativeQQ, uin: string, generation: number): Promise<void> {
+    const checkOnline = () => {
+      if (this.disposed || generation !== this.generation || !this.get_is_connected()) {
+        throw new Error(this.authTokenStatus.loginError || 'QQ 桥接已停止，请重新启动 QQ')
+      }
+      if (!this.selfInfo.online || !this.selfInfo.uid) return false
+      if (this.selfInfo.uin !== uin) throw new Error('QQ 已登录其他账号，请先在 QQ 客户端退出登录')
+      return true
+    }
+    if (checkOnline()) return
+    this.authTokenStatus.loginError = ''
+    const result = await native.quickLogin(uin)
+    if (result?.code !== 0 && result?.code !== 1) throw new Error(result?.message || 'QQ 尚未准备好快速登录，请稍后重试')
+    // Native acceptance is not a completed login. The existing health probe owns online identity.
+    const deadline = Date.now() + 60_000
+    while (!checkOnline()) {
+      if (this.authTokenStatus.loginError) throw new Error(this.authTokenStatus.loginError)
+      if (Date.now() >= deadline) throw new Error('QQ 登录超时，请在 QQ 客户端确认登录状态或扫码登录')
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
   }
   public get_is_connected(): boolean { return this.connected && !this.disposed }
 
   private onNativeEvent(event: any, generation: number): void {
     if (this.disposed || generation !== this.generation) return
     if (event.type === 'error') {
-      this.authTokenStatus.loginError = event.message || 'NativeQQ 会话失败'
-      this.logger.error(this.authTokenStatus.loginError)
-      this.disconnect()
-      this.endSession()
+      const reason = event.message || 'NativeQQ 会话失败'
+      this.logger.error(reason)
+      void this.sessionEnded(reason).catch(error => this.logger.error('清理登录资源失败', error))
       return
     }
-    if (event.type === 'status' && event.data?.status === 'stopped') { this.disconnect(); this.endSession(); return }
+    if (event.type === 'status' && event.data?.status === 'stopped') {
+      void this.sessionEnded(event.message || 'NativeQQ 会话已结束').catch(error => this.logger.error('清理登录资源失败', error))
+      return
+    }
     if (event.type === 'lagged') { this.logger.warn('NativeQQ 事件消费过慢，丢失 %s 个事件', event.data?.dropped); return }
     if (event.type !== 'send' && event.type !== 'recv') return
     const data = deepConvertMap(event) as NativeQQRes
@@ -218,26 +260,45 @@ export class NativeQQProtocol extends QQProtocolBase {
     if (wasOnline && !this.disposed) void this.ctx.parallel('protocol/disconnect')
   }
 
-  private async probe(generation: number): Promise<void> {
+  private async sessionEnded(reason: string): Promise<void> {
+    const hadLogin = !!(this.selfInfo.uin && this.selfInfo.uid)
+    this.authTokenStatus.loginError = reason
+    this.disconnect()
+    this.endSession()
+    // Notify while consumers can still identify the lost login. stop() and a normal QQ logout do not use this path.
+    if (hadLogin) void this.ctx.parallel('qq/session-expired', reason)
+      .catch(error => this.logger.error('发送离线通知失败', error))
+    await this.clearLogin()
+  }
+
+  // WebUI starts us through a Cordis service proxy. Keep each poll on the owning instance:
+  // calling a prototype method on the previous poll's shadow would grow the proxy chain forever.
+  private probe = async (generation: number): Promise<void> => {
     if (this.disposed || generation !== this.generation) return
     try {
       const health = await this.native!.health()
       if (this.disposed || generation !== this.generation) return
       if (health.failure || ['stopped', 'failed'].includes(health.sessionStatus)) {
-        this.authTokenStatus.loginError = health.failure || 'NativeQQ 会话已结束'
-        this.disconnect()
-        this.endSession()
+        await this.sessionEnded(health.failure || 'NativeQQ 会话已结束')
         return
       }
       if (Number(health.uin) > 0 && typeof health.uid === 'string' && health.uid.trim()) {
+        if ((this.selfInfo.uin || this.selfInfo.uid) &&
+          (this.selfInfo.uin !== String(health.uin) || this.selfInfo.uid !== health.uid)) {
+          await this.clearLogin()
+          if (this.disposed || generation !== this.generation) return
+        }
         const newlyOnline = !this.selfInfo.online
         this.selfInfo.uid = health.uid
         this.selfInfo.uin = String(health.uin)
         this.selfInfo.online = true
         this.maybeEmitOnline()
-        if (newlyOnline) this.scheduleFetchSelfNick(() => !this.disposed && generation === this.generation)
+        if (newlyOnline) this.scheduleFetchSelfNick(() => !this.disposed && generation === this.generation &&
+          this.selfInfo.uid === health.uid && this.selfInfo.uin === String(health.uin))
       } else {
         if (this.selfInfo.online) { this.disconnect(); this.connected = true }
+        if (this.selfInfo.uid || this.selfInfo.uin) await this.clearLogin()
+        if (this.disposed || generation !== this.generation) return
         if (health.auth_token_set) this.ensureQrLoop()
       }
     } catch (error) { if (!this.disposed) this.logger.debug('NativeQQ health failed: %s', (error as Error).message) }

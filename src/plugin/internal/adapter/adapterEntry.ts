@@ -3,20 +3,18 @@ import Schema from 'schemastery'
 import { Config as LLBotConfig } from '../../../common/types'
 
 /**
- * Mounts an adapter once the account is known, with its entry's settings plus the bot settings it reads.
+ * Mounts an adapter with its entry's settings plus the bot settings it reads.
  * The adapter's own dependencies are repeated so the entry stays pending until the adapter can start.
- * `account: false` for one serving every bot of ctx.bots rather than the NT account (Satori).
  */
 export function adapterEntry<T extends { enable: boolean }>(
   name: string,
   plugin: Plugin<T> & { inject: string[] },
   Config: Schema,
   fromBotSettings: (config: LLBotConfig) => Partial<T> = () => ({}),
-  account = true,
 ): Plugin {
   return {
     name,
-    inject: [...account ? ['account'] : [], 'config', ...plugin.inject],
+    inject: ['config', ...plugin.inject],
     Config,
     // Awaited so that an adapter failing to start fails the entry, not just a child of it
     async apply(ctx: Context, config: Omit<T, 'enable'>) {

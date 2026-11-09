@@ -69,4 +69,15 @@ describe('the plugin test kit', () => {
     await app.ctx.plugin(Sample)
     expect(await app.bot().receive('sign')).toEqual(['签到成功：user'])
   })
+
+  it('keeps adjacent elements and command fallthrough in the published test kit', async () => {
+    app = await bundled.createTestApp()
+    await app.ctx.plugin({ inject: ['commands'], apply(ctx: Context) {
+      ctx.command('inspect [content:text]').action(({ next }, content?: string) => content || next())
+      ctx.on('bot/message', session => session.send('后续插件收到：' + session.content).then(() => {}))
+    } })
+    const bot = app.bot()
+    expect(await bot.receive('/inspect<img src="https://example.com/picture.png"/>')).toEqual(['<img src="https://example.com/picture.png"/>'])
+    expect(await bot.receive('/inspect')).toEqual(['后续插件收到：/inspect'])
+  })
 })

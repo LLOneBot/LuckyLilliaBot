@@ -198,7 +198,7 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean, fi
       } else if (fileCache[0].elementType === ElementType.Ptt) {
         url = await ctx.ntFileApi.getPttUrl(fileCache[0].fileUuid, isGroup)
       } else if (fileCache[0].elementType === ElementType.File) {
-        url = (await ctx.ntFileApi.getFileUrl(fileCache[0].fileUuid, isGroup, isGroup ? fileCache[0].peerUid : ctx.account.uid)).url
+        url = (await ctx.ntFileApi.getFileUrl(fileCache[0].fileUuid, isGroup, isGroup ? fileCache[0].peerUid : ctx.qqProtocol.selfInfo.uid)).url
       }
       if (url) {
         return await uri2local(ctx, url, needExt, fileName)

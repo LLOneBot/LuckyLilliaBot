@@ -54,41 +54,41 @@ describe('pluginTitle', () => {
 })
 
 describe('pendingReason', () => {
-  const nt = { ...entry('nt', ['qqProtocol', 'account']), title: 'NTQQ 协议' }
-  nt.service.labels = { account: 'NTQQ 账号登录' }
+  const nt = { ...entry('nt', ['qqProtocol', 'app', 'store']), title: 'NTQQ 协议' }
+  nt.service.labels = { app: 'NTQQ 账号登录', store: 'NTQQ 账号登录' }
   const waiting = (...missingDeps: string[]): PluginStatus => ({ ...entry('ob', []), state: 'pending', missingDeps })
 
   it('names what a provider says the service stands for, and only that', () => {
-    expect(pendingReason(waiting('account', 'app', 'store'), [nt])).toBe('等待：NTQQ 账号登录')
-    expect(serviceLabel('account', [nt])).toBe('NTQQ 账号登录')
+    expect(pendingReason(waiting('app', 'store'), [nt])).toBe('等待：NTQQ 账号登录')
+    expect(serviceLabel('app', [nt])).toBe('NTQQ 账号登录')
   })
 
   it('points at the provider when it is switched off', () => {
-    expect(pendingReason(waiting('account'), [{ ...nt, disabled: true }])).toBe('需要先启用「NTQQ 协议」')
+    expect(pendingReason(waiting('app'), [{ ...nt, disabled: true }])).toBe('需要先启用「NTQQ 协议」')
   })
 
   it('falls back to the bot service names, then the raw ones', () => {
     expect(pendingReason(waiting('database', 'translator'), [])).toBe('等待服务：数据库、translator')
-    expect(pendingReason({ ...waiting('account'), state: 'active' }, [nt])).toBeUndefined()
+    expect(pendingReason({ ...waiting('app'), state: 'active' }, [nt])).toBeUndefined()
   })
 })
 
 describe('waitingFor', () => {
-  const nt = { ...entry('nt', ['qqProtocol', 'account']), title: 'NTQQ 协议' }
-  nt.service.labels = { account: 'NTQQ 账号登录' }
+  const nt = { ...entry('nt', ['qqProtocol', 'app', 'store']), title: 'NTQQ 协议' }
+  nt.service.labels = { app: 'NTQQ 账号登录', store: 'NTQQ 账号登录' }
   const translator = entry('deepl', ['translator'], true)
   const waiting = (...missingDeps: string[]): PluginStatus => ({ ...entry('webqq', []), state: 'pending', missingDeps })
 
   it('names the provider of what is missing, with the label it gives the service', () => {
-    expect(waitingFor(waiting('app', 'account'), [nt])).toEqual({ provider: nt, label: 'NTQQ 账号登录' })
+    expect(waitingFor(waiting('app', 'store'), [nt])).toEqual({ provider: nt, label: 'NTQQ 账号登录' })
   })
 
   it('puts a provider that is switched off first: nothing else helps until it runs', () => {
-    expect(waitingFor(waiting('account', 'translator'), [nt, translator])).toEqual({ provider: translator, label: undefined })
+    expect(waitingFor(waiting('app', 'translator'), [nt, translator])).toEqual({ provider: translator, label: undefined })
   })
 
   it('has nobody to name while only services the bot brings up by itself are missing, or nothing is', () => {
-    expect(waitingFor(waiting('app', 'store'), [nt])).toBeUndefined()
-    expect(waitingFor({ ...waiting('account'), state: 'active' }, [nt])).toBeUndefined()
+    expect(waitingFor(waiting('database'), [nt])).toBeUndefined()
+    expect(waitingFor({ ...waiting('app'), state: 'active' }, [nt])).toBeUndefined()
   })
 })

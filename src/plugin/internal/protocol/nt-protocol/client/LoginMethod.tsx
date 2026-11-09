@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Cpu, Loader2, MonitorSmartphone, Save } from 'lucide-react'
-import { PathInput, SelectInput, usePluginConfig, usePluginContext } from '@luckylillia/plugin-sdk/webui'
+import { PathInput, SelectInput, usePluginContext, type PluginConfigState } from '@luckylillia/plugin-sdk/webui'
 import type { NTProtocolConfig } from '../../../../../common/types'
 import {
   describeMethod, effectiveMethod, isEditable, LOGIN_MODES, LoginMode, pendingProtocol, pinnedBy, pinNote, protocolLabel, PROTOCOLS,
@@ -58,12 +58,13 @@ const QQPathField: React.FC<{ value: string; pinnedBy?: string; onChange(qqPath:
         title="选择 QQ 可执行文件"
       />
       <p className="text-xs text-theme-muted mt-1 break-all">{note}</p>
-      {!pin && <p className="text-xs text-theme-muted mt-1">保存后在这里点「启动 QQ」；启动 LLBot 时用 -q 指定了 QQ 号或在 docker 里会自动启动</p>}
+      {!pin && <p className="text-xs text-theme-muted mt-1">保存后在这里点「启动 QQ」；登录成功后可勾选「自动登录」，下次启动实例时自动启动 QQ 并登录</p>}
     </div>
   )
 }
 
 interface LoginMethodProps {
+  config: PluginConfigState<NTProtocolConfig>
   pins: ProtocolPins
   lockedProtocol?: ProtocolId
   /** Switching the mode logs this account out */
@@ -74,9 +75,8 @@ interface LoginMethodProps {
 }
 
 /** The login method of builtin:nt-protocol: which one, and the form to change it. */
-const LoginMethod: React.FC<LoginMethodProps> = ({ pins, lockedProtocol, online, onSaved, onDraftMode }) => {
-  const { toast: showToast } = usePluginContext()
-  const { value, save, saving, error } = usePluginConfig<NTProtocolConfig>()
+const LoginMethod: React.FC<LoginMethodProps> = ({ config, pins, lockedProtocol, online, onSaved, onDraftMode }) => {
+  const { value, save, saving, error } = config
   // The saved settings while editing: what the launch fixes is shown in place, but not saved over them
   const [draft, setDraft] = useState<NTProtocolConfig | null>(null)
   const draftMode = draft ? effectiveMethod(draft, pins).mode : null

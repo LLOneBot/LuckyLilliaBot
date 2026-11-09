@@ -43,7 +43,8 @@ export interface MsgInfo {
 }
 
 class Store extends Service {
-  static inject = ['database', 'model', 'timer']
+  static inject = ['database', 'model', 'timer', 'qqProtocol']
+  private readonly selfUid: string
   private ids: Map<string, number>
   private messages: Map<string, RawMessage>
   private msgTimestamps: Map<string, number>
@@ -51,6 +52,7 @@ class Store extends Service {
 
   constructor(protected ctx: Context, public config: Store.Config) {
     super(ctx, 'store')
+    this.selfUid = ctx.qqProtocol.selfInfo.uid
     this.ids = new Map()
     this.messages = new Map()
     this.msgTimestamps = new Map()
@@ -128,7 +130,7 @@ class Store extends Service {
     chatType: ChatType
   }): string {
     if (meta.chatType === ChatType.C2C || meta.chatType === ChatType.TempC2CFromGroup) {
-      const me = this.ctx.account.uid
+      const me = this.selfUid
       const other = meta.senderUid === me ? meta.peerUid : meta.senderUid
       const pair = me < other ? `${me}|${other}` : `${other}|${me}`
       return `${meta.chatType}-${pair}-${meta.msgRandom}`

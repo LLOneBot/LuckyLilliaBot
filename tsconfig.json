@@ -17,9 +17,6 @@
       ],
       "@luckylillia/plugin-sdk": [
         "./packages/plugin-sdk/src/index.ts"
-      ],
-      "luckylillia-plugin-ai-gateway": [
-        "./examples/plugins/ai-gateway/src/types.ts"
       ]
     },
     "noEmit": true

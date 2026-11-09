@@ -2,6 +2,7 @@ import h from '@satorijs/element'
 import { Status } from '@satorijs/protocol'
 import { Context } from 'cordis'
 import type { Bot, Feature, NeutralList, NeutralResource, SendOptions } from '@luckylillia/plugin-sdk'
+import type { SelfInfo } from '../../protocol/nt-protocol/ntqqapi/types'
 import * as api from './api'
 import { createInternal, type Internal } from './internal'
 import { MessageEncoder } from './message'
@@ -19,19 +20,26 @@ export class NTQQBot implements Bot, NormalizeHost {
   readonly sid: string
   // An account cannot send markdown or buttons; link cards it could, signed, but nothing builds them yet
   readonly features: readonly Feature[] = ['message.face', 'message.forward', 'message.proactive', 'guild.plain']
-  status = Status.ONLINE
+  status: Status
   /** What Satori has no method for: the OneBot 11 actions (internal.ts) */
   readonly internal: Internal
+  private readonly selfInfo: SelfInfo
+  private selfUser: NeutralResource
   private sn = 0
 
   constructor(readonly ctx: Context) {
-    this.selfId = ctx.account.uin
+    this.selfInfo = ctx.qqProtocol.selfInfo
+    this.selfId = this.selfInfo.uin
     this.sid = `${this.platform}:${this.selfId}`
+    this.status = this.selfInfo.online ? Status.ONLINE : Status.OFFLINE
+    this.selfUser = decodeUser(this.selfInfo)
     this.internal = createInternal(ctx)
   }
 
   get user(): NeutralResource {
-    return decodeUser(this.ctx.account)
+    // Logout clears the protocol record before this bot is removed; keep the old identity for that event.
+    if (this.selfInfo.uin === this.selfId) this.selfUser = decodeUser(this.selfInfo)
+    return this.selfUser
   }
 
   event(type: string, data: Partial<SatoriEvent>): SatoriEvent {

@@ -183,7 +183,11 @@ export function decodeGuildDispatch(host: GuildDecodeHost, payload: GatewayPaylo
       const resolved = data.data?.resolved
       if (!resolved || !data.channel_id) return
       const userId = resolved.user_id
+      if (payload.id) {
+        host.passive.remember({ id: payload.id, kind: 'event', scope: 'guild', channelId: data.channel_id, at: data.timestamp ? parseTime(data.timestamp) : Date.now() })
+      }
       return host.event('interaction/button', {
+        referrer: payload.id ? { event_id: payload.id } : undefined,
         button: { id: resolved.button_id ?? '', data: resolved.button_data } as SatoriEvent['button'],
         user: userId ? guildUser(host, { id: userId }) : undefined,
         channel: { id: data.channel_id, type: Channel.Type.TEXT },
@@ -325,18 +329,7 @@ function decodeGuildMessage(host: GuildDecodeHost, data: GuildMessage): SatoriEv
   const place = guildPlace(data)
   const at = parseTime(data.timestamp)
   if (!host.passive.remember({ id: data.id, kind: 'message', scope: 'guild', channelId: place.channel.id, at })) return
-  const elements: h[] = []
-  if (data.message_reference?.message_id) elements.push(h('quote', { id: data.message_reference.message_id }))
-  const content = data.content ?? ''
-  let last = 0
-  for (const match of content.matchAll(/<@!?(\w+)>|<emoji:(\d+)>/g)) {
-    if (match.index > last) elements.push(h.text(content.slice(last, match.index)))
-    last = match.index + match[0].length
-    if (match[2]) elements.push(h('face', { id: match[2] }))
-    else elements.push(h.at(match[1] === host.guildUserId ? host.selfId : match[1]))
-  }
-  if (last < content.length) elements.push(h.text(content.slice(last)))
-  for (const attachment of data.attachments ?? []) elements.push(decodeAttachment(attachment))
+  const elements = decodeGuildContent(host, data)
   const user = guildUser(host, data.author)
   return host.event('message-created', {
     referrer: { msg_id: data.id },
@@ -345,6 +338,23 @@ function decodeGuildMessage(host: GuildDecodeHost, data: GuildMessage): SatoriEv
     member: data.member ? { user, nick: data.member.nick, roles: data.member.roles?.map(id => ({ id })) } : undefined,
     ...place,
   })
+}
+
+export function decodeGuildContent(host: GuildDecodeHost, data: GuildMessage): h[] {
+  const elements: h[] = []
+  if (data.message_reference?.message_id) elements.push(h('quote', { id: data.message_reference.message_id }))
+  const content = data.content ?? ''
+  let last = 0
+  for (const match of content.matchAll(/<@!?(\w+)>|<emoji:(\d+)>|<#(\w+)>/g)) {
+    if (match.index > last) elements.push(h.text(content.slice(last, match.index)))
+    last = match.index + match[0].length
+    if (match[3]) elements.push(h('sharp', { id: match[3] }))
+    else if (match[2]) elements.push(h('face', { id: match[2] }))
+    else elements.push(h.at(match[1] === host.guildUserId ? host.selfId : match[1]))
+  }
+  if (last < content.length) elements.push(h.text(content.slice(last)))
+  for (const attachment of data.attachments ?? []) elements.push(decodeAttachment(attachment))
+  return elements
 }
 
 function decodeDeletion(host: GuildDecodeHost, data: MessageDeletion): SatoriEvent | undefined {

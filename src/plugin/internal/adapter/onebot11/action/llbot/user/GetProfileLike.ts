@@ -21,7 +21,7 @@ export class GetProfileLike extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    const ret = await this.ctx.ntUserApi.getProfileLike(this.ctx.account.uid, +payload.start, +payload.count)
+    const ret = await this.ctx.ntUserApi.getProfileLike(this.ctx.qqProtocol.selfInfo.uid, +payload.start, +payload.count)
     const users = ret.userLikeInfo.favoriteInfo.users ?? []
     for (const item of users) {
       Object.assign(item, {

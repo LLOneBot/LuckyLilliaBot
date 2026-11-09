@@ -47,6 +47,8 @@ export interface SlotDeclaration extends Owned {
   title: string
   description?: string
   cardinality: SlotCardinality
+  /** Opts a list into layout controls in its owner's config dialog. */
+  configurable?: boolean
 }
 
 export interface ConfigContribution extends Owned {
@@ -120,7 +122,7 @@ const SHELL_SLOTS: Omit<SlotDeclaration, 'kind' | 'owner'>[] = [
 ]
 for (const slot of SHELL_SLOTS) useRegistry.getState().add({ kind: 'declaration', owner: WEBUI, ...slot })
 
-export const NO_PREFS: UiPrefs = { approved: [], hidden: [], order: {} }
+export const NO_PREFS: UiPrefs = { hidden: [], order: {} }
 
 /** Package names with at least one running entry: their pages and slots are shown. */
 export function activeOwners(plugins: PluginStatus[] | null): Set<string> {
@@ -132,6 +134,7 @@ export const pagePosition = (page: PageContribution, prefs: UiPrefs) => prefs.or
 
 /** How the sidebar orders pages at the same position */
 const byOwnerAndTitle = (a: PageContribution, b: PageContribution) => a.owner.localeCompare(b.owner) || a.title.localeCompare(b.title)
+const byOwnerAndId = (a: SlotContribution, b: SlotContribution) => a.owner.localeCompare(b.owner) || a.id.localeCompare(b.id)
 
 /** `sidebar`: what the sidebar lists. `arrange`: the same with the hidden ones, to arrange them. `open`: every page. */
 export type PagePurpose = 'sidebar' | 'arrange' | 'open'
@@ -158,15 +161,15 @@ export function visiblePages(
 }
 
 /**
- * Indices of a longest run of `pages` their positions already put in this order, picked out of order. Two at the
+ * Indices of a longest run of items their positions already put in this order, picked out of order. Two at the
  * same position are in order by the tie-break, but only side by side: no position goes between them.
  */
-function longestInOrder(pages: PageContribution[], positions: number[]): Set<number> {
+function longestInOrder<T>(items: T[], positions: number[], compare: (a: T, b: T) => number): Set<number> {
   const follows = (j: number, i: number) => positions[j] < positions[i]
-    || (positions[j] === positions[i] && i === j + 1 && byOwnerAndTitle(pages[j], pages[i]) < 0)
-  const length = pages.map(() => 1)
-  const previous = pages.map(() => -1)
-  for (let i = 0; i < pages.length; i++) {
+    || (positions[j] === positions[i] && i === j + 1 && compare(items[j], items[i]) < 0)
+  const length = items.map(() => 1)
+  const previous = items.map(() => -1)
+  for (let i = 0; i < items.length; i++) {
     for (let j = 0; j < i; j++) {
       if (follows(j, i) && length[j] + 1 > length[i]) {
         length[i] = length[j] + 1
@@ -180,24 +183,26 @@ function longestInOrder(pages: PageContribution[], positions: number[]): Set<num
 }
 
 /**
- * The `ui.order` patch putting the pages in the order given, writing as few positions as it can: the longest run
+ * The `ui.order` patch putting items in the order given, writing as few positions as it can: the longest run
  * already in order keeps its places and the rest go between their neighbors, 10 apart past either end. Positions stay
- * on the axis of PageOptions.order, so a page arranged nowhere (a disabled plugin's, one installed later) still lands
- * near where its plugin puts it; renumbering 0, 10, 20... would scatter those. A page landing on its plugin's own
+ * on the axis of their declared order, so an item arranged nowhere (a disabled plugin's, one installed later) still
+ * lands near where its plugin puts it; renumbering 0, 10, 20... would scatter those. An item landing on its plugin's own
  * order loses its key.
  */
-export function arrangePages(pages: PageContribution[], prefs: UiPrefs): Record<string, number | null> {
-  const positions = pages.map(page => pagePosition(page, prefs))
-  const kept = longestInOrder(pages, positions)
-  for (let start = 0; start < pages.length;) {
+function arrangePositions<T extends { order: number }>(
+  items: T[], prefs: UiPrefs, keyOf: (item: T) => string, compare: (a: T, b: T) => number,
+): Record<string, number | null> {
+  const positions = items.map(item => prefs.order[keyOf(item)] ?? item.order)
+  const kept = longestInOrder(items, positions, compare)
+  for (let start = 0; start < items.length;) {
     if (kept.has(start)) {
       start++
       continue
     }
     let end = start
-    while (end < pages.length && !kept.has(end)) end++
+    while (end < items.length && !kept.has(end)) end++
     const before = start > 0 ? positions[start - 1] : undefined
-    const after = end < pages.length ? positions[end] : undefined
+    const after = end < items.length ? positions[end] : undefined
     const count = end - start
     for (let i = 0; i < count; i++) {
       positions[start + i] = before !== undefined && after !== undefined ? before + (after - before) * (i + 1) / (count + 1)
@@ -208,19 +213,28 @@ export function arrangePages(pages: PageContribution[], prefs: UiPrefs): Record<
   }
   // Halving the same gap over and over runs out of precision at some point: then number them all afresh
   const inOrder = (i: number) => positions[i - 1] < positions[i]
-    || (positions[i - 1] === positions[i] && byOwnerAndTitle(pages[i - 1], pages[i]) < 0)
-  if (pages.some((_, i) => i > 0 && !inOrder(i))) positions.forEach((_, i) => { positions[i] = i * 10 })
+    || (positions[i - 1] === positions[i] && compare(items[i - 1], items[i]) < 0)
+  if (items.some((_, i) => i > 0 && !inOrder(i))) positions.forEach((_, i) => { positions[i] = i * 10 })
   const patch: Record<string, number | null> = {}
-  pages.forEach((page, i) => {
-    const key = pageContributionKey(page)
+  items.forEach((item, i) => {
+    const key = keyOf(item)
     const stored = prefs.order[key]
-    if (positions[i] === page.order) {
+    if (positions[i] === item.order) {
       if (stored !== undefined) patch[key] = null
     } else if (positions[i] !== stored) {
       patch[key] = positions[i]
     }
   })
   return patch
+}
+
+export function arrangePages(pages: PageContribution[], prefs: UiPrefs): Record<string, number | null> {
+  return arrangePositions(pages, prefs, pageContributionKey, byOwnerAndTitle)
+}
+
+/** All rows belong to one list slot, in the order the user arranged them. */
+export function arrangeSlotContributions(rows: SlotContribution[], prefs: UiPrefs): Record<string, number | null> {
+  return arrangePositions(rows, prefs, contributionKey, byOwnerAndId)
 }
 
 /**
@@ -264,7 +278,7 @@ export function slotContributions(contributions: Contribution[], name: string, p
   const own = contributions.filter((c): c is SlotContribution => c.kind === 'slot' && c.slot === name)
   if (cardinality === 'single') return own.sort(byPriority)
   if (cardinality === 'keyed') return own.sort((a, b) => (a.match ?? '').localeCompare(b.match ?? '') || byPriority(a, b))
-  return own.sort((a, b) => effectiveOrder(a, prefs) - effectiveOrder(b, prefs) || a.owner.localeCompare(b.owner) || a.id.localeCompare(b.id))
+  return own.sort((a, b) => effectiveOrder(a, prefs) - effectiveOrder(b, prefs) || byOwnerAndId(a, b))
 }
 
 /** Of a slot's contributions, those whose plugin runs and that the user did not hide, in order. */

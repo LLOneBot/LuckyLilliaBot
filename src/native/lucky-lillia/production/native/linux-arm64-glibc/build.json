@@ -6,12 +6,12 @@
   },
   "variant": "production",
   "target": "aarch64-unknown-linux-gnu",
-  "buildId": "ba7a5b89-96a8-464b-b1a4-2c080f9f9c47",
+  "buildId": "32d6554c-0f77-4357-ad35-8dde2945e93a",
   "profile": "release",
   "addon": "LuckyLillia.NTQQ.node",
   "sidecar": "libpmhq.so",
   "files": {
-    "LuckyLillia.NTQQ.node": "0e232b71fdb3d9bbd1a7e20d3757306bb6db3eb5014bc7733787963a143740e4",
-    "libpmhq.so": "8973213847b6d93a54bba5b069ede82a2ff15edceaf3d6b261c3003ab4e75391"
+    "LuckyLillia.NTQQ.node": "e9753cfb6bb16f3af7a6f7d2cefd643d07a9e66f26e1ec2286486bc6ca7bc3c4",
+    "libpmhq.so": "d2f72a9bca04d57e6bc536193faf5c370d6267efb7957804cdb53a1579481eb3"
   }
 }

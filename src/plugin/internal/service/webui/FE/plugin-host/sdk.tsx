@@ -26,6 +26,7 @@ import { PageNotice, PageViewContext, SlotOutlet, useSlotMatches } from './views
 // builtin ones through the alias in vite.config.ts. Keep its exports in step with sdkExports.ts.
 
 export { usePluginContext, useSlotMatches }
+export { Lightbox } from '../components/common/Lightbox'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -114,13 +115,16 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange,
   )
 }
 
-const Section: React.FC<{ title: string; collapsed?: boolean; children: React.ReactNode }> = ({ title, collapsed, children }) => {
+const Section: React.FC<{ title: string; description?: string; collapsed?: boolean; children: React.ReactNode }> = ({ title, description, collapsed, children }) => {
   const [open, setOpen] = useState(!collapsed)
   return (
     <div className="rounded-xl border border-theme-divider">
       <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-theme-secondary">
-        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        {title}
+        {open ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
+        <span className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-left">
+          <span>{title}</span>
+          {description && <span className="text-xs font-normal text-theme-muted">{description}</span>}
+        </span>
       </button>
       {open && <div className="px-4 pb-4">{children}</div>}
     </div>
@@ -183,7 +187,7 @@ export const SchemaSettings: React.FC<SchemaSettingsProps> = ({ fields, sections
           {form(ungrouped)}
           {sections?.map(section => (
             <div key={section.title} className="mt-5">
-              <Section title={section.title} collapsed={section.collapsed}>{form(section.fields)}</Section>
+              <Section title={section.title} description={section.description} collapsed={section.collapsed}>{form(section.fields)}</Section>
             </div>
           ))}
           {extra !== undefined && extra !== null && <div className="mt-6">{extra}</div>}

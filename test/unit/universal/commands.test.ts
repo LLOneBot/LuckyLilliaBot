@@ -78,6 +78,87 @@ describe('commands', () => {
     expect(seen).toEqual(['signature'])
   })
 
+  it('accepts an image immediately after a name or alias and preserves the complete message argument', async () => {
+    const image = h('img', { src: 'https://example.com/image.png', title: 'an image' }).toString()
+    const content = `${image}<at id="U2"/> some &lt;text&gt;`
+    const calls: string[] = []
+    ctx.command('ai吗 [content:text]').alias('aiimgdetector').action((_, value) => { calls.push(value) })
+    await say(`/ai吗${content}`)
+    await say(`AI吗${content}`)
+    await say(`/AiImGdEtEcToR${content}`)
+    await say(`<quote id="previous"><img src="https://example.com/quoted.png"/></quote><at id="B"/> /ai吗${content}`)
+    expect(calls).toEqual([content, content, content, content])
+    expect(sent).toEqual([])
+  })
+
+  it('passes an adjacent mention intact to a typed user argument', async () => {
+    const calls: unknown[] = []
+    ctx.command('inspect <user:user> [content:text]').action((_, user, content) => { calls.push([user, content]) })
+    await say('/inspect<at id="U2" name="another user"/> <img src="https://example.com/image.png"/> trailing words')
+    expect(calls).toEqual([['U2', '<img src="https://example.com/image.png"/> trailing words']])
+  })
+
+  it('keeps longest names and aliases, configured prefixes and bare rules at an element boundary', async () => {
+    settings.current = { ...settings.current, prefixes: ['!', '!!'], bare: false }
+    const image = '<img src="https://example.com/image.png"/>'
+    const calls: unknown[] = []
+    const seen: string[] = []
+    ctx.command('show [content:text]').action((_, content) => { calls.push(['short', content]) })
+    ctx.command('capture [content:text]').alias('show image').action((_, content) => { calls.push(['long', content]) })
+    ctx.on('bot/message', (session, next) => { seen.push(session.content); return next() })
+    await say(`!!SHOW IMAGE${image}`)
+    await say(`!show${image}`)
+    await say(`show image${image}`)
+    await say(`/show${image}`)
+    settings.current = { ...settings.current, bare: true }
+    await say(`show image${image}`)
+    expect(calls).toEqual([['long', image], ['short', image], ['long', image]])
+    expect(seen).toEqual([`show image${image}`, `/show${image}`])
+  })
+
+  it('does not mistake escaped markup or a longer word for the end of a command name', async () => {
+    const calls = vi.fn()
+    const seen: string[] = []
+    ctx.command('scan [content:text]').alias('check').action(calls)
+    ctx.on('bot/message', (session, next) => { seen.push(session.content); return next() })
+    const image = '<img src="https://example.com/image.png"/>'
+    const messages = [
+      '/scan' + h.text(image),
+      '/check&lt;',
+      '/scan&lt;' + image,
+      '/scanner' + image,
+      '/checks' + image,
+      image + '/scan',
+    ]
+    for (const content of messages) await say(content)
+    expect(calls).not.toHaveBeenCalled()
+    expect(seen).toEqual(messages)
+  })
+
+  it('continues later message middleware only when an action explicitly calls next', async () => {
+    const seen: string[] = []
+    ctx.command('consume').action(() => { seen.push('consumed') })
+    ctx.command('skip').action(({ next }) => next())
+    ctx.command('around').action(async ({ next }) => {
+      seen.push('before')
+      await next()
+      seen.push('after')
+      return 'command reply'
+    })
+    ctx.on('bot/message', async (session, next) => {
+      seen.push(session.content)
+      await session.send('later reply')
+      return next()
+    })
+    await say('/consume')
+    expect(seen).toEqual(['consumed'])
+    expect(sent).toEqual([])
+    await say('/skip')
+    await say('/around')
+    expect(seen).toEqual(['consumed', '/skip', 'before', '/around', 'after'])
+    expect(sent).toEqual(['later reply', 'later reply', 'command reply'])
+  })
+
   it('reads typed arguments and options, with fallbacks, and says what is wrong', async () => {
     const calls: unknown[] = []
     ctx.command('mute <user:user> [minutes:posint] [reason:text]')
@@ -185,10 +266,30 @@ describe('commands', () => {
     const official: Bot = { ...bot, sid: 'qq:A', updateCommands: async (commands: Universal.Command[]) => void menus.push(commands.map(c => c.name)) }
     ctx.command('sign', '签到').action(() => {})
     ctx.command('secret', '', { hidden: true }).action(() => {})
-    await ctx.plugin({ inject: ['bots'], apply: (ctx: Context) => { ctx.bots.register(official) } })
+    const protocol = await ctx.plugin({ inject: ['bots'], apply: (ctx: Context) => { ctx.bots.register(official) } })
     expect(menus).toEqual([['sign']])
     ctx.command('rank').action(() => {})
     await vi.advanceTimersByTimeAsync(2_000)
     expect(menus).toEqual([['sign'], ['sign', 'rank']])
+    ctx.command('after').action(() => {})
+    await protocol.dispose()
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(menus).toEqual([['sign'], ['sign', 'rank']])
+  })
+
+  it('synchronizes an unchanged menu to a new bot instance registered with the same sid', async () => {
+    ctx.command('sign', '签到').action(() => {})
+    const oldMenu = vi.fn(async (_commands: Universal.Command[]) => {})
+    const oldBot: Bot = { ...bot, updateCommands: oldMenu }
+    const oldProtocol = await ctx.plugin({ inject: ['bots'], apply: (ctx: Context) => { ctx.bots.register(oldBot) } })
+    expect(oldMenu).toHaveBeenCalledOnce()
+    await oldProtocol.dispose()
+    expect(oldMenu).toHaveBeenCalledOnce()
+    const newMenu = vi.fn(async (_commands: Universal.Command[]) => {})
+    const newBot: Bot = { ...bot, updateCommands: newMenu }
+    const newProtocol = await ctx.plugin({ inject: ['bots'], apply: (ctx: Context) => { ctx.bots.register(newBot) } })
+    expect(newMenu).toHaveBeenCalledOnce()
+    expect(newMenu.mock.calls[0][0].map(command => command.name)).toEqual(['sign'])
+    await newProtocol.dispose()
   })
 })

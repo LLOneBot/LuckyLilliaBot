@@ -5,11 +5,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initActionMap } from '@/plugin/internal/adapter/onebot11/action'
 import { CONNECTION_ONLY, internalName } from '@/plugin/internal/service/ntqq-universal/internal'
-import { groupInternal, guildInternal } from '@/plugin/internal/protocol/qq-official/internal'
+import { guildInternal, officialInternal } from '@/plugin/internal/protocol/qq-official/internal'
 
 export const SDK_INTERNAL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../packages/plugin-sdk/src/internal.ts')
 
-/** The QQ account's methods with the OneBot action each runs, and the official bots' method names. */
+/** The QQ account's methods with the OneBot action each runs, and the official bot's method names. */
 export function internalNames() {
   const account: [string, string][] = []
   for (const [action] of initActionMap({ ctx: {} } as never)) {
@@ -20,8 +20,8 @@ export function internalNames() {
   return {
     // Code-point order: the same file on every machine
     account: account.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
-    qq: Object.keys(groupInternal(api)).sort(),
-    qqguild: Object.keys(guildInternal(api)).sort(),
+    qq: Object.keys(officialInternal(api)).sort(),
+    legacyGuild: Object.keys(guildInternal(api)).sort(),
   }
 }
 
@@ -42,22 +42,26 @@ ${names.account.map(([name, action]) => `  /** \`${action}\` */\n  ${name}(param
 }
 
 /**
- * \`bot.internal\` of the QQ official bot (\`qq\`): the open platform's group and C2C endpoints. Path parameters
- * come first, in order; then the body, or the query for GET and DELETE.
+ * \`bot.internal\` of the QQ official bot (\`qq\`): the open platform's group, C2C and guild endpoints. Path
+ * parameters are raw Tencent IDs (without the neutral API's \`qqguild:\` prefix), in order; then the body, or the
+ * query for GET and DELETE. \`sendMessage\` / \`deleteMessage\` act on groups; \`sendGuildMessage\` /
+ * \`deleteGuildMessage\` act on guild channels.
  */
 export interface QQInternal {
 ${methods(names.qq)}
 }
 
-/** \`bot.internal\` of the QQ official bot in guilds (\`qqguild\`), the same way as QQInternal. */
+/**
+ * Legacy guild endpoint type, kept for source compatibility.
+ * @deprecated Use QQInternal on the \`qq\` bot. Guild sends/deletes use \`sendGuildMessage\` / \`deleteGuildMessage\`.
+ */
 export interface QQGuildInternal {
-${methods(names.qqguild)}
+${methods(names.legacyGuild)}
 }
 
 export interface PlatformInternals {
   luckylillia: LuckyLilliaInternal
   qq: QQInternal
-  qqguild: QQGuildInternal
 }
 
 /**

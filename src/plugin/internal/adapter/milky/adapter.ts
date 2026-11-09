@@ -48,7 +48,7 @@ export class MilkyAdapter extends Service {
   static inject = [
     'ntUserApi', 'ntFriendApi', 'ntGroupApi',
     'ntMsgApi', 'ntFileApi', 'ntSystemApi',
-    'ntWebApi', 'app', 'store'
+    'ntWebApi', 'app', 'store', 'qqProtocol'
   ]
 
   readonly apiCollection!: MilkyApiCollection
@@ -92,7 +92,7 @@ export class MilkyAdapter extends Service {
   }
 
   emitEvent<E extends keyof MilkyEventTypes>(eventName: E, data: MilkyEventTypes[E]) {
-    const selfUin = this.ctx.account.uin
+    const selfUin = this.ctx.qqProtocol.selfInfo.uin
     const eventString = JSON.stringify({
       time: Math.floor(Date.now() / 1000),
       self_id: +selfUin,

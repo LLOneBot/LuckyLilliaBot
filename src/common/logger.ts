@@ -5,16 +5,21 @@ defaultFormatters.h = (value: unknown) =>
   Buffer.isBuffer(value) ? value.toString('hex') : value == null ? '' : String(value)
 
 const DEBUG_ARGV = process.argv.includes('--debug')
-let configDebug = false
+const LEVELS: Record<string, number> = { error: 0, warn: 1, info: 2, debug: 3 }
+let configLevel = LEVELS.info
 let makeLogger: ((name: string) => Logger) | undefined
 const cache = new Map<string, Logger>()
 
 export function isDebugEnabled(): boolean {
-  return DEBUG_ARGV || configDebug
+  return getLogLevel() === LEVELS.debug
+}
+
+export function getLogLevel(): number {
+  return DEBUG_ARGV ? LEVELS.debug : configLevel
 }
 
 export function setConfigLogLevel(level: string | undefined): void {
-  configDebug = level === 'debug'
+  configLevel = level !== undefined && Object.hasOwn(LEVELS, level) ? LEVELS[level] : LEVELS.info
 }
 
 export function bindLoggerFactory(factory: (name: string) => Logger): void {
@@ -49,8 +54,8 @@ function consoleShim(namespace: string): Logger {
   const p = `[${namespace}]`
   return {
     error: (...a: unknown[]) => console.error(p, ...a),
-    warn: (...a: unknown[]) => console.warn(p, ...a),
-    info: (...a: unknown[]) => console.info(p, ...a),
+    warn: (...a: unknown[]) => { if (getLogLevel() >= LEVELS.warn) console.warn(p, ...a) },
+    info: (...a: unknown[]) => { if (getLogLevel() >= LEVELS.info) console.info(p, ...a) },
     debug: (...a: unknown[]) => { if (isDebugEnabled()) console.debug(p, ...a) },
   } as unknown as Logger
 }

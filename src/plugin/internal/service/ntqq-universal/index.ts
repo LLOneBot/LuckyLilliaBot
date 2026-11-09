@@ -11,10 +11,10 @@ import type { SatoriEvent } from '../../../../universal/types'
 import { NTQQBot } from './bot'
 
 export const name = 'ntqq-universal'
-// The bot is the logged-in account. The rest is what the converters, MessageEncoder, api.ts and the OneBot actions
-// behind bot.internal reach through ctx (as OneBot11Adapter.inject)
+// app/store appear after login. Include every service the converters, MessageEncoder, api.ts and the OneBot
+// actions behind bot.internal reach through ctx (as OneBot11Adapter.inject).
 export const inject = [
-  'account', 'bots', 'app', 'store', 'config', 'timer', 'qqProtocol',
+  'bots', 'app', 'store', 'config', 'timer', 'qqProtocol',
   'ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi', 'ntSystemApi',
 ]
 
@@ -23,11 +23,13 @@ export function apply(ctx: Context) {
   const logger = ctx.logger('universal')
   const bot = new NTQQBot(ctx)
   ctx.bots.register(bot)
+  let disposed = false
+  ctx.effect(() => () => { disposed = true })
 
   // One failing converter must not take down the adapters listening to the same NT event
   const forward = (task: Promise<SatoriEvent | undefined | void>) => {
     task
-      .then(event => event && ctx.bots.dispatch(bot, event as NeutralEvent))
+      .then(event => event && !disposed && ctx.bots.dispatch(bot, event as NeutralEvent))
       .catch(e => logger.error(e))
   }
 

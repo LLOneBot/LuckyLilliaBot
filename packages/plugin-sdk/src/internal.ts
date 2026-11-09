@@ -254,45 +254,101 @@ export interface LuckyLilliaInternal {
 }
 
 /**
- * `bot.internal` of the QQ official bot (`qq`): the open platform's group and C2C endpoints. Path parameters
- * come first, in order; then the body, or the query for GET and DELETE.
+ * `bot.internal` of the QQ official bot (`qq`): the open platform's group, C2C and guild endpoints. Path
+ * parameters are raw Tencent IDs (without the neutral API's `qqguild:` prefix), in order; then the body, or the
+ * query for GET and DELETE. `sendMessage` / `deleteMessage` act on groups; `sendGuildMessage` /
+ * `deleteGuildMessage` act on guild channels.
  */
 export interface QQInternal {
   acknowledgeInteraction: Call
+  addGuildMemberRole: Call
   approveJoinRequest: Call
   batchRemoveGroupMembers: Call
   completeUploadGuild: Call
   completeUploadPrivate: Call
+  controlChannelAudio: Call
+  createDMS: Call
+  createGuildAnnounce: Call
+  createGuildApiPermissionDemand: Call
+  createGuildChannel: Call
+  createGuildRole: Call
   createJoinApprovalStrategy: Call
   createPanel: Call
+  createPinsMessage: Call
+  createPost: Call
+  createReaction: Call
+  createSchedule: Call
+  deleteChannel: Call
+  deleteDM: Call
+  deleteGuildMessage: Call
   deleteJoinApprovalStrategy: Call
   deleteMessage: Call
   deletePanel: Call
   deletePrivateMessage: Call
+  deleteReaction: Call
   executeJoinApprovalStrategy: Call
   generateUrlLink: Call
   getBotGroupState: Call
+  getChannel: Call
+  getChannelMemberPermissions: Call
+  getChannelOnlineNums: Call
+  getChannelRole: Call
+  getChannels: Call
   getGateway: Call
   getGatewayBot: Call
   getGroupInfo: Call
   getGroupMember: Call
   getGroupMemberBlacklist: Call
   getGroupMembers: Call
+  getGuild: Call
+  getGuildApiPermissions: Call
+  getGuildMember: Call
+  getGuildMembers: Call
+  getGuildRoleMembers: Call
+  getGuildRoles: Call
+  getGuilds: Call
   getJoinApprovalStrategyList: Call
   getJoinRequestList: Call
+  getMe: Call
   getMenu: Call
+  getMessage: Call
+  getMessageSetting: Call
   getPanel: Call
   getPanels: Call
+  getPinsMessage: Call
+  getReactions: Call
   getRestrictChatSetting: Call
+  getSchedule: Call
+  getSchedules: Call
+  getThread: Call
+  listThreads: Call
+  modifyChannel: Call
+  modifyChannelMemberPermissions: Call
+  modifyChannelRole: Call
   modifyGroupMemberBlacklist: Call
+  modifyGuildRole: Call
   modifyJoinApprovalStrategy: Call
   modifyJoinApprovalStrategyWhitelist: Call
   modifyPanel: Call
   modifyPanelTarget: Call
+  modifySchedule: Call
+  muteGuildMember: Call
+  muteGuildOrMembers: Call
+  removeChannelMic: Call
+  removeGuildAnnounce: Call
+  removeGuildMember: Call
+  removeGuildMemberRole: Call
+  removeGuildRole: Call
+  removePinsMessage: Call
+  removePost: Call
+  removeSchedule: Call
+  sendDM: Call
   sendFileGuild: Call
   sendFilePrivate: Call
+  sendGuildMessage: Call
   sendMessage: Call
   sendPrivateMessage: Call
+  setChannelMic: Call
   setMenu: Call
   setRestrictChatSetting: Call
   uploadPartFinishGuild: Call
@@ -301,7 +357,10 @@ export interface QQInternal {
   uploadPreparePrivate: Call
 }
 
-/** `bot.internal` of the QQ official bot in guilds (`qqguild`), the same way as QQInternal. */
+/**
+ * Legacy guild endpoint type, kept for source compatibility.
+ * @deprecated Use QQInternal on the `qq` bot. Guild sends/deletes use `sendGuildMessage` / `deleteGuildMessage`.
+ */
 export interface QQGuildInternal {
   addGuildMemberRole: Call
   controlChannelAudio: Call
@@ -362,7 +421,6 @@ export interface QQGuildInternal {
 export interface PlatformInternals {
   luckylillia: LuckyLilliaInternal
   qq: QQInternal
-  qqguild: QQGuildInternal
 }
 
 /**

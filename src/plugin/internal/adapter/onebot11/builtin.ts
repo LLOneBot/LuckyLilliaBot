@@ -16,8 +16,8 @@ export const builtin: BuiltinPlugin = {
     icon: 'radio',
     service: { implements: ['onebot'] },
     description: {
-      zh: 'OneBot 11 协议适配器，支持 HTTP、正向 / 反向 WebSocket 和 HTTP POST 上报',
-      en: 'OneBot 11 adapter over HTTP, WebSocket, reverse WebSocket and HTTP POST',
+      zh: '仅支持 NTQQ 协议端的 OneBot 11 适配器，支持 HTTP、正向 / 反向 WebSocket 和 HTTP POST 上报',
+      en: 'NTQQ-only OneBot 11 adapter over HTTP, WebSocket, reverse WebSocket and HTTP POST',
     },
   },
 }

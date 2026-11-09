@@ -4,7 +4,6 @@ import path from 'node:path'
 import { Context } from 'cordis'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { hashPassword } from '@/plugin/internal/service/webui/BE/passwordHash'
-import { PluginForbiddenError } from '@/plugin/host'
 import { servePluginAsset, servePluginImage } from '@/plugin/internal/service/webui/BE/routes/plugins'
 
 const dir = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-assets-'))
@@ -16,7 +15,6 @@ afterAll(() => {
 })
 
 const webuiAsset = vi.fn((key: string, file: string) => {
-  if (key === 'unapproved') throw new PluginForbiddenError('the WebUI of unapproved is not approved')
   return key === '@scope+ui' && file === 'index.js' ? module : undefined
 })
 const ctx = { plugins: { webuiAsset } } as unknown as Context
@@ -75,10 +73,6 @@ describe('plugin WebUI assets', () => {
     // the name without the port is another instance's (or an old version's) login, not this one's
     expect((await get('/plugin-webui/@scope+ui/3/index.js', `webui_token=${hashPassword('test-token')}`)).status).toBe(401)
     expect((await get('/plugin-webui/@scope+ui/3/index.js', 'webui_token_80=wrong')).status).toBe(401)
-  })
-
-  it('answers 403 for a package whose WebUI the user did not approve', async () => {
-    expect((await get('/plugin-webui/unapproved/0/index.js', login)).status).toBe(403)
   })
 
   it('answers 404 for anything the plugin service does not resolve, and only serves reads', async () => {

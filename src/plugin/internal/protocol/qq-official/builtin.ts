@@ -1,11 +1,13 @@
 import type { BuiltinPlugin } from '../../../host'
 import * as QQOfficial from '.'
 import { qqOfficialSettings } from './settings'
+import { QQSetupRoutes } from './setupRoutes'
 
 export const builtin: BuiltinPlugin = {
   name: 'builtin:qq-official',
   title: 'QQ 官方机器人',
   plugin: QQOfficial,
+  standby: QQSetupRoutes,
   config: qqOfficialSettings,
   manifest: {
     category: 'protocol',

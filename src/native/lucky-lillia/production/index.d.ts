@@ -24,6 +24,17 @@ export declare class NativeQQ {
   send(cmd: string, pb: Buffer | string, echo?: string | undefined | null): Promise<any>
   /** Compatibility shape: code 0 = QR available, 1 = logged in, -1 = not ready. */
   getLoginQrcode(timeoutMs?: number | undefined | null): Promise<any>
+  /**
+   * Same codes as getLoginQrcode. code 0 data lists only saved accounts QQ can quick-login
+   * now ({uin, uid, nickName, faceUrl}); it may be empty.
+   */
+  getQuickLoginList(timeoutMs?: number | undefined | null): Promise<any>
+  /**
+   * Request login in the running QQ: code 0 = accepted, 1 = already logged in,
+   * -1 = login service/auth not ready. Acceptance is not login completion; observe health.
+   * QQ refusal, invalid arguments, timeout or disconnection reject the Promise.
+   */
+  quickLogin(uin: string, timeoutMs?: number | undefined | null): Promise<{ code: number; message: string }>
 }
 
 /**

@@ -64,10 +64,10 @@ afterAll(() => {
 
 beforeEach(async () => {
   ctx = new Context()
-  for (const name of ['qqProtocol', 'ntLoginApi', 'config', 'app', 'store', 'ntMsgApi', 'ntFileApi', 'ntUserApi', 'ntGroupApi', 'ntFriendApi']) {
+  for (const name of ['ntLoginApi', 'config', 'app', 'store', 'ntMsgApi', 'ntFileApi', 'ntUserApi', 'ntGroupApi', 'ntFriendApi']) {
     await ctx.plugin(stub(name))
   }
-  await ctx.plugin(stub('account', { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true }))
+  await ctx.plugin(stub('qqProtocol', { selfInfo: { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true } }))
   await ctx.plugin(WebuiServer)
   app = (ctx.webuiServer as unknown as { app: Hono }).app
 })

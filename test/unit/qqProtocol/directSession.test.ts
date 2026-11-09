@@ -14,6 +14,7 @@ import { deleteMachineGuid } from '../../../src/plugin/internal/protocol/nt-prot
 import { registerOnline, startHeartbeat } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/online'
 import {
   deleteSession,
+  getSpecifiedUin,
   loadSession,
   persistedToSessionInfo,
   saveSession,
@@ -452,6 +453,39 @@ describe('direct session authentication failures', () => {
     expect(protocol.authTokenStatus.loginError).toContain(authMessage)
   })
 
+  it.each([false, true])('waits for the old identity to close before QR login to another account (superseded: %s)', async (superseded) => {
+    const ctx = new Context()
+    const protocol = newProtocol(ctx)
+    protocol['directClient'] = client
+    protocol['qrPollToken'] = 1
+    protocol['directQrResult'] = { url: 'https://example.com/qr?k=test', image: Buffer.alloc(0), sig: Buffer.alloc(16), tgtgtKey: Buffer.alloc(16) }
+    protocol['directPollResult'] = { state: 0, tgtgtKey: Buffer.alloc(16) }
+    protocol.selfInfo.online = false
+    vi.mocked(getCorrectUin).mockResolvedValue(654321)
+    vi.mocked(loginWithQrResult).mockImplementation(async () => {
+      client.setSession({ ...createSession(), uin: '654321', uid: 'u_654321' })
+      return { ...loginSuccess, uid: 'u_654321' }
+    })
+    const closing = deferred<void>()
+    const closingStarted = vi.fn()
+    ctx.on('qq/logout', () => { closingStarted(); return closing.promise })
+    const completion = protocol['completeDirectLogin'](1)
+    await vi.waitFor(() => expect(closingStarted).toHaveBeenCalledOnce())
+    expect(protocol.selfInfo).toMatchObject({ online: false, uin: '', uid: '' })
+    expect(registerOnline).not.toHaveBeenCalled()
+    if (superseded) protocol['qrPollToken']++
+    closing.resolve()
+    await completion
+    if (superseded) {
+      expect(registerOnline).not.toHaveBeenCalled()
+      expect(saveSession).not.toHaveBeenCalled()
+      expect(protocol.selfInfo.online).toBe(false)
+    } else {
+      expect(registerOnline).toHaveBeenCalledOnce()
+      expect(protocol.selfInfo).toMatchObject({ online: true, uin: '654321', uid: 'u_654321' })
+    }
+  })
+
   it('still saves and announces a current QR login after registration succeeds', async () => {
     const ctx = new Context()
     const protocol = newProtocol(ctx)
@@ -553,6 +587,76 @@ describe('direct session authentication failures', () => {
       client['conn'].emit('packet', responseFrame(0, -10001, '', authMessage))
     }
     expect(disconnected).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('automatic login on instance startup', () => {
+  let protocol: DirectQQProtocol
+  let qrLoop: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.mocked(getSpecifiedUin).mockReturnValue(undefined)
+    vi.mocked(updateAuthToken).mockResolvedValue(undefined)
+    vi.mocked(loadSession).mockImplementation(uin => uin ? {
+      uin, uid: `u_${uin}`, nick: 'Saved account', guid: Buffer.alloc(16).toString('hex'), savedAt: 0,
+    } : null)
+    vi.mocked(persistedToSessionInfo).mockImplementation(saved => ({ ...createSession(), uin: saved.uin, uid: saved.uid }))
+  })
+
+  afterEach(async () => {
+    await protocol['stop']()
+    vi.clearAllTimers()
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  function prepare(autoLoginUin = '') {
+    protocol = new DirectQQProtocol(new Context(), { autoLoginUin })
+    protocol['directClient'] = new DirectProtocolClient()
+    qrLoop = vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
+  }
+
+  it('waits for QR or manual login when automatic login is disabled', async () => {
+    prepare()
+    await protocol['onAuthTokenValid']('test-auth-token')
+    expect(protocol.selfInfo.online).toBe(false)
+    expect(registerOnline).not.toHaveBeenCalled()
+    expect(qrLoop).toHaveBeenCalled()
+  })
+
+  it('restores the saved account once the auth token is valid', async () => {
+    prepare('123456')
+    const online = vi.fn()
+    protocol['ctx'].on('qq/online', online)
+    await protocol['onAuthTokenValid']('test-auth-token')
+    expect(protocol.selfInfo).toMatchObject({ online: true, uin: '123456', uid: 'u_123456' })
+    expect(online).toHaveBeenCalledOnce()
+  })
+
+  it('uses the launch account in preference to the saved automatic login', async () => {
+    prepare('123456')
+    vi.mocked(getSpecifiedUin).mockReturnValue('654321')
+    await protocol['onAuthTokenValid']('test-auth-token')
+    expect(protocol.selfInfo).toMatchObject({ online: true, uin: '654321' })
+  })
+
+  it('keeps a manually selected account for reconnects', async () => {
+    prepare('123456')
+    await protocol.quickLogin('654321')
+    expect(protocol.selfInfo).toMatchObject({ online: true, uin: '654321' })
+    protocol.selfInfo.online = false
+    await protocol['onAuthTokenValid']('test-auth-token')
+    expect(protocol.selfInfo).toMatchObject({ online: true, uin: '654321' })
+  })
+
+  it('falls back to QR login if the remembered session is unavailable', async () => {
+    prepare('123456')
+    vi.mocked(loadSession).mockReturnValue(null)
+    await protocol['onAuthTokenValid']('test-auth-token')
+    expect(protocol.selfInfo.online).toBe(false)
+    expect(registerOnline).not.toHaveBeenCalled()
+    expect(qrLoop).toHaveBeenCalled()
   })
 })
 
@@ -685,6 +789,30 @@ describe('reconnect and QR refresh after dropping offline', () => {
     vi.mocked(registerOnline).mockResolvedValueOnce('ok')
     await protocol.quickLogin('123456')
     expect(protocol.selfInfo.online).toBe(true)
+  })
+
+  it.each([false, true])('closes the previous identity before restoring another account (superseded: %s)', async (superseded) => {
+    vi.mocked(loadSession).mockReturnValue({ ...savedSession(), uin: '654321', uid: 'u_654321' })
+    vi.mocked(persistedToSessionInfo).mockReturnValue({ ...createSession(), uin: '654321', uid: 'u_654321' })
+    const closing = deferred<void>()
+    const closingStarted = vi.fn()
+    protocol['ctx'].on('qq/logout', () => { closingStarted(); return closing.promise })
+    const restore = protocol['doInitDirectClient']('test-auth-token')
+    await vi.waitFor(() => expect(closingStarted).toHaveBeenCalledOnce())
+    expect(protocol.selfInfo).toMatchObject({ online: false, uin: '', uid: '' })
+    expect(client.isLoggedIn).toBe(false)
+    expect(registerOnline).not.toHaveBeenCalled()
+    if (superseded) protocol['initToken']++
+    closing.resolve()
+    await restore
+    if (superseded) {
+      expect(registerOnline).not.toHaveBeenCalled()
+      expect(client.isLoggedIn).toBe(false)
+      expect(protocol.selfInfo.online).toBe(false)
+    } else {
+      expect(registerOnline).toHaveBeenCalledOnce()
+      expect(protocol.selfInfo).toMatchObject({ online: true, uin: '654321', uid: 'u_654321' })
+    }
   })
 
   it('tells the WebUI why a quick login did not get online, instead of falling back to QR silently', async () => {

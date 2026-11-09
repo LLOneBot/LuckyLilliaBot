@@ -5,15 +5,19 @@ import type { Bot, Feature, NeutralResource, SendOptions } from '@luckylillia/pl
 import type { QQOfficialConfig } from '@/common/types'
 import type { SatoriEvent } from '../../../../universal/types'
 import { ApiError, QQOfficialApi } from './api'
-import { decodeChannel, decodeGuild, decodeGuildMember, DecodeHost, GuildDecodeHost, privateChannel, privateTarget } from './decode'
+import { decodeChannel, decodeGuild, decodeGuildContent, decodeGuildDispatch, decodeGuildMember, DecodeHost, GuildDecodeHost, GuildDecodeOptions, privateChannel, privateTarget } from './decode'
 import { textToMarkdown } from './elements'
-import { GroupInternal, groupInternal, GuildInternal, guildInternal } from './internal'
+import { GuildInternal, guildInternal, officialInternal } from './internal'
+import { guildElements, guildResource, isGuildId, rawGuildId, rawGuildValue } from './guildIds'
+import { fallback } from '../../../../universal/fallback'
 import { loadMedia } from './media'
 import { MenuCommand, MenuManager } from './menu'
+import { logMessage } from './log'
 import { PassiveReplies, ReplyContext } from './passive'
 import { GuildMessageSender, MessageSender, PassiveOverride } from './sender'
 import { StreamStates } from './stream'
-import { ChannelSendRequest, GroupMember, MessageAudited, MessageType, SendRequest, SendResponse } from './types'
+import { QQOfficialStatsTracker } from './stats'
+import { ChannelSendRequest, GatewayPayload, GroupMember, MessageAudited, MessageType, SendRequest, SendResponse } from './types'
 import type { UserNames } from './users'
 
 /** Same msg_id and msg_seq as an earlier reply: retry with the next msg_seq */
@@ -82,21 +86,20 @@ function resource(bot: { user: object }, channelId: string, direct: boolean, con
   }
 }
 
-/** A QQ open platform bot (q.qq.com) in groups and C2C, identified by its AppID. */
+/** One QQ open platform bot (q.qq.com) per AppID, with namespaced guild resources. */
 export class QQOfficialBot implements Bot, DecodeHost {
   readonly platform = 'qq'
   readonly sid: string
-  // Faces only come in: sending them is documented for guilds alone; no forwards. Pushing has a quota (4 a month to
-  // each user or group) and needs the user, or the group owner, to allow it
-  readonly features: readonly Feature[] = ['message.markdown', 'message.button', 'message.card', 'message.stream', 'message.proactive', 'guild.plain']
+  // Capabilities across its destinations: faces are native in guilds, streams/proactive messages in groups/C2C.
+  readonly features: readonly Feature[] = ['message.markdown', 'message.button', 'message.card', 'message.face', 'message.stream', 'message.proactive', 'guild.plain']
   status: Status = Status.OFFLINE
   readonly user: { id: string; name?: string; avatar?: string }
   readonly passive = new PassiveReplies()
   readonly streams: StreamStates
-  /** Every group / C2C endpoint, for what the methods here do not cover */
-  readonly internal: GroupInternal
+  /** Both REST surfaces, with raw Tencent IDs. */
+  readonly internal: ReturnType<typeof officialInternal>
   readonly menu: MenuManager
-  guildBot?: QQGuildBot
+  private readonly guild: QQGuildClient
   botOpenid?: string
   private joinRequests = new Map<string, { group: string; member: string }>()
   private initialized = false
@@ -108,12 +111,13 @@ export class QQOfficialBot implements Bot, DecodeHost {
     readonly config: QQOfficialConfig,
     readonly names: UserNames,
     readonly audits: Audits,
+    readonly stats = new QQOfficialStatsTracker(config),
   ) {
     this.selfId = config.appId
     this.sid = `${this.platform}:${this.selfId}`
     this.streams = new StreamStates(ctx)
     this.user = { id: this.selfId }
-    this.internal = groupInternal(api)
+    this.internal = officialInternal(api)
     // Join requests listed by a plugin can be answered by their id too
     const list = this.internal.getJoinRequestList
     this.internal.getJoinRequestList = async (group, params) => {
@@ -122,6 +126,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
       return result
     }
     this.menu = new MenuManager(ctx, this.internal, config)
+    this.guild = new QQGuildClient(this)
   }
 
   readonly selfId: string
@@ -144,7 +149,6 @@ export class QQOfficialBot implements Bot, DecodeHost {
     if (this.status === status) return
     this.status = status
     this.ctx.parallel('bot/status', this).catch(e => this.ctx.logger('qq-official').warn(e))
-    if (this.guildBot) this.ctx.parallel('bot/status', this.guildBot).catch(e => this.ctx.logger('qq-official').warn(e))
   }
 
   /** After READY: the bot's own profile, then the menus, once. */
@@ -169,14 +173,22 @@ export class QQOfficialBot implements Bot, DecodeHost {
     if (options.quote) elements.unshift(h('quote', { id: options.quote }))
     const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements, options)
     if (!outgoing.length) return []
-    return await new MessageSender(this, channelId, referred(options.referrer)).send(outgoing)
+    if (isGuildId(channelId)) {
+      const reference = referred(options.referrer)
+      const results = await new GuildMessageSender(this.guild, rawGuildId(channelId), reference && rawGuildValue(reference))
+        .send(guildElements(outgoing, false, this.selfId))
+      return results.map(result => ({ ...this.exposeGuild(result, 'message'), user: this.user }))
+    }
+    return await new MessageSender(this, channelId, referred(options.referrer)).send(await this.groupElements(outgoing, channelId, !options.relay))
   }
 
-  sendPrivateMessage(userId: string, content: h.Fragment, options?: SendOptions) {
-    return this.sendMessage(privateChannel(userId), content, options)
+  async sendPrivateMessage(userId: string, content: h.Fragment, options?: SendOptions & { guildId?: string }) {
+    const channel = await this.createDirectChannel(userId, options?.guildId)
+    return this.sendMessage(channel.id, content, options)
   }
 
   async deleteMessage(channelId: string, messageId: string) {
+    if (isGuildId(channelId)) return this.guild.deleteMessage(rawGuildId(channelId), rawGuildValue(messageId))
     await this.api.request('DELETE', `${this.target(channelId)}/messages/${encodeURIComponent(messageId)}`)
   }
 
@@ -186,12 +198,17 @@ export class QQOfficialBot implements Bot, DecodeHost {
     return openid ? `/v2/users/${encodeURIComponent(openid)}` : `/v2/groups/${encodeURIComponent(channelId)}`
   }
 
-  createDirectChannel(userId: string) {
-    return Promise.resolve({ id: privateChannel(userId), type: Channel.Type.DIRECT })
+  async createDirectChannel(userId: string, guildId?: string): Promise<NeutralResource> {
+    if (isGuildId(userId) || (guildId && isGuildId(guildId))) {
+      return this.exposeGuild(await this.guild.createDirectChannel(this.guildUserTarget(userId), guildId && rawGuildId(guildId)), 'channel')
+    }
+    return { id: privateChannel(userId), type: Channel.Type.DIRECT }
   }
 
   /** What is known of a user: the name seen last, else what the lookup service (if any) says. */
-  async getUser(userId: string): Promise<NeutralResource> {
+  async getUser(userId: string, guildId?: string): Promise<NeutralResource> {
+    if (userId === this.selfId) return { ...this.user }
+    if (isGuildId(userId)) return this.exposeGuild(await this.guild.getUser(rawGuildId(userId), guildId && rawGuildId(guildId)), 'user')
     let name = this.names.get(this.platform, userId)
     let avatar: string | undefined
     if (!name) {
@@ -204,6 +221,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
   }
 
   async getGuild(guildId: string): Promise<NeutralResource> {
+    if (isGuildId(guildId)) return this.exposeGuild(await this.guild.getGuild(rawGuildId(guildId)), 'guild')
     const openid = privateTarget(guildId)
     if (openid) {
       const user = await this.getUser(openid)
@@ -214,6 +232,11 @@ export class QQOfficialBot implements Bot, DecodeHost {
   }
 
   async getChannel(channelId: string): Promise<NeutralResource> {
+    if (isGuildId(channelId)) {
+      const raw = rawGuildId(channelId)
+      if (channelId.startsWith('private:')) return { id: channelId, type: Channel.Type.DIRECT }
+      return this.exposeGuild(await this.guild.getChannel(raw), 'channel')
+    }
     const openid = privateTarget(channelId)
     if (openid) {
       const user = await this.getUser(openid)
@@ -224,25 +247,33 @@ export class QQOfficialBot implements Bot, DecodeHost {
   }
 
   async getChannelList(guildId: string): Promise<{ data: NeutralResource[] }> {
+    if (isGuildId(guildId)) return { data: (await this.guild.getChannelList(rawGuildId(guildId))).data.map(channel => this.exposeGuild(channel, 'channel')) }
     return { data: [await this.getChannel(guildId)] }
   }
 
   async getGuildMember(guildId: string, userId: string): Promise<NeutralResource> {
+    if (isGuildId(guildId)) return this.exposeGuild(await this.guild.getGuildMember(rawGuildId(guildId), this.guildUserTarget(userId)), 'member')
     return this.decodeMember(await this.internal.getGroupMember(guildId, userId))
   }
 
   async getGuildMemberList(guildId: string, next?: string): Promise<{ data: NeutralResource[]; next?: string }> {
+    if (isGuildId(guildId)) {
+      const page = await this.guild.getGuildMemberList(rawGuildId(guildId), next)
+      return { ...page, data: page.data.map(member => this.exposeGuild(member, 'member')) }
+    }
     const page = await this.internal.getGroupMembers(guildId, next ? { cursor: next } : undefined)
     return { data: (page?.members ?? []).map(member => this.decodeMember(member)), next: page?.next_cursor || undefined }
   }
 
   /** `permanent` also puts the member on the group's blacklist. */
   async kickGuildMember(guildId: string, userId: string, permanent?: boolean) {
+    if (isGuildId(guildId)) return this.guild.kickGuildMember(rawGuildId(guildId), this.guildUserTarget(userId))
     await this.internal.batchRemoveGroupMembers(guildId, { member_openids: [userId], add_to_member_blacklist: !!permanent })
   }
 
   /** `duration` in ms; 0 lifts the mute. */
   async muteGuildMember(guildId: string, userId: string, duration: number) {
+    if (isGuildId(guildId)) return this.guild.muteGuildMember(rawGuildId(guildId), this.guildUserTarget(userId), duration)
     const op = duration <= 0 ? 'del' as const : await this.muteOp(guildId, userId)
     await this.internal.setRestrictChatSetting(guildId, {
       members: [{
@@ -284,6 +315,116 @@ export class QQOfficialBot implements Bot, DecodeHost {
     return this.menu.updateCommands(commands)
   }
 
+  setGuildUserId(id: string) {
+    this.guild.guildUserId = id
+  }
+
+  decodeGuild(payload: GatewayPayload, options?: GuildDecodeOptions) {
+    return decodeGuildDispatch(this.guild, payload, options)
+  }
+
+  private exposeGuild(value: NeutralResource, kind: 'message' | 'user' | 'channel' | 'guild' | 'member') {
+    return guildResource(value, kind, this.selfId, this.guild.guildUserId)
+  }
+
+  private guildUserTarget(userId: string) {
+    return userId === this.selfId && this.guild.guildUserId ? this.guild.guildUserId : rawGuildId(userId)
+  }
+
+  /** Faces exist only in guilds; retain the same plugin fallback on group/C2C destinations. */
+  private async groupElements(elements: h[], channelId: string, plugins: boolean): Promise<h[]> {
+    const out: h[] = []
+    for (const element of elements) {
+      if (element.type === 'face') {
+        const custom = plugins ? await this.ctx.serial('bot/fallback', this, channelId, element) : undefined
+        out.push(...(custom === undefined ? fallback(element) : h.normalize(custom as h.Fragment)))
+      } else {
+        out.push(element.children.length ? h(element.type, element.attrs, await this.groupElements(element.children, channelId, plugins)) : element)
+      }
+    }
+    return out
+  }
+
+  async getMessage(channelId: string, messageId: string): Promise<NeutralResource> {
+    return this.exposeGuild(await this.guild.getMessage(rawGuildId(channelId), rawGuildValue(messageId)), 'message')
+  }
+
+  /** The platform can list joined guilds; it offers no corresponding group-list endpoint. */
+  async getGuildList(next?: string): Promise<{ data: NeutralResource[]; next?: string }> {
+    const page = await this.guild.getGuildList(next)
+    return { ...page, data: page.data.map(guild => this.exposeGuild(guild, 'guild')) }
+  }
+
+  async createChannel(guildId: string, data: Record<string, any>): Promise<NeutralResource> {
+    return this.exposeGuild(await this.guild.createChannel(rawGuildId(guildId), this.guildChannelData(data)), 'channel')
+  }
+
+  async updateChannel(channelId: string, data: Record<string, any>) {
+    await this.guild.updateChannel(rawGuildId(channelId), this.guildChannelData(data))
+  }
+
+  private guildChannelData(data: Record<string, any>) {
+    const parent = data.parentId ?? data.parent_id
+    return {
+      ...data,
+      parentId: typeof parent === 'string' ? rawGuildValue(parent) : parent,
+      private_user_ids: data.private_user_ids?.map((id: string) => id === this.selfId ? this.guildUserTarget(id) : rawGuildValue(id)),
+    }
+  }
+
+  async deleteChannel(channelId: string) {
+    await this.guild.deleteChannel(rawGuildId(channelId))
+  }
+
+  async muteChannel(channelId: string, guildId?: string, enable = true) {
+    await this.guild.muteChannel(rawGuildId(channelId), guildId && rawGuildId(guildId), enable)
+  }
+
+  async getChannelOnlineNums(channelId: string) {
+    return this.guild.getChannelOnlineNums(rawGuildId(channelId))
+  }
+
+  async getChannelUserPermissions(channelId: string, userId: string) {
+    return this.guild.getChannelUserPermissions(rawGuildId(channelId), this.guildUserTarget(userId))
+  }
+
+  async setChannelUserPermissions(channelId: string, userId: string, data: { add?: string; remove?: string }) {
+    await this.guild.setChannelUserPermissions(rawGuildId(channelId), this.guildUserTarget(userId), data)
+  }
+
+  async getChannelRolePermissions(channelId: string, roleId: string) {
+    return this.guild.getChannelRolePermissions(rawGuildId(channelId), roleId)
+  }
+
+  async setChannelRolePermissions(channelId: string, roleId: string, data: { add?: string; remove?: string }) {
+    await this.guild.setChannelRolePermissions(rawGuildId(channelId), roleId, data)
+  }
+
+  async setChannelMic(channelId: string) {
+    await this.guild.setChannelMic(rawGuildId(channelId))
+  }
+
+  async removeChannelMic(channelId: string) {
+    await this.guild.removeChannelMic(rawGuildId(channelId))
+  }
+
+  async controlChannelAudio(channelId: string, data: { status: number; audio_url?: string; text?: string }) {
+    await this.guild.controlChannelAudio(rawGuildId(channelId), data)
+  }
+
+  async createReaction(channelId: string, messageId: string, emoji: string) {
+    await this.guild.createReaction(rawGuildId(channelId), rawGuildValue(messageId), emoji)
+  }
+
+  async deleteReaction(channelId: string, messageId: string, emoji: string) {
+    await this.guild.deleteReaction(rawGuildId(channelId), rawGuildValue(messageId), emoji)
+  }
+
+  async getReactionList(channelId: string, messageId: string, emoji: string, next?: string): Promise<{ data: NeutralResource[]; next?: string }> {
+    const page = await this.guild.getReactionList(rawGuildId(channelId), rawGuildValue(messageId), emoji, next)
+    return { ...page, data: page.data.map(user => this.exposeGuild(user, 'user')) }
+  }
+
   /**
    * Sends one platform message, as a passive reply when possible: to the message or event it answers or quotes if
    * that can still take one, else to the latest in the channel; with nothing left to cite it goes out proactively.
@@ -322,6 +463,10 @@ export class QQOfficialBot implements Bot, DecodeHost {
         if (id && res?.ext_info?.ref_idx) this.passive.rememberRef(id, res.ext_info.ref_idx)
         this.streams.update(key, request, id)
         if (key && request.stream && this.streams.has(key)) this.streams.arm(key, () => this.endStream(channelId, key))
+        if (id) {
+          this.stats.sent(request.stream)
+          logMessage(this.ctx, '发', channelId, options.markup ?? body.content ?? '', undefined, request.stream)
+        }
         return resource(this, channelId, direct, options.markup ?? body.content ?? '', id, res?.timestamp)
       } catch (e) {
         if (!(e instanceof ApiError)) throw e
@@ -428,30 +573,22 @@ export interface GuildDeliverOptions extends DeliverOptions {
 }
 
 /**
- * The guilds (QQ 频道) of the same AppID, as a bot of their own platform `qqguild`: guild ids, channels, members
- * and messages share nothing with groups. A `private:` channel is still a C2C chat, handed to the `qq` bot.
+ * Internal guild implementation, with Tencent's raw IDs and its own passive/stream state.
+ * It is never registered as a bot or exposed to plugin listeners.
  */
-export class QQGuildBot implements Bot, GuildDecodeHost {
+export class QQGuildClient implements GuildDecodeHost {
   readonly platform = 'qqguild'
   readonly selfId: string
-  readonly sid: string
-  // Faces as <emoji:id>; streaming is undocumented for guilds
-  readonly features: readonly Feature[] = ['message.markdown', 'message.button', 'message.card', 'message.face']
   readonly passive = new PassiveReplies()
+  readonly streams: StreamStates
   readonly internal: GuildInternal
   /** The bot's user id in guilds, from READY */
   guildUserId?: string
-  private sn = 0
 
   constructor(readonly parent: QQOfficialBot) {
     this.selfId = parent.selfId
-    this.sid = `${this.platform}:${this.selfId}`
     this.internal = guildInternal(parent.api)
-    parent.guildBot = this
-  }
-
-  get status() {
-    return this.parent.status
+    this.streams = new StreamStates(parent.ctx)
   }
 
   get user() {
@@ -471,46 +608,22 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
   }
 
   event(type: string, data: Partial<SatoriEvent>): SatoriEvent {
-    const sn = ++this.sn
-    return {
-      sn,
-      type,
-      self_id: this.selfId,
-      platform: this.platform,
-      timestamp: Date.now(),
-      login: { sn: 1, user: this.user, platform: this.platform } as SatoriEvent['login'],
-      referrer: undefined,
-      ...data,
-    }
-  }
-
-  async sendMessage(channelId: string, content: h.Fragment, options: SendOptions = {}): Promise<NeutralResource[]> {
-    if (privateTarget(channelId) !== undefined) return this.parent.sendMessage(channelId, content, options)
-    const elements = h.normalize(content)
-    if (options.quote) elements.unshift(h('quote', { id: options.quote }))
-    const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements, options)
-    if (!outgoing.length) return []
-    return await new GuildMessageSender(this, channelId, referred(options.referrer)).send(outgoing)
-  }
-
-  /** A DM opens a session first; `guildId` is the guild the user is reached through. */
-  async sendPrivateMessage(userId: string, content: h.Fragment, options?: SendOptions & { guildId?: string }) {
-    const channel = await this.createDirectChannel(userId, options?.guildId)
-    return this.sendMessage(channel.id, content, options)
+    return this.parent.event(type, guildResource(data, 'event', this.selfId, this.guildUserId))
   }
 
   async createDirectChannel(userId: string, guildId?: string) {
     // Called from a DM channel: its source guild is the part before the underscore
     const source = guildId?.includes('_') ? guildId.split('_')[0] : guildId
     const dms = await this.internal.createDMS({ recipient_id: userId, source_guild_id: source })
-    return { id: `${dms.guild_id}_${source}`, type: Channel.Type.DIRECT }
+    return { id: `${dms.guild_id}_${dms.channel_id}`, type: Channel.Type.DIRECT }
   }
 
   async getMessage(channelId: string, messageId: string): Promise<NeutralResource> {
+    assertGuildChannel(channelId, 'getMessage')
     const { message } = await this.internal.getMessage(channelId, messageId)
     return {
       id: message.id,
-      content: message.content ?? '',
+      content: decodeGuildContent(this, message).join(''),
       user: message.author ? { id: message.author.id, name: message.author.username, avatar: message.author.avatar } : undefined,
       channel: { id: message.channel_id, type: Channel.Type.TEXT },
       guild: { id: message.guild_id },
@@ -519,7 +632,6 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
   }
 
   async deleteMessage(channelId: string, messageId: string) {
-    if (privateTarget(channelId) !== undefined) return this.parent.deleteMessage(channelId, messageId)
     if (channelId.includes('_')) {
       await this.internal.deleteDM(channelId.split('_')[0], messageId)
     } else {
@@ -540,23 +652,20 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
   }
 
   async getGuild(guildId: string): Promise<NeutralResource> {
-    if (privateTarget(guildId) !== undefined) return this.parent.getGuild(guildId)
-    return decodeGuild(await this.internal.getGuild(guildId))
+    return decodeGuild(await this.internal.getGuild(guildId.split('_')[0]))
   }
 
   async getChannelList(guildId: string): Promise<{ data: NeutralResource[] }> {
-    if (privateTarget(guildId) !== undefined) return this.parent.getChannelList(guildId)
-    return { data: (await this.internal.getChannels(guildId)).map(decodeChannel) }
+    return { data: (await this.internal.getChannels(guildId.split('_')[0])).map(decodeChannel) }
   }
 
   async getChannel(channelId: string): Promise<NeutralResource> {
-    if (privateTarget(channelId) !== undefined) return this.parent.getChannel(channelId)
     return decodeChannel(await this.internal.getChannel(channelId))
   }
 
   async createChannel(guildId: string, data: Record<string, any>): Promise<NeutralResource> {
     const type = data.type === Channel.Type.CATEGORY ? 4 : data.type === Channel.Type.VOICE ? 2 : 0
-    const channel = await this.internal.createGuildChannel(guildId, {
+    const channel = await this.internal.createGuildChannel(guildId.split('_')[0], {
       name: data.name,
       type,
       parent_id: data.parentId ?? data.parent_id,
@@ -589,7 +698,7 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
   /** QQ has no per-channel mute: this mutes the whole guild (30 days), `enable` false lifts it. */
   async muteChannel(channelId: string, guildId?: string, enable = true) {
     assertGuildChannel(channelId, 'muteChannel')
-    const target = guildId ?? (await this.internal.getChannel(channelId)).guild_id
+    const target = guildId?.split('_')[0] ?? (await this.internal.getChannel(channelId)).guild_id
     await this.internal.muteGuildOrMembers(target, { mute_seconds: enable ? '2592000' : '0' })
   }
 
@@ -635,21 +744,21 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
   }
 
   async getGuildMemberList(guildId: string, next?: string): Promise<{ data: NeutralResource[]; next?: string }> {
-    const members = await this.internal.getGuildMembers(guildId, { limit: 400, ...(next ? { after: next } : {}) })
+    const members = await this.internal.getGuildMembers(guildId.split('_')[0], { limit: 400, ...(next ? { after: next } : {}) })
     return { data: members.map(member => decodeGuildMember(this, member)), next: members[members.length - 1]?.user?.id }
   }
 
   async getGuildMember(guildId: string, userId: string): Promise<NeutralResource> {
-    return decodeGuildMember(this, await this.internal.getGuildMember(guildId, userId))
+    return decodeGuildMember(this, await this.internal.getGuildMember(guildId.split('_')[0], userId))
   }
 
   async kickGuildMember(guildId: string, userId: string) {
-    await this.internal.removeGuildMember(guildId, userId)
+    await this.internal.removeGuildMember(guildId.split('_')[0], userId)
   }
 
   /** `duration` in ms; 0 lifts the mute. */
   async muteGuildMember(guildId: string, userId: string, duration: number) {
-    await this.internal.muteGuildMember(guildId, userId, { mute_seconds: Math.floor(duration / 1000) })
+    await this.internal.muteGuildMember(guildId.split('_')[0], userId, { mute_seconds: Math.floor(duration / 1000) })
   }
 
   /** `emoji` is `<type>:<id>`, as reaction events report it. */
@@ -680,7 +789,10 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
     if (options.quote && !body.message_reference) body.message_reference = { message_id: options.quote }
     const context = options.passive?.messageId ? undefined : this.passive.pick(channelId, options.replyTo ?? options.quote)
     const msgId = options.passive?.messageId ?? context?.id
-    if (msgId) body.msg_id = msgId
+    if (msgId) {
+      if (!options.passive?.messageId && context?.kind === 'event') body.event_id = msgId
+      else body.msg_id = msgId
+    }
     if (options.passive?.eventId) body.event_id = options.passive.eventId
     const key = msgId ?? body.event_id
     if (options.streamText && key && !body.markdown) {
@@ -690,8 +802,8 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
     // The platform documents no streaming for guilds: only when switched on, even for an explicit stream
     const streaming = this.config.autoStreamText.includes('guild')
     if (!streaming) delete body.stream
-    if (streaming && (options.streamText || options.autoStream)) this.parent.streams.apply(key, body, !!key, options.endStream)
-    else if (!body.stream) this.parent.streams.clear(key)
+    if (streaming && (options.streamText || options.autoStream)) this.streams.apply(key, body, !!key, options.endStream)
+    else if (!body.stream) this.streams.clear(key)
     if (typeof body.content === 'string' && !body.content.trim()) delete body.content
     if (body.keyboard) body.bot_appid = this.selfId
 
@@ -727,7 +839,11 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
         id = audited?.message_id
         timestamp = audited?.create_time || audited?.audit_time
       }
-      this.parent.streams.update(key, body, id)
+      this.streams.update(key, body, id)
+      if (id) {
+        this.parent.stats.sent(body.stream)
+        logMessage(this.parent.ctx, '发', `${direct ? 'private:' : ''}qqguild:${channelId}`, options.markup ?? data.content ?? '', undefined, body.stream)
+      }
       return resource(this, channelId, direct, options.markup ?? data.content ?? '', id, timestamp)
     }
   }

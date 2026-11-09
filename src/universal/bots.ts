@@ -76,7 +76,9 @@ class BotsService extends Service implements Bots {
       this.registry.set(bot.sid, bot)
       ctx.parallel('bot/status', bot).catch(e => ctx.logger('bots').warn(e))
       return () => {
+        if (this.registry.get(bot.sid) !== bot) return
         this.registry.delete(bot.sid)
+        return ctx.parallel('bot/status', bot).catch(e => ctx.logger('bots').warn(e))
       }
     }, `bots.register(${bot.sid})`)
   }

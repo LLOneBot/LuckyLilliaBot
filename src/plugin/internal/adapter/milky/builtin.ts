@@ -12,6 +12,6 @@ export const builtin: BuiltinPlugin = {
     category: 'adapter',
     icon: 'milk',
     service: { implements: ['milky'] },
-    description: { zh: 'Milky 协议适配器', en: 'Milky protocol adapter' },
+    description: { zh: '仅支持 NTQQ 协议端的 Milky 适配器', en: 'NTQQ-only Milky protocol adapter' },
   },
 }

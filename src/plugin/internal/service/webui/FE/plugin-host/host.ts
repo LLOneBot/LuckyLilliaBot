@@ -42,9 +42,9 @@ function run(owner: string, apply: WebUIPlugin, builtin: boolean): () => void {
 const loaded = new Map<string, { url: string; dispose: () => void }>()
 const loading = new Map<string, Promise<void>>()
 
-/** A package's WebUI module only loads once the user approved it; builtins' ship with the WebUI. */
-export function clientAllowed(plugin: PluginStatus): boolean {
-  return !plugin.builtin && !!plugin.webui && !!plugin.webuiApproved
+/** Third-party modules load from their package; builtins ship with the WebUI. */
+export function hasExternalClient(plugin: PluginStatus): boolean {
+  return !plugin.builtin && !!plugin.webui
 }
 
 /** Imports a plugin's WebUI module unless that version is loaded already. Never rejects: see useClientErrors. */
@@ -72,12 +72,12 @@ export function ensureClient(owner: string, url: string): Promise<void> {
   return task
 }
 
-/** Loads the modules of enabled plugins, swaps reloaded ones and drops uninstalled or no longer approved ones. */
+/** Loads the modules of enabled plugins, swaps reloaded ones and drops modules removed from the plugin list. */
 export function syncClients(plugins: PluginStatus[]) {
   const urls = new Map<string, string>()
   const wanted = new Set<string>()
   for (const plugin of plugins) {
-    if (!clientAllowed(plugin)) continue
+    if (!hasExternalClient(plugin)) continue
     urls.set(plugin.name, plugin.webui!)
     if (!plugin.disabled) wanted.add(plugin.name)
   }

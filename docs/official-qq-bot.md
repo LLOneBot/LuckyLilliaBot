@@ -2,16 +2,16 @@
 
 > QQ 开放平台（q.qq.com）的官方机器人：用 AppID + AppSecret 登录，不走纯协议或官方 QQ 客户端桥接，作为**中立层的第二个消息源**接入，现有插件（echo、keyword-reply）不用改就能在它上面跑。
 >
-> 已实施：内置插件 `builtin:qq-official`，代码在 `src/plugin/internal/protocol/qq-official/`。群聊、单聊（C2C）、频道（`qqguild` 子 bot）都做了，只走 WebSocket。功能对齐 `koishi-plugin-adapter-qq-crack` 1.0.32（官方 Koishi adapter 的魔改版，仍走官方 appid + secret，没有破解鉴权），webhook 除外。读 crack 源码：`npm pack koishi-plugin-adapter-qq-crack@<版本>` 解到临时目录（`D:\code\github.com\koishi-plugin-adapter-qq-crack` 的克隆停在 1.0.18，太旧）；频道消息的解析以上游 `@satorijs/adapter-qq` 的 `decodeMessage` 为准。
+> 已实施：内置插件 `builtin:qq-official`，代码在 `src/plugin/internal/protocol/qq-official/`。群聊、单聊（C2C）、频道都做了，每个 AppID 统一注册一个 `qq` Bot，只走 WebSocket。功能对齐 `koishi-plugin-adapter-qq-crack` 1.0.32（官方 Koishi adapter 的魔改版，仍走官方 appid + secret，没有破解鉴权），webhook 除外。读 crack 源码：`npm pack koishi-plugin-adapter-qq-crack@<版本>` 解到临时目录（`D:\code\github.com\koishi-plugin-adapter-qq-crack` 的克隆停在 1.0.18，太旧）；频道消息的解析以上游 `@satorijs/adapter-qq` 的 `decodeMessage` 为准。
 
 ## 1. 定位
 
-官方 bot 实现两个 `Bot`，经 `ctx.bots.register()` / `dispatch()` / `beforeSend()` 接入中立层，和扫码账号（NT，`platform='luckylillia'`）互相独立：
+官方 bot 每个 AppID 只实现一个 `Bot`，经 `ctx.bots.register()` / `dispatch()` / `beforeSend()` 接入中立层，和扫码账号（NT，`platform='luckylillia'`）互相独立：
 
-- `qq`（`QQOfficialBot`，sid `qq:<AppID>`）：群聊、单聊、机器人自身的事件
-- `qqguild`（`QQGuildBot`，sid `qqguild:<AppID>`）：频道。像 Koishi 的 QQ 适配器一样单列一个平台，频道的 id、成员、消息和群毫无关系。**订阅了任一频道事件才注册**，状态跟着 `qq` 走；`private:` 频道交还给 `qq`
-- **不走** `qqProtocol` / `account` / `selfInfo.uin` / session。它只有 appid 和 openid，没有 uin，实现不了 `ntMsgApi` / `ntFileApi`
-- **绝不喂假 uin 进 `account`**。NT 专属的消费者（WebQQ、只订阅 `nt/*` 的 OB11 / Milky）天然看不到官方 bot，这是正确的隔离。Satori 适配器不是 NT 专属的：它把 `ctx.bots` 里的每个 bot 都作为 login 给外部客户端，官方的 `qq` / `qqguild` 也在（plugin-system.md"Satori 适配器"）
+- `qq`（`QQOfficialBot`，sid `qq:<AppID>`）：统一承载群聊、单聊、频道和机器人自身的事件。`ctx.bots`、`session.bot`、WebUI 账号卡片、Satori login 都只有这一个身份（owner 2026-11-05）。
+- 频道 REST 和发送逻辑封装在内部 `QQGuildClient`，不注册到 `ctx.bots`。中立层暴露的频道、子频道、用户、消息 ID 加 `qqguild:` 前缀；频道私信的 channelId 为 `private:qqguild:<DMG>_<DMC>`。群聊 / C2C ID 保持原样（单聊为 `private:<openid>`），方法按 ID 路由到对应接口。`qqguild:` 是资源命名空间，不是第二个平台。
+- **不走** `qqProtocol` / `selfInfo.uin` / NT 登录会话。它只有 appid 和 openid，没有 uin，实现不了 `ntMsgApi` / `ntFileApi`
+- **身份统一用 Bot**，官方 AppID 不伪装成 NT 的 UIN / UID；公共 `account` 服务已删除。NT 专属的消费者（WebQQ、只订阅 `nt/*` 的 OB11 / Milky）天然看不到官方 bot，这是正确的隔离。Satori 适配器不是 NT 专属的：它把 `ctx.bots` 里的每个 bot 都作为 login 给外部客户端，官方的唯一 `qq` login 也在（plugin-system.md"Satori 适配器"）
 - `inject` 只有 `bots` + `timer`，不等扫码登录，启动就连。扫码协议也是插件（`builtin:nt-protocol`，见 [core-pluginization.md](core-pluginization.md)），两个开关独立：只开扫码、只开官方机器人、两个都开，在插件页切换即可，运行时立即生效
 
 ## 2. Owner 决策
@@ -31,7 +31,7 @@
   - crack 的频道消息解析丢了正文（`message.content` 没赋值就用），按上游 adapter-qq 修正
   - h() 会把属性名驼峰化（`render_data` → `renderData`），crack 只读下划线写法，所以它的 `qq:button` 的 `render_data`、`qq:markdown` 的 `custom_template_id` 写在顶层属性时其实不生效；这里两种写法都认
   - `INTERACTION_CREATE` 没有 `data.resolved`（不是按钮 / 菜单类的互动）时只发 internal 事件；crack 会读空字段抛错
-  - 频道的互动事件（`chat_type` 3）交给 `qqguild`，回复才能发到子频道；crack 交给 `qq`
+  - 频道的互动事件（`chat_type` 3）按频道解码并补齐 ID 前缀，统一由 `qq` 分发，回复路由到子频道
   - 频道收到的消息也记被动回复，所以插件主动 `sendMessage` 也会回复该子频道 5 分钟内最近的消息；crack 只在 `session.send()` 时回复触发的那条
   - 审核等待 5 分钟超时（crack 无限等）
 
@@ -39,22 +39,44 @@
 
 | 文件 | 内容 |
 |---|---|
-| `index.ts` | 插件：AppID / AppSecret 没填就记一行 info 直接返回，什么都不连（卡片"待配置"，见下面 `config.ts`）；先取一次 token，凭证错让条目 `failed`，原因直接显示在卡片和设置页上；注册 bot（和 `qqguild`），起网关；每个事件先作为 internal 事件分发，再解码；`INTERACTION_CREATE` 回 `PUT /interactions/{id}`（`manualAcknowledge` 时不回）；审核结果交给 `Audits`；缺名字时问查询接口 |
+| `index.ts` | 插件：AppID / AppSecret 没填就记一行 info 直接返回，什么都不连（卡片"待配置"，见下面 `config.ts`）；先取一次 token，凭证错让条目 `failed`，原因直接显示在卡片和设置页上；注册唯一的 `qq` bot，起网关；每个事件先作为 internal 事件分发，再解码；`INTERACTION_CREATE` 回 `PUT /interactions/{id}`（`manualAcknowledge` 时不回）；审核结果交给 `Audits`；缺名字时问查询接口 |
 | `api.ts` | REST：token 的获取与续期、`Authorization: QQBot <token>` + `X-Union-Appid`、401 换 token 重试一次、错误码解析；`endpoint` / 沙箱前缀、query 参数、multipart、调试日志 |
 | `gateway.ts` | WS 网关：identify / resume、心跳、断线重连；`gatewayUrl` 覆盖、把平台网关换到 API 的域名上、调试日志；事件处理抛错只记日志 |
-| `bot.ts` | `QQOfficialBot` / `QQGuildBot`：信封、发消息、`deliver()` 选被动回复目标、群 / 频道管理方法、`Audits`（等审核结果） |
+| `bot.ts` | `QQOfficialBot` / 内部 `QQGuildClient`：信封、发消息、`deliver()` 选被动回复目标、群 / 频道管理方法、`Audits`（等审核结果） |
 | `sender.ts` | `h[]` → 平台消息：`MessageSender`（群 / 单聊）、`GuildMessageSender`（子频道 / 频道私信），共用 markdown、按钮、平台载荷的处理 |
 | `elements.ts` | 平台元素：`qq:ark*`、`qq:json` / `qq:markdown` / `qq:rawmarkdown*` 的解析，按钮转换，markdown 转义（`escapeMarkdown` / `textToMarkdown`），卡片转 markdown，markdown 里的 `data:` 图片拆分 |
 | `media.ts` | 富媒体上传：URL、`file_data`、分片；语音转 silk；网络图片的尺寸（卡片的 markdown 图片要） |
 | `passive.ts` | 被动回复记账（群 / 单聊 / 频道）、`REFIDX_` 引用索引 |
 | `stream.ts` | 流式回复，按回复的目标记：单聊接着同一条消息发，群里攒着；空闲 10 秒自动结束 |
-| `decode.ts` | 网关事件 → Satori 事件：`decodeDispatch`（`qq`）、`decodeGuildDispatch`（`qqguild`） |
-| `internal.ts` | 全部 REST 接口，按 Koishi QQ 适配器的方法名（`bot.internal`） |
+| `decode.ts` | 网关事件 → Satori 事件：`decodeDispatch`（群聊 / 单聊）、`decodeGuildDispatch`（频道）；统一由主 bot 发出事件 |
+| `internal.ts` | 全部 REST 接口合并到同一 `bot.internal`；同名发送 / 删除接口加 `Guild` 区分，详见 §7 |
+| `guildIds.ts` | 频道资源和元素 ID 的命名空间转换，原始平台载荷保持腾讯 ID |
+| `setup.ts` / `setupRoutes.ts` / `setupTypes.ts` | 扫码自动配置状态机、鉴权路由和前后端共用状态类型，standby 挂载 |
 | `menu.ts` | 单聊自定义菜单、群聊指令面板的同步 |
 | `users.ts` | 用户名缓存和持久化、昵称查询接口 |
 | `config.ts` | schema；设置规则在 `src/plugin/internal/protocol/qq-official/settings.ts`（开着时保存必须有 AppID / AppSecret；不声明 `checkOnEnable`，没填也能先在卡片上打开，启动也不报错，`notice` 让卡片显示"待配置 · 还没有填写 AppID 和 AppSecret"，主界面顶部也提示；到侧边栏出现的设置页填好保存，保存即重启条目；AppSecret 打码） |
 
-WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，整页由 schema 渲染（SDK 的 `SchemaSettings`）：凭证、类型在最上面，"消息""单聊菜单和群聊指令面板"是两个 `sections`，菜单项是按 `type` 区分的联合，表单渲染成可切换的标签。订阅的事件 `role('qq-official-intents')` 由插件用 `ctx.field()` 注册的控件画（`client/IntentsField.tsx`：按群聊单聊 / 频道分组、每项写明带来哪些事件、顶部警告没权限的事件会被断开），插件界面没加载时退回通用的多选。原来的"进阶"（`endpoint`、`gatewayUrl`、`userInfoApi`、`disableUserNamePersist`、`debug`）按 owner 2026-10-28 的要求不在页面上：schema 里标了 `.hidden()`，照常生效（以前存过的值也还在用），要改只能直接编辑实例 `plugins.json` 里这个条目的 `config`。"正在连接 QQ 开放平台""没有连上 QQ 开放平台"是它自己画在设置页最上面的（`client/GatewayNotice.tsx`，SDK 的 `StatusNotice`；2026-11-02 起不再放在主界面顶部），缺 AppID 和运行出错由 WebUI 在这一页上方说（`PluginPage`）
+WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，有「手机 QQ 扫码配置 / 手动配置」两个切换项，一次只显示一种方式。已有 AppID 默认手动，新配置默认扫码；切换时保留手动草稿，离开扫码页会取消仍在等待的任务。手动表单用 SDK 的 `usePluginConfig` / `SchemaForm` 读写，主区只显示 AppID / AppSecret（`fields: ['appId', 'secret']`）；沙箱、机器人类型和订阅事件放进默认折叠的「高级设置」，标题旁用弱化小字提示「不清楚各项设置的作用时，保持默认即可。」，折叠时也可见。订阅的事件 `role('qq-official-intents')` 由插件用 `ctx.field()` 注册的控件画（`client/IntentsField.tsx`：按群聊单聊 / 频道分组、每项写明带来哪些事件、顶部警告没权限的事件会被断开），插件界面没加载时退回通用的多选。
+
+消息行为（`useMarkdownIfAt`、`autoStreamText`、`retryWhen`、`manualAcknowledge`）、单聊菜单（`privateSlash`、`privateMenu`）和群聊指令面板（`groupSlash`、`groupPanels`）按 owner 2026-11-05 要求暂时从 UI 隐藏，schema 标记 `.hidden()`。原来的"进阶"（`endpoint`、`gatewayUrl`、`userInfoApi`、`disableUserNamePersist`、`debug`）也保持隐藏（owner 2026-10-28）。这些配置及原有功能照常生效，保存可见配置时保留隐藏字段；要改只能直接编辑实例 `plugins.json` 里这个条目的 `config`。
+
+连接状态显示在「QQ 官方机器人」标题右侧（`client/ConnectionStatus.tsx`，owner 2026-11-05）：在线时为绿点 +「已连接」，未连接时为灰点 +「未连接」，扫码配置和手动配置共用；不再单独显示顶部连接状态卡片。缺 AppID / AppSecret、插件运行失败等宿主提示仍由 `PluginPage` 显示在这一页上方。
+
+### 扫码自动配置
+
+参考 [tencent-connect/dsh-qqbot](https://github.com/tencent-connect/dsh-qqbot) 0.5.5 和它使用的 `@tencent-connect/qqbot-connector` 1.2.0，直接调用腾讯扫码接口，不经过 DSH 服务。进入「手机 QQ 扫码配置」自动生成二维码，无需先点击按钮；等待扫码时不显示刷新按钮，过期后停止轮询，用户点击「重新生成二维码」才创建新任务，生成失败时也可手动重试。已配置时说明确认后会替换 AppID / AppSecret，保留其他设置和插件启用状态。
+
+- 后端生成 32 字节密钥，向 `https://q.qq.com/lite/create_bind_task` 提交 Base64 key，拿到 `task_id`。二维码链接为 `https://q.qq.com/qqbot/openclaw/connect.html?task_id=…&source=luckylillia&_wv=2`，只含任务 ID。腾讯未登记的 source 可能显示「第三方机器人」。
+- 每 2 秒向 `poll_bind_result` 查询，状态 0 / 1 等待、2 完成、3 远端过期；远端过期和本地超时都会结束会话并清理密钥，保留过期状态等待手动重新生成，不自动换码。本地会话总时长最多 10 分钟，单次请求超时 10 秒。HTTP 使用 `ctx.http`，支持现有代理设置。
+- 完成时读取 `bot_appid` / `bot_encrypt_secret`，按 AES-256-GCM 解密（Base64 内容为 12 字节 IV + 密文 + 16 字节 tag）。密钥和 AppSecret 不返回浏览器。通过插件服务携带开始时的 `rev` 更新整份生效配置，保留隐藏设置；发生并发修改则拒绝保存，提示重新扫码。
+- `setupRoutes.ts` 是条目的 standby 部分，插件停用或还没有凭据时也可访问。`POST /api/qq-official/setup/start` 主动创建 / 刷新，`GET /:id` 只读状态，`DELETE /:id` 取消；均受 WebUI 登录保护，响应 `no-store`，返回直接的 `QQSetupState` 对象。取消、刷新、卸载后迟到的结果不会写入配置；已进入原子保存时不能取消或刷新（409）。
+- 页面仅在扫码完成并成功保存后刷新表单。此流程不承诺创建新机器人，具体选择 / 绑定步骤由腾讯页面提供。真实生成二维码、等待和取消已验证；成功授权后的解密和写入使用模拟响应验证，未替用户扫码授权或更换现有机器人。
+
+### Dashboard
+
+`client/DashboardCard.tsx` 由官方机器人自己的 `client/index.tsx` 贡献到 `dashboard.cards`（`wide`，order 12），显示头像、昵称、AppID、连接状态、正式 / 沙箱环境和收发消息数，附设置入口；不依赖 NTQQ 登录。卡片显示时每 5 秒读 `/api/qq-official/stats`，路由随本插件启停，通过可选的 WebUI 依赖挂载；响应只含展示字段，不返回凭据。缺凭据时显示待配置，查询失败保留上次数据并明确提示，停用插件后卡片撤下。
+
+统计从本次启用开始，重启插件或进程后归零；网关断线重连不清空。收到的消息在去重后计数，自己的频道回显不算收到；发送以实际成功为准，失败和重试不额外计数，流式回复只算一条。群聊、单聊和频道统一计入同一个 Bot，计数不依赖日志等级。`statsTypes.ts` 定义前后端共用的 `QQOfficialStats`（时间为毫秒），`stats.ts` 实现计数。
 
 ## 4. 鉴权与网关
 
@@ -65,9 +87,11 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 - READY 之后取一次 `GET /users/@me`（名字、头像，`union_openid` 作为 bot openid 的后备），然后同步一次菜单（§8）
 - **op 7**（服务端要求重连）→ 断开后 resume；**op 9**（会话无效）→ 清会话，重新 identify
 - **关闭码**：4009 可 resume；4006 / 4007 / 4900~4913 只能 identify；4008（发得太快）至少等 10 秒；4004 当成 token 失效，换 token 后重连；4001 / 4002 / 4010~4014 / 4914（已下架，只能连沙箱）/ 4915（已封禁）不再重连。其余（含网络断开 1006）按 1 / 2 / 5 / 10 / 30 / 60 秒退避，连上并稳定 30 秒后重置
-- **intents**（设置页全部可勾，默认只有 `GROUP_AND_C2C_EVENT`）：`GROUP_AND_C2C_EVENT` 1<<25、`GROUP_MEMBER_EVENT` 1<<24、`INTERACTION` 1<<26、`MESSAGE_AUDIT` 1<<27；频道 `GUILDS` 1<<0、`GUILD_MEMBERS` 1<<1、`GUILD_MESSAGES` 1<<9（私域）、`GUILD_MESSAGE_REACTIONS` 1<<10、`DIRECT_MESSAGE` 1<<12、`OPEN_FORUMS_EVENT` 1<<18、`AUDIO_OR_LIVE_CHANNEL_MEMBER` 1<<19、`FORUMS_EVENT` 1<<28（私域）、`AUDIO_ACTION` 1<<29、`PUBLIC_GUILD_MESSAGES` 1<<30。官方文档："除了 GUILDS、PUBLIC_GUILD_MESSAGES、GUILD_MEMBERS 事件是基础的事件"，其余要申请；订了没权限的会被 4013 / 4014 断开，所以默认不多订（crack 默认几乎全订）
+- **intents**（设置页全部可勾）：2026-11-05 按 owner 要求，默认与 `koishi-plugin-adapter-qq-crack` 1.0.33 一致，订阅下列 12 类（掩码 `1863062531` / `0x6F0C1403`）：`GROUP_AND_C2C_EVENT` 1<<25、`GROUP_MEMBER_EVENT` 1<<24、`INTERACTION` 1<<26、`MESSAGE_AUDIT` 1<<27；频道 `GUILDS` 1<<0、`GUILD_MEMBERS` 1<<1、`GUILD_MESSAGE_REACTIONS` 1<<10、`DIRECT_MESSAGE` 1<<12、`OPEN_FORUMS_EVENT` 1<<18、`AUDIO_OR_LIVE_CHANNEL_MEMBER` 1<<19、`AUDIO_ACTION` 1<<29、`PUBLIC_GUILD_MESSAGES` 1<<30。私域的 `GUILD_MESSAGES` 1<<9 和 `FORUMS_EVENT` 1<<28 默认不订阅，可手动勾选。crack 的 `DIRECT_MESSAGES` / `INTERACTIONS` 对应这里的 `DIRECT_MESSAGE` / `INTERACTION`，位值相同。显式保存的订阅列表仍按原值生效。官方文档："除了 GUILDS、PUBLIC_GUILD_MESSAGES、GUILD_MEMBERS 事件是基础的事件"，其余要申请；订了没权限的会被 4013 / 4014 断开，可在设置页调整
 
 ## 5. 收消息
+
+正常级别日志（不需要开启隐藏的 `debug`）包含网关连接 / 上线 / 断开 / 恢复 / 停止，以及群聊、单聊、频道、频道私信的收发摘要，统一来自 `qq-official` logger。摘要使用 `[收-群]` / `[发-私]` 等方向和场景标记，带会话和发送者；文字压成一行、最多 300 字符，媒体仅显示类型，不打印附件 URL、base64 或平台载荷属性。接收在解码和去重后记录；发送在获得成功的消息 ID 后记录，重试不重复记，审核未通过不记成功。流式单聊只记首个成功分片，群里攒片直到实际发出才记，避免逐片刷屏。
 
 每个事件先作为 `internal` 事件经 `qq` 分发（`_type` 是 `qq/<小写、短横线的事件名>`，`_data` 是原始数据，插件在 `bot/event` 里按 `session.type === 'internal'` 取），再按下表解码。缺名字的用户从用户名缓存补，设了查询接口再问它。
 
@@ -82,9 +106,9 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 | `FRIEND_ADD` / `FRIEND_DEL` | `friend-added` / `friend-deleted` | Satori 规范没有，名字取自 `@satorijs/protocol` 的 `EventName` |
 | `GROUP_MEMBER_ADD` / `_UPDATE` / `_REMOVE` | `guild-member-added` / `-updated` / `-removed` | 要 `GROUP_MEMBER_EVENT` |
 | `GROUP_JOIN_REQUEST` | `guild-member-request` | `message.id` 是 `join_request_id`、`content` 是验证消息或问答；`bot.handleGuildMemberRequest(messageId, approve, comment)` 回复（记着申请来自哪个群、谁，最多 1000 条；`internal.getJoinRequestList` 拉到的也记） |
-| `INTERACTION_CREATE` | `interaction/button` | `button: { id, data }`；回 `PUT /interactions/{d.id}`，不然按钮一直转圈。没有 `data.resolved` 的不发；`chat_type` 3 的发到 `qqguild` |
+| `INTERACTION_CREATE` | `interaction/button` | `button: { id, data }`；回 `PUT /interactions/{d.id}`，不然按钮一直转圈。没有 `data.resolved` 的不发；`chat_type` 3 的按频道 ID 路由 |
 
-频道（`qqguild`）：
+频道（仍由 `qq` bot 分发，资源 ID 带 `qqguild:` 前缀）：
 
 | 官方事件 | Satori 事件 | 说明 |
 |---|---|---|
@@ -163,13 +187,17 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 
 ## 7. bot 的方法
 
-- `features`：`qq` 是 `message.markdown` / `button` / `card`（markdown 写的）/ `stream`（群里攒成一条）/ `proactive` 和 `guild.plain`，`qqguild` 是 `markdown` / `button` / `card` / `face`（频道的流式、主动消息官方没写）。都没有 `message.forward`
+- `features`：统一 bot 暴露全部目标的能力并集：`message.markdown` / `button` / `card`（markdown 写的）/ `face` / `stream` / `proactive` 和 `guild.plain`，没有 `message.forward`。`face` 在频道原生发送，群聊和单聊仍走降级；群聊的流式攒成一条，频道的流式、主动消息官方没写。
 - 中立层（`packages/plugin-sdk` 的 `Bot`，可选方法）：`qq` 有 `getUser`（缓存 → 查询接口）、`getGuild` / `getChannel`（`GET /v2/groups/{id}/info` 的群名；`private:` 频道给用户名）、`getChannelList`、`getGuildMember` / `getGuildMemberList`（`/v2/groups/{id}/members`，`next_cursor` 翻页）、`kickGuildMember`（`batch_remove_members`，`permanent` 时加黑名单）、`muteGuildMember`（`restrict_chat_setting`：已禁言的 `update`、没有的 `add`、时长 0 `del`）、`handleGuildMemberRequest`、`createDirectChannel`、`deleteMessage`
 - `qq` 另有 `refreshBotGroupState(groupId)`（机器人在群里的身份、能否主动发消息、收哪些消息，身份写进 `bot.user.role`）、`updateCommands(commands)`（§8）、`internal`
-- `qqguild`：`getGuildList` / `getGuild`、`getChannelList` / `getChannel` / `createChannel` / `updateChannel` / `deleteChannel`、`muteChannel`（QQ 没有子频道禁言，是整个频道 30 天）、`getChannelOnlineNums`、子频道的成员 / 身份组权限、上下麦和音频控制、`getGuildMemberList` / `getGuildMember` / `kickGuildMember` / `muteGuildMember`、表态 `createReaction` / `deleteReaction` / `getReactionList`（表情写成 `<类型>:<id>`）、`getMessage` / `deleteMessage`、`createDirectChannel`、`internal`
-- `bot.internal`：全部 REST 接口，方法名和 Koishi 的一致（`getJoinRequestList`、`approveJoinRequest`、`getGroupMemberBlacklist`、`createJoinApprovalStrategy`、`generateUrlLink`、`createPinsMessage`、`createSchedule`……，列表在 `internal.ts`）。参数：先按顺序填路径参数，再是 body（GET / DELETE 是 query），body 后可再跟 query
+- 同一 bot 的频道方法（频道相关参数带 `qqguild:` 前缀，返回资源也带前缀）：`getGuildList` / `getGuild`、`getChannelList` / `getChannel` / `createChannel` / `updateChannel` / `deleteChannel`、`muteChannel`（QQ 没有子频道禁言，是整个频道 30 天）、`getChannelOnlineNums`、子频道的成员 / 身份组权限、上下麦和音频控制、`getGuildMemberList` / `getGuildMember` / `kickGuildMember` / `muteGuildMember`、表态 `createReaction` / `deleteReaction` / `getReactionList`（表情写成 `<类型>:<id>`）、`getMessage` / `deleteMessage`、`createDirectChannel`、`internal`
+- 频道的 `message.id`、引用、`referrer`、`at` / `sharp` 也加资源前缀；发送前只在频道实现边界去掉，插件的 `bot/before-send` 仍看到同一个主 Bot 和完整的命名空间。机器人自己的用户 ID 始终是 AppID，角色 ID 和按钮 ID / data 保持原样；分页 `next` 是原始不透明游标，直接传回即可。频道私信的成员、频道信息查询使用来源频道，发送 / 删除使用私信会话；`getMessage` 只支持子频道，平台没有提供读取频道私信消息的接口。
+- 频道的被动回复和流式状态与群聊 / C2C 分开保存，即使平台消息 ID 相同也不会互相占用、去重或串流。频道按钮回复使用事件的 `event_id`。只由主 Bot 发在线状态和同步插件指令菜单。
+- `bot.internal`：合并群聊 / 单聊 / 频道的全部 REST 接口，方法名大多和 Koishi 一致；`sendMessage` / `deleteMessage` 保留群聊含义，频道版本是 `sendGuildMessage` / `deleteGuildMessage`。所有原始方法仍接收腾讯原始 ID；SDK 的 `internalOf(bot, 'qq')` 包含合并后的接口，不再有 `qqguild` 平台分支（`getJoinRequestList`、`approveJoinRequest`、`getGroupMemberBlacklist`、`createJoinApprovalStrategy`、`generateUrlLink`、`createPinsMessage`、`createSchedule`……，列表在 `internal.ts`）。参数：先按顺序填路径参数，再是 body（GET / DELETE 是 query），body 后可再跟 query
 
 ## 8. 菜单
+
+单聊菜单的 `privateSlash` / `privateMenu` 和群聊指令面板的 `groupSlash` / `groupPanels` 按 owner 2026-11-05 要求暂时从 UI 隐藏（schema `.hidden()`），现有配置和同步逻辑继续生效。
 
 - `privateMenu`（最多 10 项：发送 / 链接 / 开关 / 子菜单，子菜单最多 5 项）READY 后同步到 `GET` / `PUT /v2/menu`，和平台上的一样就不写
 - `groupPanels`（最多 20 项：指令 / 链接）同步成一个 `target_type: all` 的群聊面板：有就改，没有先删掉别的面板腾配额再建，多余的删掉。面板接口约 6.5 秒才能写一次，写操作排队；配额满（40030013）只记警告，已删（40030006）跳过
@@ -186,9 +214,10 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 - 单测 `test/unit/universal/qqofficial/`：
   - `decode` / `passive` / `elements` 纯函数；`internal` 路径参数和 query；`users` 落盘和查询接口；`menu` 菜单和面板的同步、写入间隔、配额错误、跟随指令；`api` 的 endpoint、沙箱、query、multipart
   - `gateway` 用本地 `ws` 服务器测 identify、心跳、resume、invalid session、致命关闭码、僵死重连、`gatewayUrl`、换域名
-  - `plugin` / `features` 用假的 REST（`vi.stubGlobal('fetch')`）+ 本地网关：收消息、被动回复、去重重试、退回主动、媒体上传和回退、按钮回应、凭证错误让条目失败、`examples/plugins/echo`；markdown 和按钮（转义、换行、按钮组、平台字段）、ark 和各种平台载荷、markdown 里的 @、`data:` 图片拆分、`<passive>`、流式、`retryWhen`、审核等待、群成员和入群申请、禁言、群信息和成员、踢人、接收开关和 internal 事件、`qqguild` 的注册 / @ 消息 / 私信 / markdown / 图片 / 去重 / 表态和频道成员事件、没有按钮的互动、手动回应、菜单同步
+  - `plugin` / `features` 用假的 REST（`vi.stubGlobal('fetch')`）+ 本地网关：收消息、被动回复、去重重试、退回主动、媒体上传和回退、按钮回应、凭证错误让条目失败、`examples/plugins/echo`；markdown 和按钮（转义、换行、按钮组、平台字段）、ark 和各种平台载荷、markdown 里的 @、`data:` 图片拆分、`<passive>`、流式、`retryWhen`、审核等待、群成员和入群申请、禁言、群信息和成员、踢人、接收开关和 internal 事件、单 Bot 注册、频道 ID 隔离 / @ 消息 / 私信 / markdown / 图片 / 去重 / 表态和频道成员事件、没有按钮的互动、手动回应、菜单同步
   - `test/unit/bootstrap/builtins.test.ts` 验证没填凭证也能打开（条目 `failed`）、开着时只填一半存不进去、存好凭证后条目起来
   - 中立层扩展元素的共用用例（`test/unit/universal/crossPlatform.ts`）在 `features.test.ts` 里断言发成什么；频道的 `<emoji:id>` 收发、卡片缺字段时的降级也在那里
+  - `features` 的统一身份回归：群聊和频道使用相同原始消息 ID 仍分别收到、回复；频道引用 / @ / 子频道链接的前缀往返；频道私信的创建 / 发送 / 删除与 C2C 分流；资源查询 / 管理 / 原始 API 路由；按钮事件被动回复；同一个注册指令在群聊和频道执行且忽略自己发的频道消息；本地 Satori WebSocket 的 READY 只有一个 `qq` login，群聊和频道事件共用它，外部 `message.create` 能按带前缀的频道 ID 回复。
 - `examples/plugins/echo` 会先去掉开头对 bot 的 @：官方 bot 在群里只收得到 @ 它的消息
 - 不登录 QQ 的 WebUI 端到端验证照 [plugin-system.md](plugin-system.md) 的方法即可。用假 AppID 启用会真的请求腾讯的 token 接口，返回 `[10004] 机器人不存在`，卡片显示失败原因
 - **真机联调**：一个开放平台机器人加一个测试群。做法：
@@ -200,10 +229,11 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
   - 能用：token、网关（换到 `api.bot.qq.com` 的地址）、READY、跑满一小时被 4009 断开后 resume；群 @ 消息和单聊的收发；文字、markdown（加粗、斜体、删除线、代码、列表都渲染）、按钮（指令按钮点了以"@bot 文字"发进群，回调按钮来 `interaction/button`）、引用回复、markdown 里 @ 某人（真的 @）；网络图片、本地图片、语音（wav 转 silk）、视频、文件上传；纯文字里带网址；卡片的 markdown（标题加粗带链接、描述、图片各占一行，图片铺满气泡宽度）、带符号的文字原样显示；单聊流式、群里攒成一条、`stream="end"` 和 10 秒自动结束；只读接口（群信息、入群申请列表、禁言设置、菜单、面板、`getGatewayBot`）；外部 Satori 客户端看得到 `qq` login 和上面这些事件
   - 平台权限：ark 23 / 24 / 37 返回 `40034126 无ark模板权限`；群成员列表、群黑名单返回 `40012010 应用无接口访问权限`
   - 因此改掉的：纯文本里的 `<qqbot-at-user />` 原样显示（改成 markdown）；反斜杠转义原样显示、实体后的空格被吃（改成实体 + `&nbsp;`）；卡片的 ark 发不出（改成 markdown）；群里没有流式（攒成一条）；流不结束就一直挂着"生成中"（加 `stream="end"` 和空闲结束）；每片流都占回复次数（单聊不算）；同一频道两段回复同时进行会串（按 `referrer` 回复）
+- **2026-11-05 真机订阅验证**：公域测试机器人使用与 crack 1.0.33 相同的 12 类默认订阅成功上线；这验证了该 AppID 能订阅这组事件，未验证每类事件的实际收发。后续按 owner 要求将原来的 `qq` / `qqguild` 双身份合并为一个 `qq` Bot
 
 ## 11. 未验证
 
-- `GROUP_MEMBER_EVENT`、`INTERACTION` 不申请能不能订；频道的全部功能（没有频道机器人），包括频道的 ark 卡片、`<emoji:id>` 收发和流式
+- `GROUP_MEMBER_EVENT`、`INTERACTION` 对其他未申请权限的机器人是否也能订（当前测试 AppID 已验证能订）；频道的实际收发和管理功能，包括频道的 ark 卡片、`<emoji:id>` 收发和流式
 - 审核流程、入群申请审批、禁言接口的真实返回（只测了只读接口）
 - 富媒体回复事件是否真的不行（只有 crack 的经验）；带 `event_id` 的回复配 `msg_seq` 是否必要 / 允许（现在都带）
 - `<qqbot-at-everyone />`（会提醒全群，没测）

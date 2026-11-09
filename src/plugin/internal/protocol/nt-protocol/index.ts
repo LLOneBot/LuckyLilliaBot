@@ -23,7 +23,7 @@ import {
 import { NTLoginRoutes } from './loginRoutes'
 import { NTStatsRoutes } from './statsRoutes'
 import { DirectQQProtocolClient, NativeQQProtocolClient } from './qqProtocol'
-import AccountService from './account'
+import { bindLoginResources } from './loginResources'
 import Store from './store'
 import { NTProtocolSchema } from './settings'
 
@@ -34,9 +34,10 @@ export const Config = NTProtocolSchema
 const selectionOf = (config: NTProtocolConfig): ProtocolSelection => resolveProtocolSelection(config)
 
 /**
- * The scanned QQ account: the protocol (pure, or NativeQQ bridging an official QQ client), the NT APIs, the `account`
- * gate and, once logged in, the database, Core and Store. Switching it off takes all of that down, and everything
- * built on it (the OneBot / Satori / Milky adapters, WebQQ, the neutral layer's NT bot) waits until it is back.
+ * The scanned QQ account: the protocol (pure, or NativeQQ bridging an official QQ client), the NT APIs and, once
+ * logged in, the database, Core and Store. Switching it off takes all of that down, and everything
+ * built on it (OneBot, Milky, WebQQ, the neutral layer's NT bot) waits until it is back.
+ * Satori stays available for the other registered bots.
  */
 export function apply(ctx: Context, config: NTProtocolConfig) {
   const logger = ctx.logger('nt-protocol')
@@ -50,31 +51,35 @@ export function apply(ctx: Context, config: NTProtocolConfig) {
     if (updated.mode !== selection.mode || (updated.mode === 'nativeqq' && moved)) return restart()
     setProtocolSelection(selection = updated)
   })
-  ctx.plugin(selection.mode === 'nativeqq' ? NativeQQProtocolClient : DirectQQProtocolClient)
-  ctx.plugin(NTFileApi)
-  ctx.plugin(NTFriendApi)
-  ctx.plugin(NTGroupApi)
+  // Read on the next protocol start; saving automatic login must not interrupt the current account.
+  ctx.plugin(selection.mode === 'nativeqq' ? NativeQQProtocolClient : DirectQQProtocolClient, {
+    autoLoginUin: config.autoLoginUin,
+  })
   ctx.plugin(NTLoginApi)
-  ctx.plugin(NTMsgApi)
-  ctx.plugin(NTUserApi)
-  ctx.plugin(NTWebApi)
   ctx.plugin(NTSystemApi)
-  ctx.plugin(AccountService)
   ctx.plugin(NTLoginRoutes)
   ctx.plugin(NTStatsRoutes)
 
-  // The account's own tables are per account, so this waits for the first login; `account` survives reconnects, so
-  // it runs once. Its database is isolated: the plugins' ctx.database is the instance's (builtin:database)
-  ctx.inject(['account', 'config'], (ctx) => {
-    const config = ctx.config.get()
-    const own = ctx.isolate('database').isolate('model')
-    own.plugin(Database)
-    own.plugin(SQLiteDriver, {
-      path: pathToFileURL(path.join(dbDir, `${ctx.account.uin}.v3.db`)).href,
-    })
-    own.plugin(Core, config)
-    own.plugin(Store, {
-      msgCacheExpire: config.msgCacheExpire!,
+  // This database belongs to one logged-in identity. Plugins use the instance database (builtin:database).
+  ctx.inject(['qqProtocol', 'config'], (ctx) => {
+    bindLoginResources(ctx, (ctx, identity) => {
+      const config = ctx.config.get()
+      const own = ctx.isolate('database').isolate('model')
+      own.plugin(Database)
+      own.plugin(SQLiteDriver, {
+        path: pathToFileURL(path.join(dbDir, `${identity.uin}.v3.db`)).href,
+      })
+      // Their caches belong to this identity too. Login/System stay available before login.
+      own.plugin(NTFriendApi)
+      own.plugin(NTGroupApi)
+      own.plugin(NTUserApi)
+      own.plugin(NTFileApi)
+      own.plugin(NTMsgApi)
+      own.plugin(NTWebApi)
+      own.plugin(Core, config)
+      own.plugin(Store, {
+        msgCacheExpire: config.msgCacheExpire!,
+      })
     })
   })
 

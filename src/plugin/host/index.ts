@@ -9,7 +9,7 @@ import type Schema from 'schemastery'
 import { hydrate, SchemaNode } from '@/common/schema/model'
 import { stripDefaults, withDefaults } from '@/common/schema/diff'
 import {
-  isImagePath, isInside, normalizeService, PluginAuthor, PluginPackage, readPluginPackage, scanPluginRoots, SDK_PACKAGE,
+  isImagePath, isInside, matchesPluginVersion, normalizeService, PluginAuthor, PluginPackage, readPluginPackage, scanPluginRoots, SDK_PACKAGE,
   sdkIncompatibility, ServiceDeclaration,
 } from './manifest'
 import { installPluginResolver, ResolverState, sharedSpecifierMap } from './resolve-hook'
@@ -39,8 +39,6 @@ export type { UiPrefs }
 
 /** A change to the UiPrefs, applied as a whole: several tabs may edit them at once. */
 export interface UiPrefsPatch {
-  approve?: string[]
-  revoke?: string[]
   hide?: string[]
   show?: string[]
   /** null drops the position */
@@ -73,8 +71,6 @@ export interface PluginStatus {
   service: ServiceDeclaration
   /** URL of the WebUI module; it changes whenever the package is reloaded, so the WebUI imports it afresh. */
   webui?: string
-  /** For a package with a WebUI module: whether the user let it load (UiPrefs.approved). */
-  webuiApproved?: boolean
   /** What an enabled builtin says about its settings, e.g. that something still has to be filled in. */
   notice?: string
   /** Where it takes events from; absent: everywhere. */
@@ -123,8 +119,19 @@ export interface DependencyInfo {
 
 export interface DependencyReport {
   dependencies: DependencyInfo[]
+  /** Explicit plugin package requirements, separate from services and private npm libraries. */
+  packages?: PackageDependencyInfo[]
   /** Services this entry implements that other enabled entries implement too. */
   conflicts: { service: string; with: string[] }[]
+}
+
+export interface PackageDependencyInfo {
+  name: string
+  range: string
+  version?: string
+  /** All entries belonging to this installed plugin package. */
+  entries: string[]
+  state: 'missing' | 'incompatible' | 'disabled' | 'pending' | 'active' | 'failed'
 }
 
 export interface BuiltinPlugin {
@@ -236,6 +243,8 @@ interface Runtime {
   listenerError?: ListenerError
   /** When a listener error last went out as a change: a plugin failing on every message must not flood the WebUI */
   listenerNoticed?: number
+  /** Waiting for an installed, compatible package; rescans retry only entries stopped by this gate. */
+  packageBlocked?: boolean
 }
 
 const LISTENER_NOTICE_INTERVAL = 1_000
@@ -279,7 +288,7 @@ class PluginService extends Service {
     super(ctx, 'plugins')
     this.home = ctx
     if (config.dataDir) {
-      this.dataDirs = new PluginDataDirs(config.dataDir, () => (ctx.get('account') as { uin?: string } | undefined)?.uin)
+      this.dataDirs = new PluginDataDirs(config.dataDir)
     }
     this.store = new PluginStore(config.file)
     this.builtins = new Map((config.builtins ?? []).map(builtin => [builtin.name, builtin]))
@@ -356,6 +365,21 @@ class PluginService extends Service {
     return this.status(this.runtime(id))
   }
 
+  /** The entry behind a logger's fiber, including nested services and logs during disposal. */
+  logSource(fiber: Fiber): { id: string; name: string; title: string } | undefined {
+    const id = this.entryOfFiber(fiber)
+    if (id === undefined) return
+    const entry = this.runtimes.get(id)?.entry
+    if (!entry) return
+    const builtin = this.builtins.get(entry.name)
+    const declared = this.packages.get(entry.name)?.manifest.title
+    // Keep the same title precedence as the WebUI's pluginTitle().
+    const localized = typeof declared === 'string' ? declared.trim() || undefined
+      : declared?.zh ?? declared?.['zh-CN'] ?? declared?.en
+    const title = builtin?.title ?? localized ?? entry.name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
+    return { id, name: entry.name, title }
+  }
+
   /** The plugin packages the last scan found */
   packageList(): PluginPackage[] {
     return [...this.packages.values()]
@@ -395,18 +419,17 @@ class PluginService extends Service {
   }
 
   /**
-   * Drops what the user granted a package: trust, its WebUI's approval, where they put or hid its contributions. For
+   * Drops a package's trust and the positions and visibility of its WebUI contributions. For
    * a package that is gone: installing it again asks again.
    */
   async forget(name: string): Promise<void> {
     const ui = this.data.ui
     const prefix = `${name}|`
-    const granted = this.data.trusted?.includes(name) || ui?.approved.includes(name)
+    const granted = this.data.trusted?.includes(name)
       || ui?.hidden.some(key => key.startsWith(prefix)) || Object.keys(ui?.order ?? {}).some(key => key.startsWith(prefix))
     if (!granted) return
     if (this.data.trusted) this.data.trusted = this.data.trusted.filter(item => item !== name)
     if (ui) {
-      ui.approved = ui.approved.filter(item => item !== name)
       ui.hidden = ui.hidden.filter(key => !key.startsWith(prefix))
       for (const key of Object.keys(ui.order)) if (key.startsWith(prefix)) delete ui.order[key]
     }
@@ -567,7 +590,11 @@ class PluginService extends Service {
     if (!this.resolverInstalled) {
       return { status: 'restart-required', reason: 'module.registerHooks is unavailable (Node < 22.15), changed submodules would not be re-imported' }
     }
-    return this.lock(rt.entry.name, () => this.reloadPackage(rt.entry.name))
+    try {
+      return await this.lock(rt.entry.name, () => this.reloadPackage(rt.entry.name))
+    } finally {
+      await this.reconcilePackageDependencies()
+    }
   }
 
   /** Computed on request: whether each service is up depends on the whole app, not just this entry. */
@@ -591,7 +618,9 @@ class PluginService extends Service {
         candidates: (implementers.get(name) ?? []).map(other => other.entry.id),
       }
     }
+    const packages = this.packageDependencies(rt)
     return {
+      ...(packages.length ? { packages } : {}),
       dependencies: [
         ...own.required.map(name => describe(name, true)),
         ...own.optional.filter(name => !own.required.includes(name)).map(name => describe(name, false)),
@@ -611,7 +640,6 @@ class PluginService extends Service {
     const name = packageOfKey(key)
     const entry = this.packages.get(name)?.webui
     if (!entry) return
-    if (!this.webuiApproved(name)) throw new PluginForbiddenError(`the WebUI of ${name} is not approved`)
     const dir = path.dirname(entry)
     const target = path.resolve(dir, file)
     return isInside(dir, target) ? target : undefined
@@ -619,8 +647,7 @@ class PluginService extends Service {
 
   /**
    * An image of an installed package, for `/plugin-assets/<key>/<version>/<file>`: its icon, its screenshots and what
-   * its details show. Any image inside the package and nothing else; being passive, they need no approval, unlike
-   * the WebUI module.
+   * its details show. Only image files inside the package are served.
    */
   asset(key: string, file: string): string | undefined {
     const pkg = this.packages.get(packageOfKey(key))
@@ -645,20 +672,10 @@ class PluginService extends Service {
     return structuredClone(this.data.ui ?? normalizeUi(undefined))
   }
 
-  /**
-   * Approving is for installed packages with a WebUI module; the rest takes any key, a stale one included. A
-   * change of approvals also goes out as a list change, since the statuses carry them.
-   */
+  /** Updates visibility and positions by contribution key, including keys for packages no longer installed. */
   async updateUiPrefs(patch: UiPrefsPatch): Promise<UiPrefs> {
     const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && !!item) : [])
-    const approve = strings(patch.approve)
-    for (const name of approve) {
-      if (!this.packages.get(name)?.webui) throw new PluginNotFoundError(`no installed plugin package ${name} with a WebUI`)
-    }
     const prefs = this.uiPrefs()
-    const approvedBefore = [...prefs.approved]
-    const revoke = new Set(strings(patch.revoke))
-    prefs.approved = [...new Set([...prefs.approved, ...approve])].filter(name => !revoke.has(name))
     const show = new Set(strings(patch.show))
     prefs.hidden = [...new Set([...prefs.hidden, ...strings(patch.hide)])].filter(key => !show.has(key))
     if (patch.order && typeof patch.order === 'object') {
@@ -670,12 +687,7 @@ class PluginService extends Service {
     this.data.ui = prefs
     await this.save()
     this.ctx.emit('plugins/ui', this.uiPrefs())
-    if (prefs.approved.join('\n') !== approvedBefore.join('\n')) this.changed()
     return this.uiPrefs()
-  }
-
-  private webuiApproved(name: string): boolean {
-    return !!this.data.ui?.approved.includes(name)
   }
 
   /** Imports the module if it has not been loaded yet, so it also works for disabled entries. */
@@ -836,6 +848,7 @@ class PluginService extends Service {
       created = true
     }
     if (created) await this.save()
+    await this.reconcilePackageDependencies()
     if (added.length || removed.length || changed.length || edited) this.changed()
     return { added, changed, removed }
   }
@@ -870,7 +883,10 @@ class PluginService extends Service {
       return
     }
     const pkg = this.packages.get(rt.entry.name)
-    if (!pkg || this.incompatibility(pkg)) return this.changed(rt.entry.id)
+    if (!pkg || this.incompatibility(pkg) || this.packageBlock(rt)) {
+      rt.packageBlocked = true
+      return this.changed(rt.entry.id)
+    }
     const mod = await this.load(pkg)
     if (!mod.plugin) {
       rt.error = mod.error
@@ -880,6 +896,13 @@ class PluginService extends Service {
   }
 
   private mount(rt: Runtime, plugin: Plugin): Fiber | undefined {
+    // The package list may have changed while its module was being imported. Reloads use this gate too.
+    if (this.packageBlock(rt)) {
+      rt.packageBlocked = true
+      this.changed(rt.entry.id)
+      return
+    }
+    rt.packageBlocked = false
     rt.error = undefined
     try {
       // ctx.plugin() hands back a thenable wrapper; internal/status reports the fiber itself
@@ -913,12 +936,20 @@ class PluginService extends Service {
     const pkg = (await readPluginPackage(known.root)) ?? known
     this.packages.set(name, pkg)
     this.bumpWebui(name)
+    const targets = this.entriesOf(name).filter(rt => !this.isDisabled(rt))
+    if (this.incompatibility(pkg) || targets.some(rt => this.packageBlock(rt))) {
+      for (const rt of targets) {
+        await this.stop(rt)
+        rt.packageBlocked = true
+      }
+      this.changed()
+      return { status: 'reloaded' }
+    }
     // ?v= re-imports the package's ES modules; CommonJS ones (dependencies, mostly) sit in require.cache by path
     for (const file of Object.keys(requireCache)) {
       if (isInside(pkg.root, file)) delete requireCache[file]
     }
     const mod = await this.load(pkg, true)
-    const targets = this.entriesOf(name).filter(rt => !this.isDisabled(rt))
     if (!mod.plugin) {
       for (const rt of targets) {
         if (!rt.fiber) continue
@@ -979,13 +1010,16 @@ class PluginService extends Service {
     if (pkg?.detailsFile || pkg?.screenshots.length) status.hasDetails = true
     if (entry.scope) status.scope = entry.scope
     if (!builtin) status.trusted = this.isTrusted(entry.name)
-    if (pkg?.webui) status.webuiApproved = this.webuiApproved(pkg.name)
     if (builtin) {
       Object.assign(status, { builtin: true, core: !!builtin.core, title: builtin.title })
     } else {
       if (!pkg) return { ...status, state: 'missing' }
       const incompatible = this.incompatibility(pkg)
       if (incompatible) return { ...status, state: 'incompatible', error: incompatible }
+    }
+    if (!status.disabled) {
+      const blocked = this.packageBlock(rt)
+      if (blocked) return { ...status, ...blocked }
     }
     if (rt.error) status.error = rt.error
     if (builtin?.config?.notice && !status.disabled) status.notice = this.noticeOf(builtin, rt)
@@ -1061,6 +1095,73 @@ class PluginService extends Service {
     return sdkIncompatibility(pkg.sdkRange, this.sdkVersion)
   }
 
+  private packageRequirements(rt: Runtime): Record<string, string> {
+    return (this.builtins.get(rt.entry.name)?.manifest ?? this.packages.get(rt.entry.name)?.manifest)?.dependencies ?? {}
+  }
+
+  private packageBlock(rt: Runtime): { state: 'pending' | 'incompatible'; error: string } | undefined {
+    for (const [name, range] of Object.entries(this.packageRequirements(rt))) {
+      const pkg = this.packages.get(name)
+      if (!pkg) return { state: 'pending', error: `requires plugin package ${name} ${range}, but it is not installed` }
+      if (!matchesPluginVersion(pkg.version, range)) {
+        return { state: 'incompatible', error: `requires plugin package ${name} ${range}, installed version is ${pkg.version}` }
+      }
+    }
+  }
+
+  private packageDependencies(rt: Runtime): PackageDependencyInfo[] {
+    return Object.entries(this.packageRequirements(rt)).map(([name, range]) => {
+      const pkg = this.packages.get(name)
+      const entries = this.entriesOf(name)
+      const enabled = entries.filter(entry => !this.isDisabled(entry))
+      const base = { name, range, entries: entries.map(entry => entry.entry.id) }
+      if (!pkg) return { ...base, state: 'missing' }
+      const installed = { ...base, version: pkg.version }
+      if (!matchesPluginVersion(pkg.version, range)) return { ...installed, state: 'incompatible' }
+      if (!enabled.length) return { ...installed, state: 'disabled' }
+      if (enabled.some(entry => entry.fiber?.state === FiberState.ACTIVE && !this.packageBlock(entry))) {
+        return { ...installed, state: 'active' }
+      }
+      if (this.incompatibility(pkg) || enabled.some(entry => entry.error || entry.fiber?.state === FiberState.FAILED)) {
+        return { ...installed, state: 'failed' }
+      }
+      return { ...installed, state: 'pending' }
+    })
+  }
+
+  /** Package changes stop affected consumers, and restore entries that were waiting for compatible packages. */
+  private async reconcilePackageDependencies() {
+    for (const rt of this.runtimes.values()) {
+      const pkg = this.packages.get(rt.entry.name)
+      const blocked = (!this.builtins.has(rt.entry.name) && (!pkg || this.incompatibility(pkg))) || this.packageBlock(rt)
+      if (this.isDisabled(rt) || (!blocked && !rt.packageBlocked)) continue
+      if (!blocked) {
+        this.resumePackageConsumer(rt)
+        continue
+      }
+      await this.lock(rt.entry.name, async () => {
+        if (this.isDisabled(rt) || !this.runtimes.has(rt.entry.id)) return
+        const pkg = this.packages.get(rt.entry.name)
+        const blocked = (!this.builtins.has(rt.entry.name) && (!pkg || this.incompatibility(pkg))) || this.packageBlock(rt)
+        if (blocked) {
+          await this.stop(rt)
+          rt.packageBlocked = true
+        } else {
+          this.resumePackageConsumer(rt)
+        }
+      })
+    }
+  }
+
+  private resumePackageConsumer(rt: Runtime) {
+    // An initializer can itself call scan(). Do not hold up this scan while waiting for it to finish.
+    this.lock(rt.entry.name, async () => {
+      if (!rt.packageBlocked) return
+      rt.packageBlocked = false
+      await this.start(rt)
+    }).catch(error => this.ctx.logger.error(error))
+  }
+
   private watch(): () => void {
     const pending = new Map<string, () => void>()
     const stop = watchPluginRoots(
@@ -1090,7 +1191,11 @@ class PluginService extends Service {
       return
     }
     this.ctx.logger.info(`${pkg.name} changed, reloading`)
-    await this.lock(pkg.name, () => this.reloadPackage(pkg.name))
+    try {
+      await this.lock(pkg.name, () => this.reloadPackage(pkg.name))
+    } finally {
+      await this.reconcilePackageDependencies()
+    }
   }
 
   private createEntry(name: string, disabled: boolean, config?: unknown): Runtime {

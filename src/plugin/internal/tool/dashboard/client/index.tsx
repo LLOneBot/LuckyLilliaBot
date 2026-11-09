@@ -5,9 +5,9 @@ import { DashboardHeader, DashboardPage } from './DashboardPage'
 export const name = 'builtin:dashboard'
 
 const apply: WebUIPlugin = (ctx) => {
-  ctx.declareSlot('dashboard.header', { title: 'Dashboard 标题', description: '替换掉 Dashboard 顶上的标题和欢迎语', cardinality: 'single' })
-  ctx.declareSlot('dashboard.cards', { title: 'Dashboard 卡片', description: 'Dashboard 上的卡片', cardinality: 'list' })
-  ctx.page({ id: 'dashboard', title: 'Dashboard', icon: 'layout-dashboard', order: 0, component: DashboardPage, header: DashboardHeader })
+  ctx.declareSlot('dashboard.header', { title: '状态面板标题', description: '替换状态面板顶部的标题和欢迎语', cardinality: 'single' })
+  ctx.declareSlot('dashboard.cards', { title: '状态面板卡片', description: '状态面板上的卡片', cardinality: 'list', configurable: true })
+  ctx.page({ id: 'dashboard', title: '状态面板', icon: 'layout-dashboard', order: 0, component: DashboardPage, header: DashboardHeader })
   // Its own cards are contributions like anyone else's, so other plugins' cards line up among them by `order`
   ctx.slot('dashboard.cards', { id: 'uptime', label: '运行时间', component: UptimeCard, order: 1 })
   ctx.slot('dashboard.cards', { id: 'llbot', label: 'LLBot 资源', component: BotResourcesCard, order: 2 })

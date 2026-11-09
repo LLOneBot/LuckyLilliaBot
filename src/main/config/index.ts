@@ -25,7 +25,7 @@ const port = (raw: string) => (/^\d+$/.test(raw.trim()) && +raw <= 65535 ? +raw 
 const ENV_OVERRIDES: { env: string; arg?: string; path: string[]; parse: (raw: string) => unknown }[] = [
   { env: 'LLBOT_WEBUI_HOST', path: ['webui', 'host'], parse: raw => raw },
   { env: 'LLBOT_WEBUI_PORT', arg: '--webui-port', path: ['webui', 'port'], parse: port },
-  { env: 'LLBOT_LOG_LEVEL', path: ['logLevel'], parse: raw => (raw === 'debug' || raw === 'info' ? raw : undefined) },
+  { env: 'LLBOT_LOG_LEVEL', path: ['logLevel'], parse: raw => (['debug', 'info', 'warn', 'error'].includes(raw) ? raw : undefined) },
 ]
 
 interface EnvLock {
@@ -81,6 +81,11 @@ function overlayEnv(config: LLBotConfig, warn: (message: string) => void): Map<s
     const leaf = keys[keys.length - 1]
     locks.set(keys.join('.'), { by: source.by, disk: parent[leaf], value: source.value })
     parent[leaf] = source.value
+  }
+  if (process.argv.includes('--debug')) {
+    const previous = locks.get('logLevel')
+    locks.set('logLevel', { by: '--debug', disk: previous ? previous.disk : config.logLevel, value: 'debug' })
+    config.logLevel = 'debug'
   }
   return locks
 }

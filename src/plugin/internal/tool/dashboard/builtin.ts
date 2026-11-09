@@ -3,7 +3,7 @@ import { Dashboard } from '.'
 
 export const builtin: BuiltinPlugin = {
   name: 'builtin:dashboard',
-  title: 'Dashboard',
+  title: '状态面板',
   plugin: Dashboard,
   manifest: {
     category: 'tool',

@@ -33,7 +33,6 @@
    │  ├─ webui_token.txt                这个实例的 WebUI 密码
    │  ├─ database.db                    插件的 ctx.database(builtin:database),这个实例的所有账号共用,不等登录
    │  └─ plugin-data/<key>/shared/      插件数据:ctx.storage.dir(),也是条目的 ctx.baseUrl
-   │     plugin-data/<key>/<uin>/       ctx.storage.dir('account')
    │     plugin-data/<key>/bots/<平台>+<selfId>/   ctx.storage.dir('bot', bot)
    ├─ plugins/                          插件代码,所有实例共用;插件市场装到这里(装的时候先放在临时目录 .market-*)
    ├─ state/                            bot 私有、不要手改:实例锁 instances/<实例名>.lock、文件写锁
@@ -45,7 +44,7 @@
 ```
 
 - 实例名:`[A-Za-z0-9][A-Za-z0-9_-]{0,63}`,QQ 号也是合法实例名,原样作为目录名。
-- 插件数据跟实例走:两个实例启用同一个插件,数据互不相干。`<key>`:第三方插件用包名把 `/` 换成 `+`;内置条目用 `_builtin+<名字>`(冒号在 Windows 路径里非法,`_` 开头不会撞真实包名)。`dir('account')` 要求调用链上 inject 了 `account`;卸载插件不删数据。插件的结构化数据用 `ctx.database`(实例的 `database.db`,`configPaths.database()`;原来插件用的是 NTQQ 的 `<uin>.v3.db`,登录后才有,只开官方机器人时没有)。
+- 插件数据跟实例走:两个实例启用同一个插件,数据互不相干。`<key>`:第三方插件用包名把 `/` 换成 `+`;内置条目用 `_builtin+<名字>`(冒号在 Windows 路径里非法,`_` 开头不会撞真实包名)。`dir('bot', bot)` 按平台和账号隔离，不需要登录；旧 `<key>/<QQ号>/` 在新目录不存在时沿用，两者都存在时优先新目录，旧数据不移动、不合并。旧 `dir('account')` 接口已删除；卸载插件不删数据。插件的结构化数据用 `ctx.database`(实例的 `database.db`,`configPaths.database()`;原来插件用的是 NTQQ 的 `<uin>.v3.db`,登录后才有,只开官方机器人时没有)。
 
 ## 4. 选实例与实例锁
 
@@ -80,7 +79,7 @@
 }
 ```
 
-- 条目的 `scope`(生效范围)、顶层的 `messageOrder` / `trusted` / `ui`(插件界面的批准和偏好)都由插件服务读写,含义见 [plugin-system.md](plugin-system.md)"插件包与条目"。
+- 条目的 `scope`(生效范围)、顶层的 `messageOrder` / `trusted` / `ui`(插件界面的显示和排序偏好)都由插件服务读写,含义见 [plugin-system.md](plugin-system.md)"插件包与条目"。
 
 - **只有一层**:生效值 = schema 默认值 + 条目的 `config`。落盘只存相对 schema 默认值的差异,差异由服务端算,`PUT` 收完整值。合并和差异沿用已实施的 schema 感知规则:只有 `object` 逐 key 递归,`dict` / `array` / `union` / 标量整体替换。
 - **开关一律是条目的 `disabled`**,内置插件也一样。`ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled` 不再存在,迁移时转成 `disabled`。
@@ -97,10 +96,14 @@
 - OneBot `get_config` / `set_config` 对外字段形状不变:`get_config` 返回 bot 设置加上 `ob11` / `satori` / `milky`(各自的 `enable` = 条目没停用);`set_config` 把 bot 设置字段交给 ConfigService,三个适配器段交给插件服务(`enable` 转成启用 / 停用),同样校验。
 - 前端各设置页经 plugin SDK 的 `usePluginConfig()` 走插件接口（见 [plugin-system.md](plugin-system.md)"内置插件的界面"）。
 
+NTQQ 的「自动登录」属于协议插件配置，存在实例 `plugins.json` 的 `builtin:nt-protocol.config.autoLoginUin`：空串表示关闭，非空是登录成功后勾选的 QQ 号。凭据仍使用共享的 QQ 登录记录，不写进实例配置；修改勾选项不重启当前协议，下一次启动时读取。
+
 ## 7. bot 设置(`settings.json`)
 
+- 日志页设置 `logLevel`（`debug` / `info` / `warn` / `error`，默认 `info`）和 `log`（写入文件），分别单字段提交；输出级别运行时生效，影响后续 WebUI、控制台和文件日志。`LLBOT_LOG_LEVEL` 支持相同四个值；`--debug` 将级别锁为 `debug`，优先级更高，两者都通过 `envLocked` 告知页面，不覆盖文件里的原值。
+
 - 一个文件,不再拆实例级 / 账号级,也不含适配器配置。`ConfigService` 启动时就绑定当前实例的文件,登录不切换;删掉 `-q` 预读、`peek(uin)`、`accountFile`。
-- 在 WebUI 里改的地方(2026-11-03 起没有"其他配置"页):WebUI 地址、端口、密码在侧边栏的齿轮;`log` 在日志页;`msgCacheExpire` 在 NTQQ 页;`musicCardSignUrl` 在 OneBot 11 页。存的地方还是这个文件,见 [plugin-system.md](plugin-system.md)"bot 设置在用到它的地方改"。
+- 在 WebUI 里改的地方(2026-11-03 起没有"其他配置"页):WebUI 地址、端口、密码在侧边栏「WebUI」设置页（插件卡片的齿轮也跳到这里）;`log` 在日志页;`msgCacheExpire` 在 NTQQ 页;`musicCardSignUrl` 在 OneBot 11 页。存的地方还是这个文件,见 [plugin-system.md](plugin-system.md)"bot 设置在用到它的地方改"。
 - 生效顺序(后覆盖前):代码默认值 < `default_config.json`(只在新建实例时用)< `settings.json` < 环境变量(`LLBOT_WEBUI_HOST/PORT`、`LLBOT_LOG_LEVEL`)< 启动参数(`--webui-port <端口>` / `--webui-port=<端口>`,2026-11-02)。两层都只进内存、不落盘(`ConfigService` 的 `ENV_OVERRIDES`,一项可以同时有 `env` 和 `arg`),被盖住的字段在 WebUI 只读,`/api/config` 的 `envLocked` 每项是 `{ path, by }`,`by` 是给出它的启动参数(`-` 开头)或环境变量名。端口只认 0–65535 的整数;启动参数的值不能用时打一次警告、忽略,环境变量或文件照常生效。
 - `/api/login-info` 不再需要预判"登录后 WebUI 会去哪":登录前后 WebUI 配置相同。它的 `webui` 字段和前端登录后的跳转已删除(见 [core-pluginization.md](core-pluginization.md) §5)。
 
@@ -148,7 +151,7 @@
   - `webui_token.txt` 路径(`LLBotConfigViewModel.cs:336`)→ `instances/<实例名>/`;
   - LLBot 配置页(`LLBotConfigViewModel.cs:331`)、一键对接(`IntegrationWizardViewModel.cs` 4 处)、OpenClaw(`OpenClawInstallService.cs:442`)/ RedReply(`RedReplyInstallService.cs:154`)的端口探测、邮件(`EmailService.cs:30`)→ bot 运行时走 WebUI 插件接口,没运行时读写 `instances/<实例名>/plugins.json` 里的内置条目;
   - 以后要多开,再加实例管理(启动时传 `--instance`)。
-  - 官方 QQ 客户端桥接(2026-11-02,见 [core-pluginization.md](core-pluginization.md) §6):启动参数 `--pmhq` / `--pmhq-config` 改成 `--nativeqq` / `--nativeqq-config`,旧的不再识别;给桌面端的 IPC(`LL_IPC_PIPE`:`get_login_state`、`get_pmhq_health`、`get_pmhq_qrcode`、`set_pmhq_auth_token`、`shutdown`)整个去掉,状态和二维码改走 WebUI 接口(`/api/login-info`、`/api/login-qrcode`、`/api/auth-token`),停 Bot 靠信号或 `LL_PARENT_PID`;桥接不再因为是桌面端启动就自动拉起 QQ,要自动就传 `-q`;无头模式要传 `--direct`(登录方式默认改成了桥接,原来靠 `LL_IPC_PIPE` 锁成纯协议)。
+  - 官方 QQ 客户端桥接(2026-11-02,见 [core-pluginization.md](core-pluginization.md) §6):启动参数 `--pmhq` / `--pmhq-config` 改成 `--nativeqq` / `--nativeqq-config`,旧的不再识别;给桌面端的 IPC(`LL_IPC_PIPE`:`get_login_state`、`get_pmhq_health`、`get_pmhq_qrcode`、`set_pmhq_auth_token`、`shutdown`)整个去掉,状态和二维码改走 WebUI 接口(`/api/login-info`、`/api/login-qrcode`、`/api/auth-token`),停 Bot 靠信号或 `--parent-pid=<PID>`;桥接不再因为是桌面端启动就自动拉起 QQ,要自动就传 `-q`;无头模式要传 `--direct`(登录方式默认改成了桥接,原来靠 `LL_IPC_PIPE` 锁成纯协议)。
 - docker:`startup.sh` sed `default_config.json` 照旧有效(新建实例从它取值);`install-llbot-docker.sh` 生成的 `config_<uin>.json` 首次启动靠迁移导入,后续改成直接写 `instances/default/`。已部署的桥接 compose 要改:`PROTOCOL_MODE=nativeqq`(别的值 `startup.sh` 直接报错退出)、配置文件改名 `nativeqq_config.json`(或用 `NATIVEQQ_CONFIG` 指定)、镜像按 `docker/Dockerfile.nativeqq` 重新构建。
 - nix:sed `default_config.json` 照旧有效。
 - 文档站:讲配置文件位置的页面。

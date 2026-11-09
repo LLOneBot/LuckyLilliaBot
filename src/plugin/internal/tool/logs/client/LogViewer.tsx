@@ -6,6 +6,8 @@ import LogFileSwitch from './LogFileSwitch'
 interface LogRecord {
   timestamp: number
   type: string
+  source?: string
+  plugin?: { id: string; name: string; title: string }
   content: string
   dateTimeStr: string
 }
@@ -13,6 +15,13 @@ interface LogRecord {
 const LOG_ITEM_HEIGHT = 72
 const MAX_LOGS = 1000
 const BUFFER_SIZE = 10
+const LOG_LEVELS = [
+  { value: 'all', label: '全部' },
+  { value: 'debug', label: 'Debug' },
+  { value: 'info', label: 'Info' },
+  { value: 'warn', label: 'Warn' },
+  { value: 'error', label: 'Error' },
+]
 
 const LogViewer: React.FC = () => {
   const ctx = usePluginContext()
@@ -115,10 +124,16 @@ const LogViewer: React.FC = () => {
     if (levelFilter !== 'all') result = result.filter(log => log.type.toLowerCase() === levelFilter)
     if (filter) {
       const lowerFilter = filter.toLowerCase()
-      result = result.filter(log => log.content.toLowerCase().includes(lowerFilter) || log.type.toLowerCase().includes(lowerFilter))
+      result = result.filter(log => [log.content, log.type, log.source, log.plugin?.name, log.plugin?.title]
+        .some(value => value?.toLowerCase().includes(lowerFilter)))
     }
     return result
   }, [logs, filter, levelFilter])
+
+  useEffect(() => {
+    setScrollTop(0)
+    if (containerRef.current) containerRef.current.scrollTop = 0
+  }, [filter, levelFilter])
 
   const containerHeight = containerRef.current?.clientHeight || 500
   const totalHeight = filteredLogs.length * LOG_ITEM_HEIGHT
@@ -149,7 +164,7 @@ const LogViewer: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <div className="flex r-control overflow-hidden fill-quiet p-0.5 gap-0.5">
-              {[{ value: 'all', label: '全部' }, { value: 'info', label: 'Info' }, { value: 'warn', label: 'Warn' }, { value: 'error', label: 'Error' }].map((item) => (
+              {LOG_LEVELS.map((item) => (
                 <button key={item.value} onClick={() => setLevelFilter(item.value)} className={`px-3 py-1.5 text-xs font-medium r-inner transition-all ${levelFilter === item.value ? 'gradient-primary-br text-white shadow-sm' : 'text-theme-secondary hover:bg-theme-item-hover'}`}>
                   {item.label}
                 </button>
@@ -184,7 +199,7 @@ const LogViewer: React.FC = () => {
           {/* 筛选和操作按钮 */}
           <div className="flex items-center justify-between">
             <div className="flex r-control overflow-hidden fill-quiet p-0.5 gap-0.5">
-              {[{ value: 'all', label: '全部' }, { value: 'info', label: 'Info' }, { value: 'warn', label: 'Warn' }, { value: 'error', label: 'Error' }].map((item) => (
+              {LOG_LEVELS.map((item) => (
                 <button key={item.value} onClick={() => setLevelFilter(item.value)} className={`px-2 py-1.5 text-xs font-medium r-inner transition-all ${levelFilter === item.value ? 'gradient-primary-br text-white shadow-sm' : 'text-theme-secondary hover:bg-theme-item-hover'}`}>
                   {item.label}
                 </button>
@@ -219,7 +234,9 @@ const LogViewer: React.FC = () => {
                             <span className="text-xs text-theme-hint font-mono">{log.dateTimeStr}</span>
                             <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${style.badge}`}>{log.type.toUpperCase()}</span>
                           </div>
-                          <p className="text-sm text-theme-secondary whitespace-pre-wrap break-all font-mono">{log.content}</p>
+                          <p className="text-sm text-theme-secondary whitespace-pre-wrap break-all font-mono">
+                            <span className="font-semibold text-theme" title={log.source}>[{log.plugin?.title || log.source || '系统'}]</span>{' '}{log.content}
+                          </p>
                         </div>
                       </div>
                     </div>

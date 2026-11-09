@@ -5,7 +5,7 @@ import { LOG_DIR } from '@/common/globalVars'
 import { noop, Time } from 'cosmokit'
 import { Exporter, Message } from 'cordis'
 import { inspect } from 'node:util'
-import { isDebugEnabled } from '@/common/logger'
+import { getLogLevel } from '@/common/logger'
 import { logFilename, pruneOldLogs } from './logFiles'
 
 declare module 'cordis' {
@@ -17,6 +17,8 @@ declare module 'cordis' {
 export interface LogRecord {
   timestamp: number
   type: string
+  source: string
+  plugin?: { id: string; name: string; title: string }
   content: string
   dateTimeStr: string
 }
@@ -61,9 +63,9 @@ export default class Log implements Exporter {
     pruneOldLogs(LOG_DIR).catch(noop)
     this.colors = false
     this.showTime = 'yyyy-MM-dd hh:mm:ss '
-    // 2 = INFO, 3 = DEBUG; logLevel 的运行时切换见 main.ts applyDebugLevel
+    // logLevel 的运行时切换见 main.ts applyLogLevel
     this.levels = {
-      default: isDebugEnabled() ? 3 : 2
+      default: getLogLevel()
     }
     this.formatters = {
       o: inspectFormatter,
@@ -87,9 +89,13 @@ export default class Log implements Exporter {
     const dateTime = new Date(message.ts)
     const dateTimeStr = `${dateTime.getFullYear()}-${(dateTime.getMonth() + 1).toString().padStart(2, '0')}-${dateTime.getDate().toString().padStart(2, '0')} ${dateTime.getHours().toString().padStart(2, '0')}:${dateTime.getMinutes().toString().padStart(2, '0')}:${dateTime.getSeconds().toString().padStart(2, '0')}`
 
+    const fiber = message.fiber?.deref()
+    const plugin = fiber && this.ctx.get('plugins')?.logSource(fiber)
     const logRecord: LogRecord = {
       timestamp: message.ts,
       type: message.type,
+      source: message.name,
+      plugin,
       content: Logger.format(this, message),
       dateTimeStr,
     }
@@ -108,7 +114,7 @@ export default class Log implements Exporter {
     }
 
     try {
-      const content = this.render(message) + '\n'
+      const content = this.render(message, plugin?.title) + '\n'
       appendFile(this.currentFile, content, noop)
       this.currentEntries++
       this.currentSize += Buffer.byteLength(content)
@@ -116,7 +122,8 @@ export default class Log implements Exporter {
   }
 
   // forked from https://github.com/cordiverse/cordis/blob/dd8bf6e838c8fc8fd661c09a6507d54e9fc46161/packages/logger-console/src/shared.ts#L69
-  render(message: Message) {
+  render(message: Message, pluginTitle?: string) {
+    const name = pluginTitle ? `[${pluginTitle}] ${message.name}` : message.name
     const prefix = `[${message.type[0].toUpperCase()}]`
     const space = ' '.repeat(this.label?.margin ?? 1)
     let indent = 3 + space.length, output = ''
@@ -125,8 +132,8 @@ export default class Log implements Exporter {
       output += Logger.color(this, 8, Time.template(this.showTime))
     }
     const code = Logger.code(message.name, this.colors)
-    const label = Logger.color(this, code, message.name, ';1')
-    const padLength = (this.label?.width ?? 0) + label.length - message.name.length
+    const label = Logger.color(this, code, name, ';1')
+    const padLength = (this.label?.width ?? 0) + label.length - name.length
     if (this.label?.align === 'right') {
       output += label.padStart(padLength) + space + prefix + space
       indent += (this.label.width ?? 0) + space.length

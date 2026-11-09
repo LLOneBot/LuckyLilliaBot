@@ -43,7 +43,7 @@ export const DashboardPage: React.FC = () => (
 
 export const DashboardHeader: React.FC = () => (
   <Slot name="dashboard.header">
-    <h2 className="text-3xl font-bold text-theme mb-2">Dashboard</h2>
+    <h2 className="text-3xl font-bold text-theme mb-2">状态面板</h2>
     <p className="text-theme-secondary">欢迎使用 Lucky Lillia Bot</p>
   </Slot>
 )

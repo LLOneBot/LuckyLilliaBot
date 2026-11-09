@@ -54,7 +54,7 @@ describe('plugin listing', () => {
       entry('echo', { manifest: { description: { zh: '复读前缀后面的内容' } } }),
       entry('off', { disabled: true, state: 'disposed' }),
       entry('broken', { state: 'failed', error: 'x' }),
-      entry('waiting', { state: 'pending', missingDeps: ['account'] }),
+      entry('waiting', { state: 'pending', missingDeps: ['store'] }),
       entry('builtin:qq-official', { builtin: true, title: 'QQ 官方机器人', notice: '还没有填写 AppID 和 AppSecret' }),
     ]
     expect(names(filterPlugins(plugins, { status: 'disabled', search: '' }))).toEqual(['off'])

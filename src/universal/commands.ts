@@ -231,6 +231,10 @@ export class CommandService extends Service implements Commands {
     ctx.mixin('commands', ['command'])
     ctx.on('bot/message', (session, next) => this.handle(session, next), { prepend: true })
     ctx.on('bot/status', (bot) => {
+      if (this.bots.get(bot.sid) !== bot) {
+        this.menus.delete(bot.sid)
+        return
+      }
       if (bot.status === 1) this.syncMenu(bot)
     })
   }
@@ -306,7 +310,7 @@ export class CommandService extends Service implements Commands {
       return
     }
     if (cooldown) this.cooldowns.set(key, Date.now())
-    const argv: Argv = { session, command, ...parsed }
+    const argv: Argv = { session, command, next, ...parsed }
     let result: Awaited<ReturnType<CommandAction>>
     try {
       result = await command.handler!(argv, ...parsed.args)
@@ -322,12 +326,17 @@ export class CommandService extends Service implements Commands {
   /** The command the message starts with, past a prefix; the longest name wins, then the first registered. */
   private match(session: Session): { command: Command; rest: string } | undefined {
     const content = session.stripped.content
+    const first = h.parse(content)[0]
+    if (first?.type !== 'text') return
+    // A real message element ends the leading text just like a blank ends a command name.
+    // Keep its markup in `content` for arguments; escaped tags remain ordinary text here.
+    const text = first.toString()
     const { prefixes: given, bare } = this.settings.current
     const prefixes = [...new Set([...given.filter(Boolean), ...bare ? [''] : []])].sort((a, b) => b.length - a.length)
     const candidates = this.reachable(session)
     for (const prefix of prefixes) {
-      if (!content.startsWith(prefix)) continue
-      const body = content.slice(prefix.length)
+      if (!text.startsWith(prefix)) continue
+      const body = text.slice(prefix.length)
       let best: { command: Command; name: string } | undefined
       for (const command of candidates) {
         for (const name of command.names) {
@@ -336,7 +345,7 @@ export class CommandService extends Service implements Commands {
           if (!best || name.length > best.name.length) best = { command, name }
         }
       }
-      if (best) return { command: best.command, rest: body.slice(best.name.length) }
+      if (best) return { command: best.command, rest: content.slice(prefix.length + best.name.length) }
     }
   }
 

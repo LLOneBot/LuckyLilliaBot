@@ -6,74 +6,74 @@
   },
   "variant": "production",
   "targets": {
-    "win-x64": {
-      "target": "x86_64-pc-windows-msvc",
-      "directory": "native/win-x64",
-      "buildId": "6600ba44-b486-4174-a1b2-eedcd58f857b",
-      "metadataSha256": "ad0f6ac8d097c26fa823c07c74351fadd4f8def1e744189753a55e8b7fab2aa6"
-    },
-    "linux-x64-glibc": {
-      "target": "x86_64-unknown-linux-gnu",
-      "directory": "native/linux-x64-glibc",
-      "buildId": "37613615-baaa-4aaf-a071-52f2678135da",
-      "metadataSha256": "aa6b46c5d90529272a19fd5c054ede04743f545ebe6b57d778ab5920202eaead"
-    },
-    "linux-arm64-glibc": {
-      "target": "aarch64-unknown-linux-gnu",
-      "directory": "native/linux-arm64-glibc",
-      "buildId": "ba7a5b89-96a8-464b-b1a4-2c080f9f9c47",
-      "metadataSha256": "48170e9fe0574ecc0a6684a2184e95936ceb036eeeb390614190e483fced020b"
-    },
-    "linux-x64-musl": {
-      "target": "x86_64-unknown-linux-musl",
-      "directory": "native/linux-x64-musl",
-      "buildId": "eb018829-0275-4628-aadc-0af3a18ebedd",
-      "metadataSha256": "ebf679ffb1ca9737d93b533dae044153d7014f87e2b39ac6431b9227b1135bd6"
-    },
-    "linux-arm64-musl": {
-      "target": "aarch64-unknown-linux-musl",
-      "directory": "native/linux-arm64-musl",
-      "buildId": "6a1c9bee-ff48-4f4d-84eb-cdf6c036817d",
-      "metadataSha256": "f81f2c0608730e4afd33a07c39b703aea022efbdc8e7b50ab62e6468ee5f5429"
+    "darwin-arm64": {
+      "target": "aarch64-apple-darwin",
+      "directory": "native/darwin-arm64",
+      "buildId": "ba4c0622-b9a9-43e0-a1ef-8a87f3b582b2",
+      "metadataSha256": "eed68922ccbdb9bff1581c0e3ed9f6e5f24d063b0e4572d220616aac30187209"
     },
     "darwin-x64": {
       "target": "x86_64-apple-darwin",
       "directory": "native/darwin-x64",
-      "buildId": "bf0954a5-a3db-4fda-a197-f1d2c9d058ab",
-      "metadataSha256": "a5681746d328c12df90de3ec19c36c0d596b3cf2b1e0f9d2491f06003e1dc302"
+      "buildId": "7a1a0121-d7f0-485f-a781-a7d624a4cfab",
+      "metadataSha256": "f067f4c3a1d86c40dad734cddb2b3d4895ee87d213f7e2a183627e19a27fe60d"
     },
-    "darwin-arm64": {
-      "target": "aarch64-apple-darwin",
-      "directory": "native/darwin-arm64",
-      "buildId": "35e99411-61e5-4d45-92ee-1bba440d7997",
-      "metadataSha256": "b687ee959c810c72c37d277ca4ea7ebe9a0433c4a400e2b907002f17e59630dc"
+    "linux-arm64-glibc": {
+      "target": "aarch64-unknown-linux-gnu",
+      "directory": "native/linux-arm64-glibc",
+      "buildId": "32d6554c-0f77-4357-ad35-8dde2945e93a",
+      "metadataSha256": "1181d37a317e22c370fee70c790d51ca8a05598dffddc97352f7eb5a9a1760f8"
+    },
+    "linux-arm64-musl": {
+      "target": "aarch64-unknown-linux-musl",
+      "directory": "native/linux-arm64-musl",
+      "buildId": "339bd61e-4bc0-4660-adc6-3c98fc0291e0",
+      "metadataSha256": "ca18296a9240a94b64e79a84b4f01540c7835053a292d3f242ad13754ea71f9e"
+    },
+    "linux-x64-glibc": {
+      "target": "x86_64-unknown-linux-gnu",
+      "directory": "native/linux-x64-glibc",
+      "buildId": "d7aaaf1f-2cb4-48ac-b6c6-6aaad4cbac42",
+      "metadataSha256": "9330c2b754705842ba6750eac8d53885b323fb42a6cbd2977ebb090c846aa2bd"
+    },
+    "linux-x64-musl": {
+      "target": "x86_64-unknown-linux-musl",
+      "directory": "native/linux-x64-musl",
+      "buildId": "eeb9affb-3b9b-4211-a39e-a87e87e9a9c3",
+      "metadataSha256": "7b4ddab29eb5c2772b6eadd1230aa40c560562c109637ea910e3ae2e08e0599e"
+    },
+    "win-x64": {
+      "target": "x86_64-pc-windows-msvc",
+      "directory": "native/win-x64",
+      "buildId": "8daaebdf-c1fc-4e52-ae42-07718fcb0edc",
+      "metadataSha256": "f2f730029c4946925c97452f0512b369f2af55d32b1be420be60f07a285193f5"
     }
   },
   "files": {
-    "native/win-x64/LuckyLillia.NTQQ.node": "c137da8210fbd9372c32a969c3dc5c18160384976e3742a3dc8cf06c618e6ad1",
-    "native/win-x64/build.json": "ad0f6ac8d097c26fa823c07c74351fadd4f8def1e744189753a55e8b7fab2aa6",
+    "native/darwin-arm64/LuckyLillia.NTQQ.node": "601e5d4e36b12984acb23754f4807dc4d39655e98854f6ccbd0c5775c8c6040e",
+    "native/darwin-arm64/libpmhq.dylib": "98778f8ae86bac12cb2ca71e4f69ea8f00199f0928158183b6fabb1d317d9b2b",
+    "native/darwin-arm64/build.json": "eed68922ccbdb9bff1581c0e3ed9f6e5f24d063b0e4572d220616aac30187209",
     "index.js": "ae270f6519cd59644d97bf3cb15df53c2e1d307007dd60429a45e6407b1f6b75",
     "loader.cjs": "0c43430d0600c5b71dc85f84fd1276ca58ddff73f1d9f42e9f78095e58b75a6a",
     "targets.cjs": "5f7d5b0fd61381666a1be3bf075123afad029381fa06e122f189c725e0738ace",
-    "index.d.ts": "56a2f67090dbad833d6777bb890af9bccb84bf4e3275ce34be243fec2ded097c",
+    "index.d.ts": "2fcb7f3146502199541dce57dbae40b7458450570181b1c37b4675c8f8942010",
     "package.json": "b5d9c2e41d518189f085aa34108708ea8ed145852a6edbf6d18e8198b0fc8610",
-    "native/linux-x64-glibc/LuckyLillia.NTQQ.node": "f8567ef29910998d9abc230f2ede278e4de27e635f0a1badfe1c30da5e1baeb0",
-    "native/linux-x64-glibc/libpmhq.so": "a3fef13d1808158499da1ef6ae3bf435f46851026c1cff009181be272cff0c17",
-    "native/linux-x64-glibc/build.json": "aa6b46c5d90529272a19fd5c054ede04743f545ebe6b57d778ab5920202eaead",
-    "native/linux-arm64-glibc/LuckyLillia.NTQQ.node": "0e232b71fdb3d9bbd1a7e20d3757306bb6db3eb5014bc7733787963a143740e4",
-    "native/linux-arm64-glibc/libpmhq.so": "8973213847b6d93a54bba5b069ede82a2ff15edceaf3d6b261c3003ab4e75391",
-    "native/linux-arm64-glibc/build.json": "48170e9fe0574ecc0a6684a2184e95936ceb036eeeb390614190e483fced020b",
-    "native/linux-x64-musl/LuckyLillia.NTQQ.node": "f78883b9a35e66d21f6081d8ee754243364d2cde0b49424f4f1cb053386bcf88",
-    "native/linux-x64-musl/libpmhq.so": "066fed1da82a6e8400ad3d25fde72b722821866ae9e95b15d41fdb6e134a09d6",
-    "native/linux-x64-musl/build.json": "ebf679ffb1ca9737d93b533dae044153d7014f87e2b39ac6431b9227b1135bd6",
-    "native/linux-arm64-musl/LuckyLillia.NTQQ.node": "d2ba52e0cf5e10ae468445bad14c9844db7787ad5b90a110b3cbab1a131f05ca",
-    "native/linux-arm64-musl/libpmhq.so": "be5b756f429ceec04d25278889cffcb2a053675f5a8c4712b3f8117474308fbc",
-    "native/linux-arm64-musl/build.json": "f81f2c0608730e4afd33a07c39b703aea022efbdc8e7b50ab62e6468ee5f5429",
-    "native/darwin-x64/LuckyLillia.NTQQ.node": "cc6a74d8ea17b4901b4ab4dfc8ed1fb3a8970bb4249ddf5dea273e4d75def094",
-    "native/darwin-x64/libpmhq.dylib": "14f7bd4453c99e2e710f581c22a376ea623240513f81eabce7a4ef0318f64887",
-    "native/darwin-x64/build.json": "a5681746d328c12df90de3ec19c36c0d596b3cf2b1e0f9d2491f06003e1dc302",
-    "native/darwin-arm64/LuckyLillia.NTQQ.node": "5c52b8f5f916873661ec598b1d7cc97351e6d256a6c63d4e591c78de7c4d1dec",
-    "native/darwin-arm64/libpmhq.dylib": "43da634b7e58f7f46982986c5b2f2cc7aadb95447105639adfe6f084767e4c7e",
-    "native/darwin-arm64/build.json": "b687ee959c810c72c37d277ca4ea7ebe9a0433c4a400e2b907002f17e59630dc"
+    "native/darwin-x64/LuckyLillia.NTQQ.node": "3cbb2d0c8db297532f4736c4fd99400ee4e18d0dc507750b0b16bdc1a890a291",
+    "native/darwin-x64/libpmhq.dylib": "f8d410443629d973be0717de39cc065ac940f73db610b93e0a3c38d5f668f3fb",
+    "native/darwin-x64/build.json": "f067f4c3a1d86c40dad734cddb2b3d4895ee87d213f7e2a183627e19a27fe60d",
+    "native/linux-arm64-glibc/LuckyLillia.NTQQ.node": "e9753cfb6bb16f3af7a6f7d2cefd643d07a9e66f26e1ec2286486bc6ca7bc3c4",
+    "native/linux-arm64-glibc/libpmhq.so": "d2f72a9bca04d57e6bc536193faf5c370d6267efb7957804cdb53a1579481eb3",
+    "native/linux-arm64-glibc/build.json": "1181d37a317e22c370fee70c790d51ca8a05598dffddc97352f7eb5a9a1760f8",
+    "native/linux-arm64-musl/LuckyLillia.NTQQ.node": "f0ee03da3d3461aa030170740639f20a1730acff6ba863f82dd8d881b419848b",
+    "native/linux-arm64-musl/libpmhq.so": "f5332f957b0eed08f00010ce9a0bd944c59591f1dfe07f2e5d5c06b0441062f8",
+    "native/linux-arm64-musl/build.json": "ca18296a9240a94b64e79a84b4f01540c7835053a292d3f242ad13754ea71f9e",
+    "native/linux-x64-glibc/LuckyLillia.NTQQ.node": "dae094e7584c3694ed927a29bbb703c6c3d1819a567dfabb05fac3baeb1200b1",
+    "native/linux-x64-glibc/libpmhq.so": "4f185730009b97b1ed9a04c4d4bee3f9cfc232aa74c18b35d6bce3880fc543ad",
+    "native/linux-x64-glibc/build.json": "9330c2b754705842ba6750eac8d53885b323fb42a6cbd2977ebb090c846aa2bd",
+    "native/linux-x64-musl/LuckyLillia.NTQQ.node": "48976d09a3569514bf1bff6f319feff05a45ae3eb865cd7373b9ea9d9f45f2ba",
+    "native/linux-x64-musl/libpmhq.so": "4ad08623d3f1139dae0747d18845ad890ab50f46477583317051db010c7ef202",
+    "native/linux-x64-musl/build.json": "7b4ddab29eb5c2772b6eadd1230aa40c560562c109637ea910e3ae2e08e0599e",
+    "native/win-x64/LuckyLillia.NTQQ.node": "791457994b6399d31eb80b40ae7cbd205327e208c00c18481af9daf03484fc43",
+    "native/win-x64/build.json": "f2f730029c4946925c97452f0512b369f2af55d32b1be420be60f07a285193f5"
   }
 }

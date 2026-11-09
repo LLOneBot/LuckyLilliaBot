@@ -24,8 +24,17 @@ node dist/llbot.js --nativeqq -q 123456789
 不再有这一项）；WebUI 里只选 QQ 可执行文件，留空时用自动检测到的，见 core-pluginization.md §6。
 
 会话由 WebUI「NTQQ 协议」页的「启动 QQ」创建（`POST /api/nativeqq/launch` → `qqProtocol.launch()`）；启动时给了 `-q` / `quick_login_qq` 或在 docker 里，协议一启动就自动创建。界面上的状态（会话阶段、QQ 进程、是否登录）从 `health()` 读，经 `/api/login-info` 的 `nativeQQ.status` 给页面，见 core-pluginization.md §5。
+登录成功后还可勾选「自动登录」，把这个 QQ 号保存在当前实例；下次启动实例时自动创建会话并登录。优先级为 `-q` / `--qq`、NativeQQ 配置文件的 `quick_login_qq`、实例保存的 `autoLoginUin`。勾选项不会重启当前 QQ 会话。
 Bot 先创建会话，再由 token watcher 校验授权并允许 QQ 启动。只有 health 同时提供
 有效 UIN 和非空 UID 才发布在线状态；启动成功和收到数据包都不能单独代表登录成功。
+健康轮询 `probe` 使用实例箭头函数，固定在协议所属实例上；经 WebUI 的 Cordis 服务代理启动后，
+也不会随每秒轮询累积 shadow 代理并导致栈溢出（见 `cordis-upgrade-notes.md`）。
+
+「启动 QQ」后，WebUI 通过 `getQuickLoginList()` 读取官方客户端保存的可用账号；选择账号后，
+通过 `quickLogin(uin)` 在已启动的 QQ 中登录，不需要重建会话。原生返回接受请求后，Bot 仍等待
+health 中的所选 UIN 和非空 UID 确认登录完成。列表暂时未就绪或读取失败会重试，也可继续扫码。
+原生包缺少列表或登录接口时，页面明确提示更新，不再静默当成没有账号。
+更新原生包后应重启 LLBot；如果 QQ 进程里仍有旧版注入脚本，也需退出并重新启动该 QQ 进程。
 
 协议 `sendPB()` 调用 `NativeQQ.send()`，直接结果不重复广播。接收回调在校验后去掉
 可选的 MSF 长度头，`qq/raw` 和响应监听器使用同一份 protobuf 包体。停止 Bot 时等待
@@ -91,7 +100,7 @@ node script/native-debugger-smoke.mjs --uin 721011692 --auth-token-file <授权�
   `Webui 服务器已启动 127.0.0.1:<port>` 取。
 - QQ PID：`health()` 的 `qq_pid` 不再对外，改为 QQ 起来后对比启动前后的 QQ 主进程，多出的那一个就是；
   一个都没多出却登录了，算复用了已有 QQ。收发包计数也不再检查，自身昵称查询已经是一次真实收发。
-- 停止：脚本起一个占位进程当 Bot 的 `LL_PARENT_PID`（它跟着脚本退出），要停时结束它，Bot 的父进程监视
+- 停止：脚本起一个占位进程，通过 `--parent-pid=<PID>` 传给 Bot（它跟着脚本退出），要停时结束它，Bot 的父进程监视
   （`src/main/hostLifecycle.ts`）照常 dispose 后以 0 退出。Windows 上发信号等于直接结束进程，不会 dispose。
   这条路径用真实的 `hostLifecycle` 测过：结束占位进程约 1.2 秒后 Bot dispose 并退出 0。
 本次日志位于相邻 Node 项目的 `target/bot-nativeqq-live.log`、
@@ -130,3 +139,16 @@ node script/sign-smoke.mjs --uin 721011692 --protocol macos --auth-token-file <�
 `target/bot-sign-tests.log`、`target/bot-sign-typecheck.log` 和
 `target/bot-sign-build.log`。本次验证的是 Windows 主机上的 macOS QQ 协议；
 没有验证 macOS 主机、其他协议或聊天消息发送。
+
+## 桥接快速登录更新（2026-11-09）
+
+已重建并同步七平台 production/release 原生包，包含 `getQuickLoginList` 和运行时 `quickLogin`；
+Windows buildId 为 `8daaebdf-c1fc-4e52-ae42-07718fcb0edc`。Bot `dist` 也已重新构建，包含
+新版 WebUI 和完整原生包。源包与分发目录的完整性校验、57 项相关回归、Bot 类型检查及两端
+构建通过。浏览器模拟验证列表读取失败后的恢复、选择账号提交、登录完成前保持等待、空列表
+刷新及登录成功后才显示自动登录勾选。WebUI 全量类型检查仍有公共设置和 WebQQ 的既存错误，
+本次 NTQQ 改动没有报告类型错误。
+
+原生侧通过 9 项注入脚本测试、3 项本地管道测试，以及 Windows / 四个 Linux 目标的模块加载
+和接口检查（ARM64 Linux 使用 QEMU）；macOS 双目标只有构建和静态检查。没有做真实 QQ 登录。
+详细记录及旧包备份位置见相邻 Node 项目的 `docs/7-live-node-validation.md`。

@@ -444,7 +444,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       if (!peerUid || !fileId) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      const receiverUid = isSelfSend === 'true' ? peerUid : ctx.account.uid
+      const receiverUid = isSelfSend === 'true' ? peerUid : ctx.qqProtocol.selfInfo.uid
       const res = await ctx.ntFileApi.getFileUrl(fileId, false, receiverUid)
       if (res.retCode !== 0) {
         return c.json({ success: false, message: res.retMsg || '获取下载链接失败' }, 500)

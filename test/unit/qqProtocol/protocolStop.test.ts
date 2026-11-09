@@ -105,6 +105,28 @@ afterEach(() => {
 })
 
 describe('switching the direct protocol off', () => {
+  it('waits for login resource disposal on explicit logout', async () => {
+    const ctx = new Context()
+    const protocol = loggedIn(new DirectQQProtocol(ctx))
+    vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
+    const closing = Promise.withResolvers<void>()
+    const started = vi.fn()
+    const finished = vi.fn()
+    ctx.on('qq/logout', async () => {
+      expect(protocol.selfInfo).toMatchObject({ online: false, uin: '', uid: '', nick: '' })
+      started()
+      await closing.promise
+      finished()
+    })
+    const logout = protocol.logout()
+    await vi.waitFor(() => expect(started).toHaveBeenCalledOnce())
+    expect(finished).not.toHaveBeenCalled()
+    closing.resolve()
+    await logout
+    expect(finished).toHaveBeenCalledOnce()
+    await protocol['stop']()
+  })
+
   it('disconnects quietly, keeping the saved session for the next login', async () => {
     vi.useFakeTimers()
     const ctx = new Context()

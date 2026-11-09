@@ -4,7 +4,7 @@ import {
 } from '@/plugin/internal/protocol/nt-protocol/client/loginOptions'
 import type { NTProtocolConfig } from '@/common/types'
 
-const saved: NTProtocolConfig = { mode: 'direct', protocol: 'macos', nativeQQ: { qqPath: '' } }
+const saved: NTProtocolConfig = { mode: 'direct', protocol: 'macos', nativeQQ: { qqPath: '' }, autoLoginUin: '' }
 const protocolPin = { protocol: { value: 'linux', by: '-p' } } as const
 const bridge = {
   mode: { value: 'nativeqq', by: '--nativeqq' },

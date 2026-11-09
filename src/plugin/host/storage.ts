@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises'
+import { mkdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Fiber } from 'cordis'
@@ -35,8 +35,7 @@ export class PluginDataDirs {
   private entries = new WeakMap<Fiber, string>()
   private storages = new WeakMap<Fiber, PluginStorage>()
 
-  /** `uin` reads the logged-in account; it is only consulted once `account` is known to be available. */
-  constructor(readonly root: string, private readonly uin: () => string | undefined) {}
+  constructor(readonly root: string) {}
 
   sharedDir(name: string): string {
     return path.join(this.root, dataKey(name), 'shared')
@@ -62,17 +61,15 @@ export class PluginDataDirs {
 
   /**
    * The storage for code running in `caller`'s fiber, or undefined outside any entry. Found by walking up
-   * to the fiber the entry was mounted as, noting on the way whether some fiber injects `account`.
+   * to the fiber the entry was mounted as. Storage does not depend on a protocol or login state.
    */
   storageOf(caller: Fiber): PluginStorage | undefined {
     const cached = this.storages.get(caller)
     if (cached) return cached
-    let afterLogin = false
     for (let fiber = caller; ; fiber = fiber.parent.fiber) {
-      if ('account' in fiber.inject) afterLogin = true
       const name = this.entries.get(fiber)
       if (name !== undefined) {
-        const storage = { dir: (scope?: unknown, bot?: unknown) => this.dir(name, scope, afterLogin, bot) } as PluginStorage
+        const storage = { dir: (scope?: unknown, bot?: unknown) => this.dir(name, scope, bot) } as PluginStorage
         this.storages.set(caller, storage)
         return storage
       }
@@ -80,25 +77,36 @@ export class PluginDataDirs {
     }
   }
 
-  private async dir(name: string, scope: unknown = 'global', afterLogin: boolean, bot?: unknown): Promise<string> {
+  private async dir(name: string, scope: unknown = 'global', bot?: unknown): Promise<string> {
     let dir: string
     if (scope === 'global') {
       dir = this.sharedDir(name)
-    } else if (scope === 'account') {
-      if (!afterLogin) {
-        throw new Error(`ctx.storage.dir('account') only works after login: add 'account' to the inject of ${name}, or call it inside ctx.inject(['account'], ...)`)
-      }
-      const uin = this.uin()
-      if (!uin) throw new Error(`ctx.storage.dir('account'): no account is logged in`)
-      dir = path.join(this.root, dataKey(name), uin)
     } else if (scope === 'bot') {
       const sid = typeof bot === 'string' ? bot : (bot as { sid?: unknown } | undefined)?.sid
       if (typeof sid !== 'string') throw new TypeError(`ctx.storage.dir('bot', bot): expected a bot or its sid`)
       dir = path.join(this.root, dataKey(name), 'bots', botKey(sid))
+      // Older plugins kept QQ data at <package>/<uin>. Reuse it without moving or merging files;
+      // a directory already created through the bot API takes precedence. No login service is needed.
+      const legacyId = /^luckylillia:([0-9]+)$/.exec(sid)?.[1]
+      if (legacyId && !await this.directoryExists(dir)) {
+        const legacy = path.join(this.root, dataKey(name), legacyId)
+        if (await this.directoryExists(legacy)) dir = legacy
+      }
     } else {
-      throw new TypeError(`ctx.storage.dir(): unknown scope ${JSON.stringify(scope)}, expected 'global', 'account' or 'bot'`)
+      throw new TypeError(`ctx.storage.dir(): unknown scope ${JSON.stringify(scope)}, expected 'global' or 'bot'`)
     }
     await mkdir(dir, { recursive: true })
     return dir
+  }
+
+  private async directoryExists(dir: string): Promise<boolean> {
+    try {
+      const info = await stat(dir)
+      if (!info.isDirectory()) throw new Error(`plugin data path is not a directory: ${dir}`)
+      return true
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+      throw error
+    }
   }
 }

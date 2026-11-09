@@ -125,6 +125,8 @@ export interface NTProtocolConfig {
   protocol: 'linux' | 'macos' | 'windows' | 'watch'
   /** The QQ the bridge starts, empty: the one NativeQQ finds. A NativeQQ configuration file is only given at launch */
   nativeQQ: { qqPath: string }
+  /** The account to log in when this instance starts; empty disables automatic login. */
+  autoLoginUin: string
 }
 
 export interface MilkyHttpConfig {
@@ -173,7 +175,7 @@ export interface Config {
   email?: EmailConfig
   // onlyLocalhost: boolean
   log?: boolean
-  logLevel?: 'info' | 'debug' // 'debug' 等价 --debug
+  logLevel?: 'error' | 'warn' | 'info' | 'debug' // 最低输出级别，--debug 优先
   ffmpeg?: string
   /** Makes OneBot music cards: song parameters in, a signed card out, as ss.xingzhige.com does. */
   musicCardSignUrl?: string

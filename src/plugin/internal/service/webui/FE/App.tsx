@@ -11,12 +11,10 @@ import {
   builtinPageKeys, PluginPage, PluginPageHeader, PluginPageUnavailable, usePluginHost, usePluginList, useVisiblePages,
 } from './plugin-host';
 import { ResConfig } from './types';
-import { apiFetch, setPasswordPromptHandler, tokenCookieName } from './utils/api';
-import { deleteCookie } from './utils/cookie';
+import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { useBotsPolling } from './stores/botsStore';
 import { useLayout } from './stores/layoutStore';
 import { Loader2, Menu } from 'lucide-react';
-import SettingsDialog from './components/common/SettingsDialog'
 
 // Every tab is a plugin page. Builtins register theirs before the first render (registerCorePages,
 // startBuiltinClients); packages' pages come with the plugin list, so their tabs are recognised by shape,
@@ -43,7 +41,6 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarCollapsed = useLayout(state => state.sidebarCollapsed);
   const setSidebarCollapsed = useLayout(state => state.setSidebarCollapsed);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   usePluginHost(!checkingLogin);
   useBotsPolling(!checkingLogin);
   const plugins = usePluginList(state => state.plugins);
@@ -157,7 +154,6 @@ function App() {
         onClose={() => setSidebarOpen(false)}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onOpenSettings={() => setShowSettingsDialog(true)}
         pluginPages={sidebarPluginPages}
       />
 
@@ -201,14 +197,6 @@ function App() {
 
       <ToastContainer />
 
-      <SettingsDialog
-        visible={showSettingsDialog}
-        onClose={() => setShowSettingsDialog(false)}
-        onLogout={() => {
-          deleteCookie(tokenCookieName())
-          window.location.reload()
-        }}
-      />
     </div>
   );
 }

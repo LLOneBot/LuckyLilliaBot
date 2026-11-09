@@ -35,6 +35,8 @@ beforeEach(async () => {
 
 describe('BotsService', () => {
   it('keeps a bot registered for as long as the plugin that registered it', async () => {
+    const changes: boolean[] = []
+    ctx.on('bot/status', changed => { changes.push(ctx.bots.get(changed.sid) === changed) })
     const adapter = await ctx.plugin({ inject: ['bots'], apply: (ctx: Context) => { ctx.bots.register(bot) } })
     expect(ctx.bots.get(bot.sid)).toBe(bot)
     expect([...ctx.bots]).toEqual([bot])
@@ -42,6 +44,16 @@ describe('BotsService', () => {
     await adapter.dispose()
     expect(ctx.bots.get(bot.sid)).toBeUndefined()
     expect(ctx.bots.size).toBe(0)
+    expect(changes).toEqual([true, false])
+  })
+
+  it('keeps a replacement when an old registration is disposed twice', () => {
+    const removed = ctx.bots.register(bot)
+    removed()
+    const replacement = { ...bot }
+    ctx.bots.register(replacement)
+    removed()
+    expect(ctx.bots.get(bot.sid)).toBe(replacement)
   })
 
   it('runs message middleware in order and lets one swallow the message', async () => {

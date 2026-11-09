@@ -11,8 +11,7 @@ const fixture = vi.hoisted(() => ({
   callback: undefined as ((event: any) => void) | undefined,
   constructed: vi.fn(), start: vi.fn(), stop: vi.fn(), health: vi.fn(), send: vi.fn(), qr: vi.fn(), token: vi.fn(),
   watcherStart: vi.fn(), watcherStop: vi.fn(), watcherCheck: vi.fn(),
-  // getQuickLoginList came with a later native build
-  list: vi.fn(), hasList: false,
+  list: vi.fn(), hasList: false, quickLogin: vi.fn(), hasQuickLogin: true,
 }))
 vi.mock('@/native', () => ({ getNativeAddon: () => ({
   getNativeDirectory: () => '/verified/native',
@@ -24,6 +23,7 @@ vi.mock('@/native', () => ({ getNativeAddon: () => ({
     send = fixture.send
     getLoginQrcode = fixture.qr
     getQuickLoginList = fixture.hasList ? fixture.list : undefined
+    quickLogin = fixture.hasQuickLogin ? fixture.quickLogin : undefined
     setAuthToken = fixture.token
   },
 }) }))
@@ -45,6 +45,8 @@ beforeEach(() => {
   vi.useFakeTimers()
   fixture.callback = undefined
   fixture.hasList = false
+  fixture.hasQuickLogin = true
+  fixture.quickLogin.mockResolvedValue({ code: 0 })
   fixture.health.mockResolvedValue({ sessionStatus: 'running', auth_token_set: false })
   fixture.qr.mockResolvedValue({ code: 1 })
   fixture.start.mockResolvedValue(undefined)
@@ -65,6 +67,58 @@ afterEach(async () => {
 })
 
 describe('NativeQQ ownership', () => {
+  it('keeps polling after a launch through the Cordis service proxy', async () => {
+    fixture.health.mockResolvedValue({ sessionStatus: 'running', uin: 123456, uid: 'u_123456' })
+    await protocol['start']()
+    await ctx.qqProtocol.launch()
+    await vi.advanceTimersByTimeAsync(20 * 60_000)
+    expect(fixture.health).toHaveBeenCalledTimes(1201)
+    expect(protocol.selfInfo).toMatchObject({ online: true, uin: '123456', uid: 'u_123456' })
+    await protocol['stop']()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(fixture.health).toHaveBeenCalledTimes(1201)
+  })
+
+  it('clears an old identity before a different login while preserving it through health request failures', async () => {
+    const identities: string[] = []
+    ctx.on('qq/online', () => { identities.push(protocol.selfInfo.uin) })
+    const logout = vi.fn()
+    ctx.on('qq/logout', logout)
+    const health = { sessionStatus: 'running', auth_token_set: true, uin: 10001, uid: 'u_10001' }
+    fixture.health.mockImplementation(async () => ({ ...health }))
+    await protocol['start']()
+    await protocol.launch()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(identities).toEqual(['10001'])
+    fixture.health.mockRejectedValueOnce(new Error('temporary health timeout'))
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(protocol.selfInfo.uin).toBe('10001')
+    expect(logout).not.toHaveBeenCalled()
+    Object.assign(health, { uin: 10002, uid: 'u_10002' })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(logout).toHaveBeenCalledOnce()
+    expect(identities).toEqual(['10001', '10002'])
+    Object.assign(health, { uin: 0, uid: '' })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(logout).toHaveBeenCalledTimes(2)
+    expect(protocol.selfInfo).toMatchObject({ online: false, uin: '', uid: '', nick: '' })
+  })
+
+  it('ignores a health response that arrives after the native session ended', async () => {
+    const response = Promise.withResolvers<Record<string, unknown>>()
+    fixture.health.mockReturnValueOnce(response.promise)
+    const online = vi.fn()
+    ctx.on('qq/online', online)
+    await protocol['start']()
+    await protocol.launch()
+    fixture.callback?.({ type: 'error', message: 'QQ process stopped' })
+    response.resolve({ sessionStatus: 'running', auth_token_set: true, uin: 10001, uid: 'u_10001' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(online).not.toHaveBeenCalled()
+    expect(protocol.selfInfo).toMatchObject({ online: false, uin: '', uid: '' })
+    expect(protocol.get_is_connected()).toBe(false)
+  })
+
   it('uses the verified directory, starts without implicit authorization, and owns the watcher', async () => {
     await protocol['start']()
     await protocol.launch()
@@ -211,22 +265,140 @@ describe('quick login list', () => {
     })
     fixture.list.mockResolvedValueOnce({ code: 1, message: 'QQ already logged in' })
     await expect(protocol.listQuickLoginAccounts()).resolves.toEqual({ ready: true, accounts: [] })
-    // No runtime quick login in the native build yet
-    await expect(protocol.quickLogin('123456')).rejects.toThrow(/扫码登录/)
   })
 
-  it('lists none with a native build that cannot, and is not ready before the session is', async () => {
-    await expect(protocol.listQuickLoginAccounts()).resolves.toEqual({ ready: true, accounts: [] })
+  it('is not ready before a session starts or after it stops', async () => {
+    await expect(protocol.listQuickLoginAccounts()).resolves.toEqual({ ready: false, accounts: [] })
     fixture.hasList = true
-    ctx = new Context()
-    protocol = new NativeQQProtocol(ctx)
     await protocol['start']()
+    await expect(protocol.listQuickLoginAccounts()).resolves.toEqual({ ready: false, accounts: [] })
     await protocol['stop']()
     await expect(protocol.listQuickLoginAccounts()).resolves.toEqual({ ready: false, accounts: [] })
+  })
+
+  it.each(['list', 'login'])('reports unsupported %s instead of pretending there are no saved accounts', async (missing) => {
+    fixture.hasList = missing !== 'list'
+    fixture.hasQuickLogin = missing !== 'login'
+    await protocol['start']()
+    await protocol.launch()
+    await expect(protocol.listQuickLoginAccounts()).rejects.toThrow('当前原生模块不支持桥接快速登录')
+  })
+
+  it.each([{ code: -2, message: 'login service refused' }, { code: 0, data: {} }])('rejects invalid list responses: $code', async (response) => {
+    fixture.hasList = true
+    await protocol['start']()
+    await protocol.launch()
+    fixture.list.mockResolvedValue(response)
+    await expect(protocol.listQuickLoginAccounts()).rejects.toThrow(response.message || '账号列表无效')
+  })
+})
+
+describe('bridge quick login', () => {
+  it('waits for the selected online identity and submits concurrent requests only once', async () => {
+    await protocol['start']()
+    await protocol.launch()
+    const login = protocol.quickLogin('123456')
+    const sameLogin = protocol.quickLogin('123456')
+    let completed = false
+    void login.then(() => { completed = true })
+    await expect(protocol.quickLogin('654321')).rejects.toThrow('另一个 QQ 账号正在登录')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(completed).toBe(false)
+    expect(protocol.selfInfo.online).toBe(false)
+    fixture.health.mockResolvedValue({ sessionStatus: 'running', uin: 123456, uid: '' })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(completed).toBe(false)
+    fixture.health.mockResolvedValue({ sessionStatus: 'running', uin: 123456, uid: 'u_123456' })
+    await vi.advanceTimersByTimeAsync(1000)
+    await Promise.all([login, sameLogin])
+    expect(fixture.quickLogin).toHaveBeenCalledExactlyOnceWith('123456')
+    expect(protocol.selfInfo).toMatchObject({ online: true, uin: '123456', uid: 'u_123456' })
+    // Clicking again for the same online identity does not resubmit to QQ.
+    await protocol.quickLogin('123456')
+    expect(fixture.quickLogin).toHaveBeenCalledOnce()
+  })
+
+  it('does not treat another online account as successful login', async () => {
+    fixture.health.mockResolvedValue({ sessionStatus: 'running', uin: 654321, uid: 'u_other' })
+    await protocol['start']()
+    await protocol.launch()
+    await vi.advanceTimersByTimeAsync(0)
+    await expect(protocol.quickLogin('123456')).rejects.toThrow('QQ 已登录其他账号')
+    expect(fixture.quickLogin).not.toHaveBeenCalled()
+  })
+
+  it('preserves QQ refusal and permits another attempt after failure', async () => {
+    await protocol['start']()
+    await protocol.launch()
+    fixture.quickLogin.mockRejectedValueOnce(new Error('saved ticket expired'))
+    await expect(protocol.quickLogin('123456')).rejects.toThrow('saved ticket expired')
+    fixture.quickLogin.mockResolvedValueOnce({ code: -1, message: 'login service not ready' })
+    await expect(protocol.quickLogin('123456')).rejects.toThrow('login service not ready')
+    expect(fixture.quickLogin).toHaveBeenCalledTimes(2)
+  })
+
+  it('fails when the session ends during login', async () => {
+    await protocol['start']()
+    await protocol.launch()
+    const result = expect(protocol.quickLogin('123456')).rejects.toThrow('QQ 桥接已停止')
+    await vi.advanceTimersByTimeAsync(200)
+    await protocol['stop']()
+    await vi.advanceTimersByTimeAsync(200)
+    await result
+  })
+
+  it('cannot finish an old request in a new session', async () => {
+    await protocol['start']()
+    await protocol.launch()
+    const response = Promise.withResolvers<{ code: number }>()
+    fixture.quickLogin.mockReturnValueOnce(response.promise)
+    const result = expect(protocol.quickLogin('123456')).rejects.toThrow('QQ 桥接已停止')
+    fixture.callback?.({ type: 'error', message: 'QQ exited' })
+    await vi.advanceTimersByTimeAsync(0)
+    await protocol.launch()
+    fixture.health.mockResolvedValue({ sessionStatus: 'running', uin: 123456, uid: 'u_123456' })
+    await vi.advanceTimersByTimeAsync(1000)
+    response.resolve({ code: 0 })
+    await result
+  })
+
+  it('times out without marking the account online or submitting again', async () => {
+    await protocol['start']()
+    await protocol.launch()
+    const result = expect(protocol.quickLogin('123456')).rejects.toThrow('QQ 登录超时')
+    await vi.advanceTimersByTimeAsync(60_000)
+    await result
+    expect(protocol.selfInfo.online).toBe(false)
+    expect(fixture.quickLogin).toHaveBeenCalledOnce()
+  })
+
+  it('requires a valid account, a running session, and a capable native build', async () => {
+    await expect(protocol.quickLogin('invalid')).rejects.toThrow('QQ 号必须是正整数')
+    await expect(protocol.quickLogin('123456')).rejects.toThrow('请先启动 QQ')
+    fixture.hasQuickLogin = false
+    await protocol['start']()
+    await protocol.launch()
+    await expect(protocol.quickLogin('123456')).rejects.toThrow('当前原生模块不支持桥接快速登录')
+    expect(fixture.quickLogin).not.toHaveBeenCalled()
   })
 })
 
 describe('launching QQ', () => {
+  it('starts QQ with the account remembered by the instance', async () => {
+    protocol = new NativeQQProtocol(new Context(), { autoLoginUin: '123456' })
+    await protocol['start']()
+    expect(fixture.start).toHaveBeenCalledOnce()
+    expect(fixture.start.mock.calls[0][0].config.quick_login_qq).toBe('123456')
+  })
+
+  it.each(['CLI', 'NativeQQ config'])('keeps an explicit %s account ahead of automatic login', async (source) => {
+    protocol = new NativeQQProtocol(new Context(), { autoLoginUin: '123456' })
+    if (source === 'CLI') vi.mocked(getSpecifiedUin).mockReturnValue('654321')
+    else useConfig({ quick_login_qq: '654321' })
+    await protocol['start']()
+    expect(fixture.start.mock.calls[0][0].config.quick_login_qq).toBe('654321')
+  })
+
   it('waits for the button unless an account is given, and starts one session for two presses', async () => {
     await protocol['start']()
     expect(fixture.start).not.toHaveBeenCalled()

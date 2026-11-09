@@ -18,6 +18,8 @@ export interface PluginManifest {
   icon?: string
   hidden?: boolean
   preview?: boolean
+  /** Required plugin package names and their accepted versions (llbot.dependencies). */
+  dependencies?: Record<string, string>
 }
 
 export interface PluginStatus {
@@ -40,8 +42,6 @@ export interface PluginStatus {
   service: ServiceDeclaration
   /** URL of the plugin's WebUI module; it changes when the plugin is reloaded. */
   webui?: string
-  /** For a package with a WebUI module: whether it may load (UiPrefs.approved). */
-  webuiApproved?: boolean
   /** What an enabled builtin says about its settings, e.g. that something still has to be filled in. */
   notice?: string
   /** Where it takes events from; absent: everywhere. */
@@ -92,8 +92,6 @@ export interface EntryScope {
 
 /** What the user decided about plugins' parts of the WebUI (plugins.json `ui`). */
 export interface UiPrefs {
-  /** Packages whose WebUI module may load; builtins need no approval. */
-  approved: string[]
   /** contributionKey / pageContributionKey (plugin-host/registry.ts) of what is left out. */
   hidden: string[]
   /** Positions of sidebar pages (pageContributionKey) and of contributions to `list` slots (contributionKey), over their own order */
@@ -101,8 +99,6 @@ export interface UiPrefs {
 }
 
 export interface UiPrefsPatch {
-  approve?: string[]
-  revoke?: string[]
   hide?: string[]
   show?: string[]
   /** null drops the position */
@@ -121,7 +117,16 @@ export interface DependencyInfo {
 
 export interface DependencyReport {
   dependencies: DependencyInfo[]
+  packages?: PackageDependencyInfo[]
   conflicts: { service: string; with: string[] }[]
+}
+
+export interface PackageDependencyInfo {
+  name: string
+  range: string
+  version?: string
+  entries: string[]
+  state: 'missing' | 'incompatible' | 'disabled' | 'pending' | 'active' | 'failed'
 }
 
 export type ReloadResult = { status: 'reloaded' } | { status: 'restart-required'; reason: string }

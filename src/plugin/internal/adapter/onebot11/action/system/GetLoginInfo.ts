@@ -16,8 +16,8 @@ class GetLoginInfo extends BaseAction<{}, OB11User> {
       }
     }
     return {
-      user_id: +this.ctx.account.uin,
-      nickname: this.ctx.account.nick
+      user_id: +this.ctx.qqProtocol.selfInfo.uin,
+      nickname: this.ctx.qqProtocol.selfInfo.nick
     }
   }
 }

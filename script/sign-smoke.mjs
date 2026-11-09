@@ -97,7 +97,7 @@ function prepare(config) {
     metadataLog: path.join(directory, 'sign-smoke-metadata.jsonl') }
 }
 
-// The Bot disposes itself once its LL_PARENT_PID is gone. The keeper stands in as that parent and goes with the
+// The Bot disposes itself once its --parent-pid is gone. The keeper stands in as that parent and goes with the
 // runner, so ending it asks for a clean shutdown where a signal would terminate the Bot outright (Windows)
 function startKeeper() {
   const keeper = spawn(process.execPath, ['-e', `setInterval(() => { try { process.kill(${process.pid}, 0) } catch (error) { if (error.code === 'ESRCH') process.exit() } }, 1000)`],
@@ -184,12 +184,12 @@ async function main() {
   const prefix = `@@LLBOT_SIGN_SMOKE:${nonce}@@`
   const environment = { ...process.env }
   for (const name of Object.keys(environment)) {
-    if (/^(NODE_OPTIONS|AUTH_TOKEN|LL_PARENT_PID|LLBOT_INSTANCE|LLBOT_WEBUI_.*|LLBOT_LOG_LEVEL|PROTOCOL_MODE|PROTOCOL|LLBOT_SIGN_SMOKE_.*)$/i.test(name)) delete environment[name]
+    if (/^(NODE_OPTIONS|AUTH_TOKEN|LLBOT_INSTANCE|LLBOT_WEBUI_.*|LLBOT_LOG_LEVEL|PROTOCOL_MODE|PROTOCOL|LLBOT_SIGN_SMOKE_.*)$/i.test(name)) delete environment[name]
   }
-  Object.assign(environment, { AUTH_TOKEN: token, LL_PARENT_PID: String(keeper.pid), LLBOT_LOG_LEVEL: 'info', NO_COLOR: '1',
+  Object.assign(environment, { AUTH_TOKEN: token, LLBOT_LOG_LEVEL: 'info', NO_COLOR: '1',
     LLBOT_SIGN_SMOKE_LOADER: native.loaderPath, LLBOT_SIGN_SMOKE_NONCE: nonce })
   const child = spawn(process.execPath, ['--require', path.join(botRoot, 'script/sign-smoke-probe.cjs'), path.join(config.dist, 'llbot.js'),
-    '--instance', workspace.instance, '--protocol', config.protocol, '-q', config.uin],
+    `--parent-pid=${keeper.pid}`, '--instance', workspace.instance, '--protocol', config.protocol, '-q', config.uin],
   { cwd: workspace.directory, env: environment, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   delete environment.AUTH_TOKEN
   const state = { outputBytes: 0, outputLines: 0, probeReady: false, nativeLoads: 0, nativeQQConstructions: 0,

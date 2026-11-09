@@ -37,4 +37,5 @@
 - 类型声明里相对 import 不带扩展名（上游 rc.11 之后的 #125 才修），`moduleResolution: NodeNext` 下会静默丢掉 `Service` / `Inject` 等导出，连产物里的 `Context` 都会被当成类型擦掉。用 `Bundler`
 - 事件分发五种模式都有：`emit / parallel / serial / bail / waterfall`。`waterfall` 的最后一个实参是终端处理器，被 `pop()` 掉后每个 listener 收到 `(...args, next)`，不调 `next` 即短路。rc.11 里终端处理器被**不带参数**调用，`next()` 也不收参数，调第二次直接抛 `next() called multiple times` —— 想"改写后传下去"只能原地改参数对象，或者处理 `await next()` 的返回值
 - `ctx.waterfall` / `ctx.parallel` 的第一个实参若是对象或函数，会被当成 `thisArg` 吃掉，并按它的 `[Context.filter]` 过滤监听器（插件作用域的基础）。事件名放第一个参数时不受影响
-- Service 实例带 tracker（`property: 'ctx'`）：经 `ctx.xxx` 访问服务时，方法里的 `this.ctx` 是**调用方**的 ctx，在里面 `this.ctx.effect(...)` 就挂在调用方的生命周期上。方法跑在实例的 shadow 上，给字段重新赋值只会落在 shadow 上
+- Service 实例带 tracker（`property: 'ctx'`）：经 `ctx.xxx` 访问服务时，方法里的 `this.ctx` 是**调用方**的 ctx，在里面 `this.ctx.effect(...)` 就挂在调用方的生命周期上。普通方法跑在实例的 shadow 上，普通字段赋值会转发回原实例
+- **异步自调用会累积 shadow 代理**：普通方法通过 `ctx.xxx` 启动后，在定时器里继续调用 `this.method()`，每轮都可能在上一轮的 shadow 上再包一层。NativeQQ 的 `probe()` 曾因此在运行数分钟后写字段时触发 `Reflect.set` / `withProps.set` 栈溢出（2026-11-09）。属于服务自身生命周期的周期回调用实例箭头函数，或在构造时绑定原实例，避免保留调用方的 shadow 链。`test/unit/qqProtocol/nativeQQ.test.ts` 通过 `ctx.qqProtocol.launch()` 启动并模拟 20 分钟轮询及停用；只直接调用原实例无法覆盖这个问题

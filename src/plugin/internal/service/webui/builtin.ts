@@ -4,7 +4,7 @@ import { WebUI } from './BE'
 export const builtin: BuiltinPlugin = {
   // The way to manage everything else, so it has no switch; nor a restart, which would end the request asking for it
   name: 'builtin:webui',
-  title: 'WebUI',
+  title: '页面设置',
   plugin: WebUI,
   manifest: {
     category: 'service',

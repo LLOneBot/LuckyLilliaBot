@@ -9,7 +9,7 @@ declare module 'cordis' {
 }
 
 export class EmailNotificationService extends Service {
-  static inject = ['qqProtocol', 'account']
+  static inject = ['qqProtocol']
   static Config = EmailSchema
 
   private emailService: EmailService
@@ -17,7 +17,6 @@ export class EmailNotificationService extends Service {
   private notificationSent: boolean = false
   private hasLoggedIn: boolean = false
   private disconnectId: string | null = null
-  private checkLoginStatus: NodeJS.Timeout | null = null
 
   constructor(ctx: Context, config: EmailSettings) {
     super(ctx, 'emailNotification')
@@ -30,9 +29,7 @@ export class EmailNotificationService extends Service {
 
   async [Service.init]() {
     return () => {
-      if (this.checkLoginStatus) {
-        clearInterval(this.checkLoginStatus)
-      }
+      this.hasLoggedIn = false
       // Gone already when the protocol plugin itself was switched off
       if (this.disconnectId) {
         this.ctx.get('qqProtocol')?.offDisconnect(this.disconnectId)
@@ -41,26 +38,24 @@ export class EmailNotificationService extends Service {
   }
 
   private registerEventListeners() {
-    this.hasLoggedIn = true
-
-    let wasOffline = false
+    const self = this.ctx.qqProtocol.selfInfo
+    this.hasLoggedIn = !!(self.uin && self.uid)
+    this.ctx.on('qq/online', () => {
+      this.hasLoggedIn = true
+      this.notificationSent = false
+    })
+    this.ctx.on('qq/logout', () => {
+      this.hasLoggedIn = false
+      this.notificationSent = false
+    })
 
     this.ctx.on('nt/kicked-offline', (data) => {
-      wasOffline = true
       this.onOffline(data.tipsDesc || data.tipsTitle)
     })
 
     this.ctx.on('qq/session-expired', (reason) => {
-      wasOffline = true
       this.onOffline(reason)
     })
-
-    this.checkLoginStatus = setInterval(() => {
-      if (wasOffline && this.ctx.account.online) {
-        this.notificationSent = false
-        wasOffline = false
-      }
-    }, 5000)
   }
 
   private registerDisconnectCallback() {
@@ -96,9 +91,9 @@ export class EmailNotificationService extends Service {
     }
 
     const botInfo: BotInfo = {
-      uin: this.ctx.account.uin,
-      uid: this.ctx.account.uid,
-      nick: this.ctx.account.nick,
+      uin: this.ctx.qqProtocol.selfInfo.uin,
+      uid: this.ctx.qqProtocol.selfInfo.uid,
+      nick: this.ctx.qqProtocol.selfInfo.nick,
       timestamp: new Date(),
     }
 

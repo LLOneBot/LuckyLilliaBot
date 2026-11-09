@@ -46,9 +46,24 @@ describe('PluginStore', () => {
     mkdirSync(path.dirname(file), { recursive: true })
     writeFileSync(file, JSON.stringify({
       entries: [],
-      ui: { approved: ['ui', 1, 'ui', ''], hidden: 'a|page|a:home', order: { 'a|dashboard.cards|x': 10, 'b|dashboard.cards|y': '1' } },
+      ui: { hidden: 'a|page|a:home', order: { 'a|dashboard.cards|x': 10, 'b|dashboard.cards|y': '1' } },
     }))
-    expect((await new PluginStore(file).load()).data.ui).toEqual({ approved: ['ui'], hidden: [], order: { 'a|dashboard.cards|x': 10 } })
+    expect((await new PluginStore(file).load()).data.ui).toEqual({ hidden: [], order: { 'a|dashboard.cards|x': 10 } })
+  })
+
+  it.each([{ approved: [] }, { approved: ['ui'] }])('drops obsolete UI approvals while preserving entries and layout: $approved', async ({ approved }) => {
+    const file = fresh()
+    mkdirSync(path.dirname(file), { recursive: true })
+    const entries = [{ id: 'a1b2c3d4', name: 'ui', disabled: true, config: { n: 2 } }]
+    const prefs = { hidden: ['ui|page|ui:home'], order: { 'ui|dashboard.cards|x': 20 } }
+    writeFileSync(file, JSON.stringify({ version: 1, entries, ui: { ...prefs, approved } }))
+
+    const store = new PluginStore(file)
+    const { data, error } = await store.load()
+    expect(error).toBeUndefined()
+    expect(data).toEqual({ version: 1, entries, ui: prefs })
+    await store.save(data)
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ version: 1, entries, ui: prefs })
   })
 
   it('keeps an unparsable file in place instead of moving it aside', async () => {

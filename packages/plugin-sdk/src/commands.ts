@@ -29,6 +29,8 @@ export interface OptionConfig {
 export interface Argv {
   session: Session
   command: Command
+  /** Continue the message middleware chain, at most once. Returning nothing does not continue it automatically. */
+  next(): Promise<void>
   /** By name: a flag is `true`, an option with a parameter has its value. */
   options: Record<string, any>
   /** The arguments, also passed to the action after argv. */

@@ -240,7 +240,7 @@ export const PluginPageHeader: React.FC<{ page: PageContribution }> = ({ page })
 
 /**
  * Shown on a tab no page is registered for: a package's pages come with its WebUI module, which is not loaded while
- * the plugin is off or its UI not approved; or nothing provides that page at all.
+ * the plugin is off; or nothing provides that page at all.
  */
 export const PluginPageUnavailable: React.FC<{ tab: string }> = ({ tab }) => {
   const plugins = usePluginList(state => state.plugins)
@@ -251,10 +251,7 @@ export const PluginPageUnavailable: React.FC<{ tab: string }> = ({ tab }) => {
   const owner = tab.includes(':') ? plugins.find(entry => tab.startsWith(`${entry.name}:`)) : undefined
   let title = '没有这个页面'
   let detail = '提供它的插件可能没有安装或没有启用'
-  if (owner?.webui && !owner.webuiApproved) {
-    title = `「${pluginTitle(owner)}」的界面还没有批准`
-    detail = '在插件页它的卡片上点「批准界面」，它的页面才会加载'
-  } else if (owner?.disabled) {
+  if (owner?.disabled) {
     title = `「${pluginTitle(owner)}」已在插件页停用`
     detail = '启用后才能用这个页面'
   }

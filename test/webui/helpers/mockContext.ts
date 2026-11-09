@@ -45,8 +45,6 @@ export function createMockContext() {
       rkeyManager: { getRkey: vi.fn(() => Promise.resolve({ private_rkey: '', group_rkey: '' })) },
       getPttUrl: vi.fn(),
     },
-    // The logged-in account: the protocol's own record, and what other plugins read through ctx.account
-    account: { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true },
     qqProtocol: {
       selfInfo: { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true },
       authTokenStatus: { hasToken: true, validation: 'valid', message: '', loginError: '' },

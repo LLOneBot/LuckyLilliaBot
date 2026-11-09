@@ -29,7 +29,7 @@ const AuthTokenCard: React.FC<{ status: AuthTokenStatus; onChanged: () => void }
           authTokenPageUrl={status.authTokenPageUrl}
           onSuccess={() => {
             setEditing(false)
-            ctx.toast(status.hasToken ? 'Auth Token 已更换' : 'Auth Token 校验通过')
+            ctx.toast(status.hasToken ? 'Auth Token 已设置' : 'Auth Token 校验通过')
             onChanged()
           }}
           onCancel={() => setEditing(false)}
@@ -46,7 +46,7 @@ const AuthTokenCard: React.FC<{ status: AuthTokenStatus; onChanged: () => void }
         <div className={`text-sm font-medium mt-0.5 ${tone}`}>{text}</div>
       </div>
       <button onClick={() => setEditing(true)} className="btn-glass px-4 py-1.5 text-sm flex-shrink-0">
-        {status.hasToken ? '更换' : '录入'}
+        设置
       </button>
     </div>
   )

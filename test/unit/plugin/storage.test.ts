@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { Context, Fiber, Service } from 'cordis'
+import { Context, Fiber } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import PluginService, { BuiltinPlugin, PluginStatus } from '@/plugin/host'
@@ -173,30 +173,7 @@ describe('ctx.storage', () => {
   })
 })
 
-describe("ctx.storage.dir('account')", () => {
-  class FakeAccount extends Service {
-    uin = '10001'
-    constructor(fakeCtx: Context) {
-      super(fakeCtx, 'account')
-    }
-  }
-
-  it('is per account for a plugin that injects account', async () => {
-    writePlugin('acct', `
-      export const inject = ['account']
-      export async function apply(ctx) {
-        globalThis.__storage.push(['acct', await ctx.storage.dir('account')])
-      }
-    `)
-    const plugins = await boot()
-    await plugins.enable(byName('acct').id)
-    expect(byName('acct').state).toBe('pending')
-
-    ctx.plugin(FakeAccount)
-    await expect.poll(() => recorded('acct')).toEqual([['acct', path.join(dataDir, 'acct', '10001')]])
-    expect(existsSync(path.join(dataDir, 'acct', '10001'))).toBe(true)
-  })
-
+describe("ctx.storage.dir('bot', bot)", () => {
   it('gives a directory per bot without a login, and refuses a sid that would leave it', async () => {
     writePlugin('perbot', `
       export async function apply(ctx) {
@@ -214,29 +191,50 @@ describe("ctx.storage.dir('account')", () => {
     ])
   })
 
-  it('works inside a ctx.inject([\'account\']) block of a plugin that runs before login', async () => {
-    writePlugin('late', `
+  it('reuses legacy QQ data without a login or a second empty directory', async () => {
+    const legacy = path.join(dataDir, 'legacy', '10001')
+    mkdirSync(legacy, { recursive: true })
+    writeFileSync(path.join(legacy, 'state.json'), '{"count":7}')
+    writePlugin('legacy', `
       export async function apply(ctx) {
-        ctx.inject(['account'], async (inner) => {
-          globalThis.__storage.push(['late', await inner.storage.dir('account')])
-        })
+        globalThis.__storage.push(['legacy', await ctx.storage.dir('bot', 'luckylillia:10001')])
+        globalThis.__storage.push(['other', await ctx.storage.dir('bot', 'qq:10001')])
       }
     `)
     const plugins = await boot()
-    await plugins.enable(byName('late').id)
-    ctx.plugin(FakeAccount)
-    await expect.poll(() => recorded('late')).toEqual([['late', path.join(dataDir, 'late', '10001')]])
+    await plugins.enable(byName('legacy').id)
+    expect(recorded('legacy')).toEqual([['legacy', legacy]])
+    expect(readFileSync(path.join(legacy, 'state.json'), 'utf8')).toBe('{"count":7}')
+    expect(existsSync(path.join(dataDir, 'legacy', 'bots', 'luckylillia+10001'))).toBe(false)
+    expect(recorded('other')).toEqual([['other', path.join(dataDir, 'legacy', 'bots', 'qq+10001')]])
   })
 
-  it('rejects for code that does not depend on account, even with an account online', async () => {
+  it('prefers an existing bot directory and leaves both sets of data untouched', async () => {
+    const legacy = path.join(dataDir, 'both', '10001')
+    const current = path.join(dataDir, 'both', 'bots', 'luckylillia+10001')
+    for (const dir of [legacy, current]) mkdirSync(dir, { recursive: true })
+    writeFileSync(path.join(legacy, 'old.txt'), 'old')
+    writeFileSync(path.join(current, 'new.txt'), 'new')
+    writePlugin('both', `
+      export async function apply(ctx) {
+        globalThis.__storage.push(['both', await ctx.storage.dir('bot', 'luckylillia:10001')])
+      }
+    `)
+    const plugins = await boot()
+    await plugins.enable(byName('both').id)
+    expect(recorded('both')).toEqual([['both', current]])
+    expect(readFileSync(path.join(legacy, 'old.txt'), 'utf8')).toBe('old')
+    expect(readFileSync(path.join(current, 'new.txt'), 'utf8')).toBe('new')
+  })
+
+  it('rejects the removed implicit account scope', async () => {
     writePlugin('eager', `
       export async function apply(ctx) {
         try { await ctx.storage.dir('account') } catch (e) { globalThis.__storage.push(['eager', e.message]) }
       }
     `)
     const plugins = await boot()
-    ctx.plugin(FakeAccount)
     await plugins.enable(byName('eager').id)
-    expect(recorded('eager')).toEqual([['eager', expect.stringMatching(/add 'account' to the inject of eager/)]])
+    expect(recorded('eager')).toEqual([['eager', expect.stringMatching(/expected 'global' or 'bot'/)]])
   })
 })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { lockedBy, webuiPatch } from '@/plugin/internal/service/webui/FE/components/config/webuiPatch'
 
-describe('the WebUI section of the settings dialog', () => {
+describe('the WebUI page connection settings', () => {
   it('saves where the WebUI listens', () => {
     expect(webuiPatch({ host: '', port: 3999 }, [])).toEqual({ host: '', port: 3999 })
   })

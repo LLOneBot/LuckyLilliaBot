@@ -7,7 +7,7 @@ export default class GetStatus extends BaseAction<{}, OB11Status> {
 
   protected async _handle(): Promise<OB11Status> {
     return {
-      online: this.ctx.account.online,
+      online: this.ctx.qqProtocol.selfInfo.online,
       good: true,
       stat: {
         message_received: this.ctx.app.messageReceivedCount,

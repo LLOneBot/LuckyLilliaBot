@@ -1,4 +1,4 @@
-export { usePluginHost, ensureClient, clientAllowed, useClientErrors, startBuiltinClients, builtinPageKeys } from './host'
+export { usePluginHost, ensureClient, hasExternalClient, useClientErrors, startBuiltinClients, builtinPageKeys } from './host'
 export { usePluginList } from './pluginList'
 export { installSharedModules } from './shared'
 export { PluginBoundary } from './context'

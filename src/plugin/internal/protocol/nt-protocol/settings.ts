@@ -18,6 +18,8 @@ export const NTProtocolSchema: Schema<NTProtocolConfig> = Schema.object({
   nativeQQ: Schema.object({
     qqPath: Schema.string().default('').description('QQ 可执行文件绝对路径（留空自动检测）'),
   }).description('官方 QQ 客户端桥接'),
+  autoLoginUin: Schema.string().pattern(/^(?:[1-9][0-9]*)?$/).default('').hidden()
+    .description('实例启动时自动登录的 QQ 号，登录成功后设置，留空关闭'),
 }) as Schema<NTProtocolConfig>
 
 export const ntProtocolSettings: BuiltinConfig<NTProtocolConfig> = {

@@ -128,7 +128,7 @@ class Onebot11Adapter extends Service {
       if (!msg) {
         return
       }
-      const isSelfMsg = msg.user_id.toString() === this.ctx.account.uin
+      const isSelfMsg = msg.user_id.toString() === this.ctx.qqProtocol.selfInfo.uin
       if (isSelfMsg) {
         msg.target_id = +message.peerUin
       }
@@ -355,7 +355,7 @@ class Onebot11Adapter extends Service {
     this.ctx.on('nt/group-member-removed', (data) => {
       let subType: GroupDecreaseSubType = 'leave'
       if (data.operatorUin) {
-        if (data.memberUin === +this.ctx.account.uin) {
+        if (data.memberUin === +this.ctx.qqProtocol.selfInfo.uin) {
           subType = 'kick_me'
         } else {
           subType = 'kick'
@@ -406,7 +406,7 @@ class Onebot11Adapter extends Service {
 
     this.ctx.on('nt/friend-nudge', (data) => {
       const userId = data.uin
-      const targetId = data.isSelfReceive ? +this.ctx.account.uin : data.uin
+      const targetId = data.isSelfReceive ? +this.ctx.qqProtocol.selfInfo.uin : data.uin
       if (!userId || !targetId) return
       const rawInfo: Record<string, unknown>[] = [
         { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: userId.toString() },

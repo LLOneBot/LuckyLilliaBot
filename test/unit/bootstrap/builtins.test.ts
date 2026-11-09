@@ -25,7 +25,7 @@ import {
 } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/api'
 import Core from '@/plugin/internal/protocol/nt-protocol/ntqqapi/core'
 import Store from '@/plugin/internal/protocol/nt-protocol/store'
-import AccountService from '@/plugin/internal/protocol/nt-protocol/account'
+import { bindLoginResources } from '@/plugin/internal/protocol/nt-protocol/loginResources'
 import { builtinPlugins } from '@/plugin/internal'
 import BotsService from '@/universal/bots'
 import HttpService from '@/universal/http'
@@ -64,8 +64,7 @@ class MockConfig extends Service {
 }
 
 class MockProtocol extends Service {
-  // Logged in already
-  selfInfo = { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true }
+  selfInfo = { uid: '', uin: '', nick: '', online: false }
 
   constructor(ctx: Context) {
     super(ctx, 'qqProtocol')
@@ -141,12 +140,14 @@ describe('builtin plugins', () => {
     }
     // As builtin:nt-protocol does: the account's database is per account and its own, so the core services wait for
     // the login, and the plugins' database is builtin:database
-    mounted.push(ctx.inject(['account', 'config'], (ctx) => {
-      const own = ctx.isolate('database').isolate('model')
-      own.plugin(Database)
-      own.plugin(SQLiteDriver, { path: pathToFileURL(path.join(tmp, 'builtins.db')).href })
-      own.plugin(Core, config)
-      own.plugin(Store, { msgCacheExpire: config.msgCacheExpire! })
+    mounted.push(ctx.inject(['qqProtocol', 'config'], (ctx) => {
+      bindLoginResources(ctx, (ctx) => {
+        const own = ctx.isolate('database').isolate('model')
+        own.plugin(Database)
+        own.plugin(SQLiteDriver, { path: pathToFileURL(path.join(tmp, 'builtins.db')).href })
+        own.plugin(Core, config)
+        own.plugin(Store, { msgCacheExpire: config.msgCacheExpire! })
+      })
     }))
     mounted.push(await ctx.plugin(PluginService, { file, roots: [], resolver: false, builtins: builtinPlugins }))
 
@@ -167,11 +168,12 @@ describe('builtin plugins', () => {
     for (const status of ctx.plugins.list()) {
       if (status.name in off) expect(status).toMatchObject({ state: 'disposed', disabled: true })
       else if (!shell.includes(status.name)) {
-        expect(status, status.name).toMatchObject({ state: 'pending', missingDeps: expect.arrayContaining(['account']) })
+        expect(status, status.name).toMatchObject({ state: 'pending', missingDeps: expect.arrayContaining(['app']) })
       }
     }
 
-    ctx.plugin(AccountService)
+    Object.assign(ctx.get('qqProtocol')!.selfInfo, { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true })
+    await ctx.parallel('qq/online')
     const running = { ...allIn('active'), ...off }
     await vi.waitFor(() => expect(states()).toEqual(running), { timeout: 4_000, interval: 50 })
     for (const port of [ob11Port, satoriPort, milkyPort]) {

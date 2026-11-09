@@ -1,24 +1,18 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ImageOff, X } from 'lucide-react'
+import type { LightboxProps } from '@luckylillia/plugin-sdk/webui'
 
-export interface LightboxImage {
-  url: string
-  caption?: string
-}
-
-interface LightboxProps {
-  images: LightboxImage[]
-  index: number
-  onIndex(index: number): void
-  onClose(): void
-}
+export type { LightboxImage } from '@luckylillia/plugin-sdk/webui'
 
 /** An image over everything, with the others of its set a ← / → away. */
 export const Lightbox: React.FC<LightboxProps> = ({ images, index, onIndex, onClose }) => {
   const count = images.length
   const image = images[index]
+  const [failedUrl, setFailedUrl] = useState<string>()
   const go = (step: number) => onIndex((index + step + count) % count)
+
+  useEffect(() => { setFailedUrl(undefined) }, [image?.url])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -37,13 +31,24 @@ export const Lightbox: React.FC<LightboxProps> = ({ images, index, onIndex, onCl
   if (!image) return null
   const arrow = 'absolute top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors'
   return createPortal(
-    <div className="fixed inset-0 bg-black/85 flex flex-col items-center justify-center p-6 select-none" style={{ zIndex: 9500 }} onClick={onClose}>
-      <img
-        src={image.url}
-        alt={image.caption ?? ''}
-        onClick={e => e.stopPropagation()}
-        className="max-w-full max-h-[calc(100vh-8rem)] object-contain rounded-lg shadow-2xl"
-      />
+    <div role="dialog" aria-modal="true" aria-label="图片预览" className="fixed inset-0 bg-black/85 flex flex-col items-center justify-center p-6 select-none" style={{ zIndex: 9500 }} onClick={onClose}>
+      {failedUrl === image.url ? (
+        <div className="flex flex-col items-center gap-3 p-8 text-white/75" onClick={e => e.stopPropagation()} role="status">
+          <ImageOff size={36} aria-hidden="true" />
+          <span>图片加载失败</span>
+        </div>
+      ) : (
+        <img
+          key={image.url}
+          src={image.url}
+          alt={image.caption ?? '预览图'}
+          referrerPolicy="no-referrer"
+          decoding="async"
+          onError={() => setFailedUrl(image.url)}
+          onClick={e => e.stopPropagation()}
+          className="max-w-full max-h-[calc(100vh-8rem)] object-contain rounded-lg shadow-2xl"
+        />
+      )}
       {(image.caption || count > 1) && (
         <p className="mt-4 text-sm text-white/85 text-center" onClick={e => e.stopPropagation()}>
           {image.caption}

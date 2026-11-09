@@ -66,7 +66,7 @@ const AuthTokenForm: React.FC<AuthTokenFormProps> = ({ reason, authTokenPageUrl,
         return;
       }
       if (data.validation === 'valid') {
-        setStatusText(reason === 'replace' ? '校验通过，已更换' : '校验通过，正在登录...');
+        setStatusText(reason === 'replace' ? '校验通过，已设置' : '校验通过，正在登录...');
         onSuccess();
         return;
       }
@@ -113,7 +113,7 @@ const AuthTokenForm: React.FC<AuthTokenFormProps> = ({ reason, authTokenPageUrl,
     }
   };
 
-  const title = reason === 'replace' ? '更换 Auth Token' : reason === 'invalid' ? 'Auth Token 无效，请重新录入' : '请录入 Auth Token';
+  const title = reason === 'replace' ? '设置 Auth Token' : reason === 'invalid' ? 'Auth Token 无效，请重新录入' : '请录入 Auth Token';
   const hint = reason === 'replace' ? '保存后马上替换现在的 Auth Token 并校验' : '扫码登录前需要有效的 Auth Token';
 
   return (

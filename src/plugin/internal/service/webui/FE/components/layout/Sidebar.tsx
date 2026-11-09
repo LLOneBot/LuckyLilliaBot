@@ -10,7 +10,6 @@ interface SidebarProps {
   onClose?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  onOpenSettings?: () => void;
   /** Every entry: the pages of plugins, the WebUI's own included, in sidebar order. */
   pluginPages?: { id: string; title: string; icon: LucideIcon }[];
 }
@@ -22,7 +21,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   collapsed = false,
   onToggleCollapse,
-  onOpenSettings,
   pluginPages = [],
 }) => {
   const menuItems = pluginPages.map(page => ({ id: page.id, icon: page.icon, label: page.title }))
@@ -130,7 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           })}
         </nav>
 
-        <AccountsCard onOpenSettings={onOpenSettings} />
+        <AccountsCard />
       </div>
 
       {/* 桌面端展开按钮 - 当侧边栏收起时显示 */}

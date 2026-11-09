@@ -6,7 +6,7 @@ import { NO_PREFS } from './registry'
 interface PluginListState {
   /** null until the first fetch completes. */
   plugins: PluginStatus[] | null
-  /** What the user hid, reordered and approved. */
+  /** What the user hid and reordered. */
   prefs: UiPrefs
   refresh(): Promise<void>
 }

@@ -233,7 +233,7 @@ const SidebarDialog: React.FC<{ onClose(): void }> = ({ onClose }) => {
   })
 
   useEffect(() => {
-    // Capturing on window first: the settings dialog under it must not take the key too
+    // Capturing on window first: the page under it must not take the key too
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       e.stopPropagation()

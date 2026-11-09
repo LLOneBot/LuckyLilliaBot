@@ -91,7 +91,7 @@ const GetPrivateFileDownloadUrl = defineApi(
         return Failed(-404, 'User not found')
       }
     } else {
-      uid = ctx.account.uid
+      uid = ctx.qqProtocol.selfInfo.uid
     }
     const result = await ctx.ntFileApi.getFileUrl(payload.file_id, false, uid)
     if (result.retCode !== 0) {
