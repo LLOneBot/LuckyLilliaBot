@@ -1,0 +1,48 @@
+{
+  "name": "@luckylillia/plugin-commands",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Manage command prefixes, aliases and permissions, view all commands and conflicts, and synchronize QQ official bot command menus",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/service/commands"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "service",
+    "icon": "terminal",
+    "service": {
+      "implements": [
+        "commands"
+      ],
+      "labels": {
+        "commands": "指令"
+      }
+    },
+    "description": {
+      "zh": "管理指令前缀、别名和使用权限，查看全部指令及重名提示；同步 QQ 官方机器人的指令菜单",
+      "en": "Manage command prefixes, aliases and permissions, view all commands and conflicts, and synchronize QQ official bot command menus"
+    },
+    "title": "指令",
+    "builtin": {
+      "entry": "builtin:commands",
+      "abi": 1
+    },
+    "webui": "./lib/client/index.js"
+  }
+}

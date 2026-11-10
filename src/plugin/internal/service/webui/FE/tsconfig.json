@@ -32,6 +32,7 @@
     "../../../protocol/qq-official/setupTypes.ts",
     "../../../protocol/qq-official/statsTypes.ts",
     "../../../tool/market/images.ts",
+    "../../../tool/market/origin.ts",
     "../../../../../version.ts",
     "../../../../../main/config/defaultConfig.ts",
     "../BE/types.ts",

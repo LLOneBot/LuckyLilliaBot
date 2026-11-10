@@ -85,7 +85,9 @@ export async function createTestApp(): Promise<TestAppApi> {
   await ctx.plugin(TimerService)
   await ctx.plugin(HttpService)
   await ctx.plugin(BotsService)
-  const settings: { current: CommandSettings } = { current: { ...DEFAULT_SETTINGS, prefixes: [...DEFAULT_SETTINGS.prefixes] } }
+  const settings: { current: CommandSettings } = { current: {
+    ...DEFAULT_SETTINGS, prefixes: [...DEFAULT_SETTINGS.prefixes], owners: [], aliases: [], permissions: [],
+  } }
   await ctx.plugin(CommandService, settings)
   return {
     ctx,

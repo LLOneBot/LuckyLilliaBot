@@ -1,4 +1,5 @@
 import * as nodeModule from 'node:module'
+import { builtinRuntimeModule } from './builtin-runtime'
 
 /** Packages a plugin must share with the host: a second copy of cordis breaks services and events. */
 export const SHARED_SPECIFIERS = [
@@ -41,6 +42,8 @@ export function resolvePluginSpecifier(
   context: nodeModule.ResolveHookContext,
   nextResolve: (specifier: string, context?: Partial<nodeModule.ResolveHookContext>) => nodeModule.ResolveFnOutput,
 ): nodeModule.ResolveFnOutput {
+  const internal = builtinRuntimeModule(specifier)
+  if (internal) return { url: internal, shortCircuit: true }
   const pinned = state.shared.get(specifier)
   if (pinned) return { url: pinned, shortCircuit: true }
   const result = nextResolve(specifier, context)

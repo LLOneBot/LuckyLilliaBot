@@ -5,9 +5,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isDevMode } from '@/common/utils/environment'
 import type { NativeSign } from './sign-types'
-import type { NativeQQ } from './lucky-lillia/production'
+import type { NativeQQ } from './production'
 
-export type { NativeQQ } from './lucky-lillia/production'
+export type { NativeQQ } from './production'
 export interface NativeAddon extends NativeSign {
   NativeQQ: new () => NativeQQ
   getNativeDirectory(): string
@@ -22,7 +22,7 @@ export function getNativeAddon(): NativeAddon {
   if (addon) return addon
   const variant = isDevMode() ? 'development' : 'production'
   const here = path.dirname(fileURLToPath(import.meta.url))
-  const candidates = [path.join(here, 'lucky-lillia', variant), path.join(here, 'native', 'lucky-lillia', variant)]
+  const candidates = [path.join(here, variant), path.join(here, variant === 'production' ? 'native' : 'native-dev')]
   const root = candidates.find(dir => existsSync(path.join(dir, 'loader.cjs')))
   if (!root) throw new Error(`缺少 LuckyLillia ${variant} 原生包；请在 LuckyLillia.node 执行 sync-to-bot 后重新构建 Bot。查找位置：${candidates.join(', ')}`)
   const loader = requireNative(path.join(root, 'loader.cjs'))

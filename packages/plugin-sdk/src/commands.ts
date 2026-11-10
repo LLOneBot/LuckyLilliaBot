@@ -15,8 +15,8 @@ export interface CommandConfig {
   /** Per user, in milliseconds: how long a user waits between two runs. */
   cooldown?: number
   /**
-   * Who may run it: `everyone` (default); `admin` group owners and admins too; `owner` only the owners in the
-   * command settings, who may run every command.
+   * The default permission: `everyone` (default); `admin` group owners and admins too; `owner` only the owners
+   * in the command settings. Users may override it for this command in the host's command settings.
    */
   authority?: 'everyone' | 'admin' | 'owner'
 }
@@ -63,7 +63,10 @@ export interface CommandInfo {
   /** `签到 [days:number]` */
   syntax: string
   hidden: boolean
+  /** Effective permission, including the host's override. */
   authority: 'everyone' | 'admin' | 'owner'
+  /** Permission declared by the plugin, or everyone when omitted. */
+  defaultAuthority: 'everyone' | 'admin' | 'owner'
   /** The plugin entry it belongs to; undefined for the bot's own. */
   owner?: string
   /** Names or aliases another command has too: the one registered first runs where both plugins take a message. */

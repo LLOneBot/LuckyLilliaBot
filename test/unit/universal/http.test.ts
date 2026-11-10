@@ -1,7 +1,7 @@
 import { createServer, IncomingHttpHeaders, Server } from 'node:http'
 import { AddressInfo } from 'node:net'
 import { Context } from 'cordis'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HttpConfig, HttpFetchInit } from '@luckylillia/plugin-sdk'
 import HttpService from '@/universal/http'
 import { PNG } from '../examples/fakeAi'
@@ -51,6 +51,33 @@ afterEach(async () => {
 })
 
 describe('ctx.http', () => {
+  it('resolves native proxy settings synchronously without issuing a request or calling fetch hooks', () => {
+    const fetchHook = vi.fn()
+    ctx.on('http/fetch-init', fetchHook)
+    expect(ctx.http.proxy(`${base}/plain`, { proxyAgent: 'http://127.0.0.1:9' })).toBe('')
+    const calls: { url: string; config: HttpConfig }[] = []
+    ctx.on('http/proxy', (url, proxy, config) => {
+      calls.push({ url: url.href, config })
+      expect(proxy.url).toBe('')
+      proxy.url = config.proxyAgent ?? ''
+    })
+    const client = ctx.http.extend({ baseURL: `${base}/api`, proxyAgent: 'http://127.0.0.1:9',
+      headers: { 'x-a': '1', 'x-b': '1' }, timeout: 1000 })
+    expect(client.proxy('native', { headers: { 'x-b': '2' } })).toBe('http://127.0.0.1:9')
+    expect(client.proxy('other', { baseURL: `${base}/v2`, proxyAgent: '' })).toBe('')
+    expect(client.proxy(new URL(`${base}/absolute`), { timeout: 2000 })).toBe('http://127.0.0.1:9')
+    expect(calls).toEqual([
+      { url: `${base}/api/native`, config: { baseURL: `${base}/api`, proxyAgent: 'http://127.0.0.1:9',
+        headers: { 'x-a': '1', 'x-b': '2' }, timeout: 1000 } },
+      { url: `${base}/v2/other`, config: { baseURL: `${base}/v2`, proxyAgent: '',
+        headers: { 'x-a': '1', 'x-b': '1' }, timeout: 1000 } },
+      { url: `${base}/absolute`, config: { baseURL: `${base}/api`, proxyAgent: 'http://127.0.0.1:9',
+        headers: { 'x-a': '1', 'x-b': '1' }, timeout: 2000 } },
+    ])
+    expect(fetchHook).not.toHaveBeenCalled()
+    expect(seen).toEqual([])
+  })
+
   it('reads answers by their type, or as told', async () => {
     expect(await ctx.http.get(`${base}/json`)).toEqual({ a: 1 })
     expect(await ctx.http.get(`${base}/text`)).toBe('plain')

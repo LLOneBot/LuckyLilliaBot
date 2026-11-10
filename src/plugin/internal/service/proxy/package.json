@@ -1,0 +1,40 @@
+{
+  "name": "@luckylillia/plugin-proxy",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "The proxy (http / socks5) for what plugins send through ctx.http, e.g. the AI gateway calling OpenAI. The bot itself connects directly",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/service/proxy"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "service",
+    "icon": "globe",
+    "description": {
+      "zh": "插件访问外网用的代理（http / socks5），比如 AI 网关连 OpenAI。只管插件经 ctx.http 发的请求，Bot 自己登录、收发图片都直连",
+      "en": "The proxy (http / socks5) for what plugins send through ctx.http, e.g. the AI gateway calling OpenAI. The bot itself connects directly"
+    },
+    "title": "代理",
+    "builtin": {
+      "entry": "builtin:proxy",
+      "abi": 1
+    },
+    "webui": "./lib/client/index.js"
+  }
+}

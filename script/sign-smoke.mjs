@@ -47,13 +47,13 @@ function options(argv) {
 
 function inspectNative(config) {
   check(existsSync(path.join(config.dist, 'llbot.js')), 'BUILT_BOT_NOT_FOUND')
-  const root = path.join(config.dist, 'native/lucky-lillia/production')
+  const root = path.join(config.dist, 'native')
   const loaderPath = path.join(root, 'loader.cjs')
   check(existsSync(loaderPath), 'BUILT_NATIVE_LOADER_NOT_FOUND')
   const bundle = require(loaderPath).inspectBundle(root)
   check(bundle.manifest.variant === 'production', 'NATIVE_VARIANT_NOT_PRODUCTION')
   if (config.expectedBuildId) check(bundle.metadata.buildId === config.expectedBuildId, 'NATIVE_BUILD_ID_MISMATCH')
-  const sourceRoot = path.join(botRoot, 'src/native/lucky-lillia/production')
+  const sourceRoot = path.join(botRoot, 'src/native/production')
   if (existsSync(path.join(sourceRoot, 'loader.cjs'))) {
     const source = require(path.join(sourceRoot, 'loader.cjs')).inspectBundle(sourceRoot)
     check(source.metadata.buildId === bundle.metadata.buildId, 'BUILT_NATIVE_IS_STALE')

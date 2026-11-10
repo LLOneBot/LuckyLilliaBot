@@ -4,6 +4,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
+const { tmpdir } = require('node:os')
 const { TARGETS } = require('./targets.cjs')
 const NAME = 'lucky-lillia-node'
 const sha256 = value => crypto.createHash('sha256').update(value).digest('hex')
@@ -69,7 +70,7 @@ function verifyFiles(root, files) {
 
 function inspectBundle(root, { target = detectTarget(), allTargets = false } = {}) {
   const manifest = readJson(path.join(root, 'manifest.json'))
-  if (manifest.schemaVersion !== 1 || manifest.package?.name !== NAME
+  if (![1, 2].includes(manifest.schemaVersion) || manifest.package?.name !== NAME
       || typeof manifest.package.version !== 'string'
       || !['production', 'development'].includes(manifest.variant)
       || !manifest.targets || typeof manifest.targets !== 'object') fail('Invalid bundle manifest')
@@ -84,11 +85,12 @@ function inspectBundle(root, { target = detectTarget(), allTargets = false } = {
   for (const file of ['index.js', 'index.d.ts', 'loader.cjs', 'targets.cjs', 'package.json']) {
     if (!manifest.files?.[file]) fail(`Manifest is missing ${file}`)
   }
-  verifyFiles(root, Object.fromEntries(Object.entries(manifest.files).filter(([file]) => !file.startsWith('native/'))))
+  verifyFiles(root, Object.fromEntries(Object.entries(manifest.files).filter(([file]) => !file.includes('/'))))
   for (const name of selected) {
     const spec = TARGETS[name]
     const item = manifest.targets[name]
-    if (!spec || item.target !== spec.triple || item.directory !== `native/${name}`
+    const expectedDirectory = manifest.schemaVersion === 1 ? `native/${name}` : name
+    if (!spec || item.target !== spec.triple || item.directory !== expectedDirectory
         || !/^[a-f0-9-]{36}$/.test(item.buildId)) fail(`Invalid target metadata for ${name}`)
     const metadataFile = `${item.directory}/build.json`
     if (!manifest.files[metadataFile] || manifest.files[metadataFile] !== item.metadataSha256) fail(`Missing build metadata hash for ${name}`)
@@ -124,21 +126,34 @@ function copyTarget(bundle, cacheDir) {
   const cacheRoot = path.resolve(cacheDir)
   fs.mkdirSync(cacheRoot, { recursive: true })
   if (fs.lstatSync(cacheRoot).isSymbolicLink()) fail('cacheDir cannot be a symbolic link')
-  const destination = safePath(cacheRoot, `${target}-${manifest.variant}-${metadata.buildId}`)
-  const files = { ...metadata.files, 'build.json': manifest.targets[target].metadataSha256 }
+  const metadataHash = manifest.targets[target].metadataSha256
+  // The metadata digest binds buildId and sidecar hashes without lengthening the
+  // Windows path with both the UUID and the digest. The addon keeps its full hash.
+  const destination = safePath(cacheRoot, `${target}-${manifest.variant}-${metadataHash}`)
+  const addonName = cachedAddonName(metadata)
+  const files = Object.fromEntries(Object.entries(metadata.files).map(([file, hash]) => [file === metadata.addon ? addonName : file, hash]))
+  files['build.json'] = metadataHash
+  const verifyCache = directory => {
+    verifyFiles(directory, files)
+    if (metadata.sidecar === null && fs.existsSync(safePath(directory, TARGETS[target].sidecar))) {
+      fail(`Unanchored ${TARGETS[target].sidecar} present in cache for ${target}`)
+    }
+  }
   if (fs.existsSync(destination)) {
-    verifyFiles(destination, files)
+    verifyCache(destination)
     return destination
   }
   const staging = fs.mkdtempSync(path.join(cacheRoot, '.native-'))
   try {
-    for (const file of Object.keys(files)) fs.copyFileSync(safePath(directory, file), safePath(staging, file), fs.constants.COPYFILE_EXCL)
-    verifyFiles(staging, files)
+    for (const file of Object.keys(files)) {
+      fs.copyFileSync(safePath(directory, file === addonName ? metadata.addon : file), safePath(staging, file), fs.constants.COPYFILE_EXCL)
+    }
+    verifyCache(staging)
     try { fs.renameSync(staging, destination) }
     catch (error) {
       // Concurrent Workers may have completed this exact immutable build first.
       if (!fs.existsSync(destination)) throw error
-      verifyFiles(destination, files)
+      verifyCache(destination)
     }
   } finally {
     // Only these three files can belong to this fresh staging directory. Avoid
@@ -153,11 +168,15 @@ function copyTarget(bundle, cacheDir) {
   return destination
 }
 
-function loadNative(root, { cacheDir } = {}) {
+function cachedAddonName(metadata) {
+  return `LuckyLillia.NTQQ.${metadata.files[metadata.addon]}.node`
+}
+
+function loadNative(root, { cacheDir = path.join(tmpdir(), NAME) } = {}) {
   const bundle = inspectBundle(path.resolve(root))
-  const directory = cacheDir ? copyTarget(bundle, cacheDir) : bundle.directory
+  const directory = copyTarget(bundle, cacheDir)
   let native
-  try { native = require(path.join(directory, 'LuckyLillia.NTQQ.node')) }
+  try { native = require(path.join(directory, cachedAddonName(bundle.metadata))) }
   catch (error) { fail(`Failed to load ${bundle.target} (${bundle.manifest.variant}): ${error.message}`) }
   if (typeof native.ping !== 'function' || native.ping() !== `lucky-lillia-node v${bundle.manifest.package.version} ok`) {
     fail('Compiled addon version does not match the bundle package version; rebuild both native artifacts')

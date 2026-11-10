@@ -95,6 +95,14 @@ export class HttpClient implements Http {
     return new HttpClient(this.ctx, mergeConfig(this.config, config))
   }
 
+  proxy(input: string | URL, more?: HttpConfig): string {
+    const config = mergeConfig(this.config, more)
+    const url = resolve(input, config.baseURL)
+    const proxy = { url: '' }
+    this.ctx.emit('http/proxy', url, proxy, config)
+    return proxy.url
+  }
+
   async fetch(input: string | URL, init: RequestInit = {}, more?: HttpConfig): Promise<Response> {
     const config = mergeConfig(this.config, more)
     const url = resolve(input, config.baseURL)
@@ -193,6 +201,10 @@ export class HttpService extends Service implements Http {
 
   extend(config: HttpConfig) {
     return this.client.extend(config)
+  }
+
+  proxy(url: string | URL, config?: HttpConfig) {
+    return this.client.proxy(url, config)
   }
 
   fetch(url: string | URL, init?: RequestInit, config?: HttpConfig) {

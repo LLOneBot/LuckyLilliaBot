@@ -1,0 +1,51 @@
+{
+  "name": "@luckylillia/plugin-nt-protocol",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "The QQ account logged in by QR code or quick login (pure protocol, or bridged to an official QQ client), which OneBot, Satori, Milky and WebQQ run on",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/protocol/nt-protocol"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "protocol",
+    "icon": "smartphone",
+    "service": {
+      "implements": [
+        "qqProtocol",
+        "app",
+        "store"
+      ],
+      "labels": {
+        "app": "NTQQ 账号登录",
+        "store": "NTQQ 账号登录"
+      }
+    },
+    "description": {
+      "zh": "扫码或快速登录的 QQ 账号（纯协议或官方 QQ 客户端桥接）；OneBot、Satori、Milky、WebQQ 都靠它收发消息",
+      "en": "The QQ account logged in by QR code or quick login (pure protocol, or bridged to an official QQ client), which OneBot, Satori, Milky and WebQQ run on"
+    },
+    "title": "NTQQ 协议",
+    "builtin": {
+      "entry": "builtin:nt-protocol",
+      "abi": 1
+    },
+    "webui": "./lib/client/index.js"
+  }
+}

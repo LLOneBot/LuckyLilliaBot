@@ -1,7 +1,7 @@
 import { createServer as createHttpServer, Server } from 'node:http'
 import { AddressInfo, connect, createServer, Socket } from 'node:net'
 import { Context } from 'cordis'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Proxy from '@/plugin/internal/service/proxy'
 import { proxySettings } from '@/plugin/internal/service/proxy/settings'
 import HttpService from '@/universal/http'
@@ -77,6 +77,47 @@ afterEach(async () => {
 })
 
 describe('the builtin proxy', () => {
+  it('resolves native clients with the same default, local bypass, overrides and disabled state', async () => {
+    const address = 'http://127.0.0.1:9'
+    const override = 'socks5://127.0.0.1:10'
+    const fetchHook = vi.fn()
+    ctx.on('http/fetch-init', fetchHook)
+    expect(ctx.http.proxy(far, { proxyAgent: address })).toBe('')
+    await ctx.plugin(Proxy, { proxyAgent: address })
+    expect(ctx.http.proxy(far)).toBe(address)
+    expect(ctx.http.proxy(near)).toBe('')
+    expect(ctx.http.proxy(far, { proxyAgent: '' })).toBe('')
+    expect(ctx.http.proxy(near, { proxyAgent: override })).toBe(override)
+    const extended = ctx.http.extend({ baseURL: far, proxyAgent: override })
+    expect(extended.proxy('/resource')).toBe(override)
+    expect(extended.proxy('/resource', { proxyAgent: '' })).toBe('')
+    await ctx.registry.delete(Proxy)
+    expect(extended.proxy('/resource')).toBe('')
+    await ctx.plugin(Proxy, { proxyAgent: '' })
+    expect(ctx.http.proxy(far)).toBe('')
+    expect(extended.proxy('/resource')).toBe(override)
+    expect(fetchHook).not.toHaveBeenCalled()
+    expect(hits).toEqual([])
+  })
+
+  it('preserves native proxy authentication privately and rejects malformed addresses without a fallback', async () => {
+    const address = new URL('https://127.0.0.1:9')
+    address.username = 'fixture:user'
+    address.password = 'fixture password'
+    await ctx.plugin(Proxy, { proxyAgent: address.href })
+    // Compare booleans so even a failing assertion cannot print authentication values.
+    expect(ctx.http.proxy(far) === address.href).toBe(true)
+    const invalid = 'http://fixture:never-print@exa mple:9'
+    expect(() => ctx.http.proxy(far, { proxyAgent: invalid })).toThrow('Invalid proxy address')
+    expect(() => ctx.http.proxy(far, { proxyAgent: 'http://fixture:%ZZ@127.0.0.1:9' })).toThrow('Invalid proxy address')
+    expect(() => ctx.http.proxy(far, { proxyAgent: 'ftp://127.0.0.1:9' })).toThrow('Invalid proxy address')
+    await expect(text(far, { proxyAgent: invalid })).rejects.toThrow('Invalid proxy address')
+    await ctx.registry.delete(Proxy)
+    await ctx.plugin(Proxy, { proxyAgent: invalid })
+    expect(() => ctx.http.proxy(far)).toThrow('Invalid proxy address')
+    expect(hits).toEqual([])
+  })
+
   it('takes http, https and socks5 addresses, or none', () => {
     const issues = (proxyAgent: string) => proxySettings.check!(proxySettings.normalize!({ proxyAgent }), true)
     expect(issues('')).toEqual([])

@@ -1,0 +1,48 @@
+{
+  "name": "@luckylillia/plugin-database",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "The plugins' database: one SQLite file in the instance directory, there without a login and shared by every account",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/service/database"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "service",
+    "icon": "database",
+    "service": {
+      "implements": [
+        "database",
+        "model"
+      ],
+      "labels": {
+        "database": "数据库"
+      }
+    },
+    "description": {
+      "zh": "插件的数据库：实例目录下的一个 SQLite 文件，不用登录就有，所有账号共用",
+      "en": "The plugins' database: one SQLite file in the instance directory, there without a login and shared by every account"
+    },
+    "title": "数据库",
+    "builtin": {
+      "entry": "builtin:database",
+      "abi": 1
+    }
+  }
+}

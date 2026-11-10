@@ -1,0 +1,40 @@
+{
+  "name": "@luckylillia/plugin-market",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Browse the market catalog and install, update or remove listed npm plugins in the WebUI",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/tool/market"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "tool",
+    "icon": "store",
+    "description": {
+      "zh": "在 WebUI 里浏览市场目录、安装、更新和卸载收录的 npm 插件",
+      "en": "Browse the market catalog and install, update or remove listed npm plugins in the WebUI"
+    },
+    "title": "插件市场",
+    "builtin": {
+      "entry": "builtin:market",
+      "abi": 1
+    },
+    "webui": "./lib/client/index.js"
+  }
+}

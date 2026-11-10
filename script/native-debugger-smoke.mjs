@@ -70,7 +70,7 @@ function options(argv) {
 }
 
 function inspectNative(dist, expectedBuildId) {
-  const bundleRoot = path.join(dist, 'native/lucky-lillia/production')
+  const bundleRoot = path.join(dist, 'native')
   check(existsSync(path.join(dist, 'llbot.js')), 'BUILT_BOT_NOT_FOUND')
   check(existsSync(path.join(bundleRoot, 'loader.cjs')), 'BUILT_NATIVE_LOADER_NOT_FOUND')
   const loader = require(path.join(bundleRoot, 'loader.cjs'))
@@ -79,7 +79,7 @@ function inspectNative(dist, expectedBuildId) {
   check(bundle.target === 'win-x64', 'NATIVE_TARGET_NOT_WINDOWS_X64')
   if (expectedBuildId) check(bundle.metadata.buildId === expectedBuildId, 'NATIVE_BUILD_ID_MISMATCH')
   // Catch the common error of syncing the fixed addon but running an old dist/.
-  const sourceRoot = path.join(botRoot, 'src/native/lucky-lillia/production')
+  const sourceRoot = path.join(botRoot, 'src/native/production')
   if (existsSync(path.join(sourceRoot, 'loader.cjs'))) {
     const source = require(path.join(sourceRoot, 'loader.cjs')).inspectBundle(sourceRoot)
     check(source.metadata.buildId === bundle.metadata.buildId, 'BUILT_NATIVE_IS_STALE')

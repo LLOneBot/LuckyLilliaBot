@@ -35,6 +35,8 @@
    │  └─ plugin-data/<key>/shared/      插件数据:ctx.storage.dir(),也是条目的 ctx.baseUrl
    │     plugin-data/<key>/bots/<平台>+<selfId>/   ctx.storage.dir('bot', bot)
    ├─ plugins/                          插件代码,所有实例共用;插件市场装到这里(装的时候先放在临时目录 .market-*)
+   │  ├─ .builtin-updates.json          已批准的官方内置 npm 更新版本及摘要
+   │  └─ .builtin-packages/             经过完整校验的内置包快照,运行中的实例保持使用启动时选中的版本
    ├─ state/                            bot 私有、不要手改:实例锁 instances/<实例名>.lock、文件写锁
    ├─ database/<uin>.v3.db              [QQ 号] 不动;NTQQ 协议自己的消息库,插件用不到
    ├─ qq-session-<uin>[-<p>].json       [QQ 号 x 协议] 不动
@@ -97,6 +99,10 @@
 - 前端各设置页经 plugin SDK 的 `usePluginConfig()` 走插件接口（见 [plugin-system.md](plugin-system.md)"内置插件的界面"）。
 
 NTQQ 的「自动登录」属于协议插件配置，存在实例 `plugins.json` 的 `builtin:nt-protocol.config.autoLoginUin`：空串表示关闭，非空是登录成功后勾选的 QQ 号。凭据仍使用共享的 QQ 登录记录，不写进实例配置；修改勾选项不重启当前协议，下一次启动时读取。
+
+指令权限属于 `builtin:commands.config.permissions`，为 `{ owner, command, authority }[]`；owner 是插件条目 id，command 是指令原名，authority 为 `everyone` / `admin` / `owner`。没有覆盖的指令沿用插件默认权限；原名和别名共用覆盖，同名的其他插件条目独立。WebUI 通过插件配置接口和 rev 保存，`internal/update` 就地生效；插件停用或重载不删除已保存的权限。
+
+指令自定义别名属于 `builtin:commands.config.aliases`，为 `{ owner, command, aliases: string[] }[]`，默认空数组；owner 是插件条目 id（宿主指令为空字符串），command 是注册原名。保存时合并同一指令的配置行，清理首尾空白、空项和不区分大小写的重复别名，拒绝包含换行或控制字符的别名。与其他指令设置共用 rev 和保存接口，`internal/update` 就地生效，不重启指令服务及依赖插件。
 
 ## 7. bot 设置(`settings.json`)
 

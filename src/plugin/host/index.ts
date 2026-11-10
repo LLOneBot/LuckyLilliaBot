@@ -22,6 +22,8 @@ import { maskSecrets, restoreSecrets, secretPaths } from './secrets'
 import { acceptsScope, EntryScope, normalizeScope } from './scope'
 import type BotsService from '../../universal/bots'
 import type { ListenerPolicy } from '../../universal/bots'
+import { BuiltinPackages, type BuiltinPackageIdentity, type BuiltinPackageInfo } from './builtin-packages'
+export type { BuiltinPackageIdentity, BuiltinPackageInfo } from './builtin-packages'
 
 declare module 'cordis' {
   interface Context {
@@ -51,6 +53,8 @@ export interface PluginStatus {
   id: string
   name: string
   version?: string
+  /** Canonical npm identity, also present for bundled plugins whose stable entry uses builtin:. */
+  packageName?: string
   description?: string
   manifest: LLBotManifest
   disabled: boolean
@@ -137,6 +141,7 @@ export interface PackageDependencyInfo {
 export interface BuiltinPlugin {
   /** Entry name; the `builtin:` prefix keeps it apart from package names. */
   name: string
+  npm?: BuiltinPackageIdentity
   plugin: Plugin
   title: string
   manifest: LLBotManifest
@@ -279,6 +284,9 @@ class PluginService extends Service {
   private resolverInstalled = false
   private sdkVersion?: string
   private builtins: Map<string, BuiltinPlugin>
+  private readonly builtinPackages: BuiltinPackages
+  private readonly builtinStandby = new Map<string, Fiber>()
+  private readonly builtinBranches = new WeakMap<Fiber, { name: string; standby: boolean }>()
   // The service's own context. Inside a method called through ctx.plugins, this.ctx is the CALLER's
   // context (cordis tracker), so mounting entries on it would parent them under whoever asked.
   private readonly home: Context
@@ -292,6 +300,7 @@ class PluginService extends Service {
     }
     this.store = new PluginStore(config.file)
     this.builtins = new Map((config.builtins ?? []).map(builtin => [builtin.name, builtin]))
+    this.builtinPackages = new BuiltinPackages(this.builtins.values(), config.roots[0])
   }
 
   async [Service.init]() {
@@ -316,6 +325,14 @@ class PluginService extends Service {
     // What already ran before trust was asked for keeps running without asking
     const trustSet = !data.trusted
     if (trustSet) data.trusted = [...new Set(data.entries.filter(entry => !entry.disabled && !this.builtins.has(entry.name)).map(entry => entry.name))]
+    await this.builtinPackages.restore(this.sdkVersion).catch(error => this.ctx.logger.warn(errorText(error)))
+    await this.builtinPackages.load(this.builtins, value => {
+      const plugin = value as Plugin
+      return !!plugin && (typeof plugin === 'function' || typeof plugin.apply === 'function') && !bundlesOwnCordis(plugin)
+    })
+    for (const pkg of this.builtinPackages.list()) {
+      if (pkg.error) this.ctx.logger.warn(`${pkg.name}: using bundled version; ${pkg.error}`)
+    }
     const reconciled = this.reconcileBuiltins()
     if ((reconciled || trustSet) && !error) await this.save()
 
@@ -333,7 +350,7 @@ class PluginService extends Service {
       ctx.effect(() => (ctx.bots as unknown as BotsService).usePolicy(policy))
     })
     for (const builtin of this.builtins.values()) {
-      if (builtin.standby) this.home.plugin(builtin.standby)
+      this.mountBuiltinStandby(builtin)
     }
     const dirs = this.dataDirs
     if (dirs) {
@@ -383,6 +400,21 @@ class PluginService extends Service {
   /** The plugin packages the last scan found */
   packageList(): PluginPackage[] {
     return [...this.packages.values()]
+  }
+
+  /** Official npm identities, including the versions that ship with Bot before any update is installed. */
+  builtinPackageList(): BuiltinPackageInfo[] {
+    return this.builtinPackages.list()
+  }
+
+  checkBuiltinPackage(name: string, manifest: Record<string, any>): string | undefined {
+    return this.builtinPackages.check(name, manifest, this.sdkVersion)
+  }
+
+  /** Market calls this only for catalog-pinned downloads, never for uploaded or merely discovered packages. */
+  async approveBuiltinPackage(name: string, version: string): Promise<void> {
+    await this.builtinPackages.approve(name, version, this.sdkVersion)
+    this.changed()
   }
 
   /** The @luckylillia/plugin-sdk version plugins' peerDependencies are checked against */
@@ -638,7 +670,8 @@ class PluginService extends Service {
    */
   webuiAsset(key: string, file: string): string | undefined {
     const name = packageOfKey(key)
-    const entry = this.packages.get(name)?.webui
+    const builtin = this.builtinPackages.list().find(item => item.name === name)
+    const entry = (builtin ? this.builtinPackages.package(builtin.entryName) : this.packages.get(name))?.webui
     if (!entry) return
     const dir = path.dirname(entry)
     const target = path.resolve(dir, file)
@@ -650,7 +683,9 @@ class PluginService extends Service {
    * its details show. Only image files inside the package are served.
    */
   asset(key: string, file: string): string | undefined {
-    const pkg = this.packages.get(packageOfKey(key))
+    const name = packageOfKey(key)
+    const builtin = this.builtinPackages.list().find(item => item.name === name)
+    const pkg = builtin ? this.builtinPackages.package(builtin.entryName) : this.packages.get(name)
     if (!pkg || !isImagePath(file)) return
     const target = path.resolve(pkg.root, file)
     return isInside(pkg.root, target) ? target : undefined
@@ -658,7 +693,8 @@ class PluginService extends Service {
 
   /** Read when asked, so an edited details file shows without a rescan. A builtin has none. */
   async details(id: string): Promise<PluginDetails> {
-    const pkg = this.packages.get(this.runtime(id).entry.name)
+    const name = this.runtime(id).entry.name
+    const pkg = this.builtinPackages.package(name) ?? this.packages.get(name)
     if (!pkg) return { base: '', screenshots: [] }
     const dir = pkg.detailsFile ? path.posix.dirname(pkg.detailsFile) : '.'
     return {
@@ -811,6 +847,9 @@ class PluginService extends Service {
     for (const { path: dir, error } of errors) this.ctx.logger.warn(`skipped ${dir}: ${error}`)
     const next = new Map<string, PluginPackage>()
     for (const pkg of packages) {
+      // Reserved identities are never ordinary trusted packages or extra plugin entries. Approved snapshots
+      // were selected at boot; replacing the installation on disk cannot change live core services.
+      if (this.builtinPackages.has(pkg.name) || (pkg.manifest as any).builtin) continue
       const existing = next.get(pkg.name)
       if (existing) {
         this.ctx.logger.warn(`duplicate plugin ${pkg.name} at ${pkg.root}, keeping ${existing.root}`)
@@ -834,7 +873,10 @@ class PluginService extends Service {
       return old && shown(old) !== shown(pkg)
     })
     this.packages = next
-    this.resolver.roots = [...next.values()].map(pkg => pathToFileURL(pkg.root + path.sep).href)
+    this.resolver.roots = [...next.values(), ...this.builtinPackages.list().flatMap(item => {
+      const pkg = this.builtinPackages.package(item.entryName)
+      return pkg ? [pkg] : []
+    })].map(pkg => pathToFileURL(pkg.root + path.sep).href)
     for (const name of [...changed, ...removed]) this.modules.delete(name)
     for (const name of changed) this.bumpWebui(name)
     for (const name of removed) {
@@ -879,7 +921,13 @@ class PluginService extends Service {
     if (this.isDisabled(rt) || rt.fiber || !this.runtimes.has(rt.entry.id)) return
     const builtin = this.builtins.get(rt.entry.name)
     if (builtin) {
-      await this.mount(rt, builtin.plugin)?.await().catch(() => {})
+      const mounted = this.mount(rt, builtin.plugin)
+      await mounted?.await().catch(() => {})
+      const current = this.runtimes.get(rt.entry.id)
+      if (!current || current.fiber !== mounted) return
+      if (mounted?.state === FiberState.FAILED || (!mounted && rt.error)) {
+        await this.restoreBuiltin(builtin, rt.error ?? 'The updated built-in plugin failed to start')
+      }
       return
     }
     const pkg = this.packages.get(rt.entry.name)
@@ -913,11 +961,71 @@ class PluginService extends Service {
       this.fiberIds.set(fiber, rt.entry.id)
       this.dataDirs?.register(fiber, rt.entry.name)
       rt.fiber = fiber
+      if (this.builtins.has(rt.entry.name)) {
+        this.builtinBranches.set(fiber, { name: rt.entry.name, standby: false })
+        this.observeBuiltinFailure(fiber)
+      }
     } catch (e) {
       rt.error = errorText(e)
     }
     this.changed(rt.entry.id)
     return rt.fiber
+  }
+
+  private mountBuiltinStandby(builtin: BuiltinPlugin) {
+    if (!builtin.standby) return
+    try {
+      const fiber = this.home.plugin(builtin.standby).ctx.fiber
+      this.builtinStandby.set(builtin.name, fiber)
+      this.builtinBranches.set(fiber, { name: builtin.name, standby: true })
+      this.observeBuiltinFailure(fiber)
+    } catch (error) {
+      if (!this.builtinPackages.package(builtin.name)) throw error
+      this.lock(builtin.name, () => this.restoreBuiltin(builtin, errorText(error))).catch(error => this.ctx.logger.warn(errorText(error)))
+    }
+  }
+
+  /** Includes deferred injects and nested services: the entry fiber itself may remain ACTIVE. */
+  private observeBuiltinFailure(fiber: Fiber) {
+    if (fiber.state !== FiberState.FAILED) return
+    for (let current = fiber; ; current = current.parent.fiber) {
+      const branch = this.builtinBranches.get(current)
+      if (branch) {
+        const { name, standby } = branch
+        const isCurrent = () => standby ? this.builtinStandby.get(name) === current
+          : this.entriesOf(name).some(rt => rt.fiber === current)
+        const builtin = this.builtins.get(name)
+        if (!builtin || !isCurrent() || !this.builtinPackages.package(name)) return
+        fiber.await().catch(error => this.lock(name, async () => {
+          if (isCurrent()) await this.restoreBuiltin(builtin, errorText(error))
+        })).catch(error => this.ctx.logger.warn(errorText(error)))
+        return
+      }
+      if (current.parent.fiber === current) return
+    }
+  }
+
+  /** Caller holds the entry lock. Remove both updated branches before restoring either bundled branch. */
+  private async restoreBuiltin(expected: BuiltinPlugin, reason: string) {
+    const name = expected.name
+    if (this.builtins.get(name) !== expected || !this.builtinPackages.package(name)) return
+    const shuttingDown = () => [FiberState.UNLOADING, FiberState.DISPOSED].includes(this.home.fiber.state)
+    if (shuttingDown()) return
+    const rt = this.entriesOf(name)[0]
+    const standby = this.builtinStandby.get(name)
+    this.builtinStandby.delete(name)
+    if (rt) await this.stop(rt)
+    await standby?.dispose()
+    const fallback = this.builtinPackages.fallback(name, reason)
+    if (!fallback) return
+    this.builtins.set(name, fallback)
+    if (!shuttingDown()) {
+      this.mountBuiltinStandby(fallback)
+      if (rt && !this.isDisabled(rt)) await this.mount(rt, fallback.plugin)?.await().catch(() => {})
+    }
+    this.changed()
+    // Consumers of the rejected update must not keep running against a now-older package version.
+    this.reconcilePackageDependencies().catch(error => this.ctx.logger.warn(errorText(error)))
   }
 
   private async stop(rt: Runtime) {
@@ -968,12 +1076,14 @@ class PluginService extends Service {
   }
 
   private onFiberStatus(fiber: Fiber) {
+    this.observeBuiltinFailure(fiber)
     const id = this.fiberIds.get(fiber)
     const rt = id === undefined ? undefined : this.runtimes.get(id)
     if (!rt || rt.fiber !== fiber) return
     if (fiber.state === FiberState.FAILED) {
       // await() rethrows the error the fiber failed with
       fiber.await().catch((e) => {
+        if (rt.fiber !== fiber) return
         rt.error = errorText(e)
         this.changed(rt.entry.id)
       })
@@ -989,12 +1099,13 @@ class PluginService extends Service {
   private status(rt: Runtime): PluginStatus {
     const { entry, fiber } = rt
     const builtin = this.builtins.get(entry.name)
-    const pkg = this.packages.get(entry.name)
+    const pkg = this.builtinPackages.package(entry.name) ?? this.packages.get(entry.name)
     const mod = this.modules.get(entry.name)
     const status: PluginStatus = {
       id: entry.id,
       name: entry.name,
-      version: pkg?.version,
+      version: pkg?.version ?? builtin?.npm?.version,
+      packageName: builtin?.npm?.name ?? pkg?.name,
       description: pkg?.description,
       manifest: builtin?.manifest ?? pkg?.manifest ?? {},
       disabled: this.isDisabled(rt),
@@ -1091,7 +1202,7 @@ class PluginService extends Service {
     return service
   }
 
-  private incompatibility(pkg: PluginPackage): string | undefined {
+  private incompatibility(pkg: Pick<PluginPackage, 'sdkRange'>): string | undefined {
     return sdkIncompatibility(pkg.sdkRange, this.sdkVersion)
   }
 
@@ -1099,9 +1210,17 @@ class PluginService extends Service {
     return (this.builtins.get(rt.entry.name)?.manifest ?? this.packages.get(rt.entry.name)?.manifest)?.dependencies ?? {}
   }
 
+  private dependencyPackage(name: string): Pick<PluginPackage, 'name' | 'version' | 'sdkRange'> | undefined {
+    const pkg = this.packages.get(name)
+    if (pkg) return pkg
+    const builtin = this.builtinPackages.list().find(item => item.name === name)
+    // Staged versions are deliberately not dependency providers until the instance restarts.
+    if (builtin) return { name: builtin.entryName, version: builtin.activeVersion }
+  }
+
   private packageBlock(rt: Runtime): { state: 'pending' | 'incompatible'; error: string } | undefined {
     for (const [name, range] of Object.entries(this.packageRequirements(rt))) {
-      const pkg = this.packages.get(name)
+      const pkg = this.dependencyPackage(name)
       if (!pkg) return { state: 'pending', error: `requires plugin package ${name} ${range}, but it is not installed` }
       if (!matchesPluginVersion(pkg.version, range)) {
         return { state: 'incompatible', error: `requires plugin package ${name} ${range}, installed version is ${pkg.version}` }
@@ -1111,8 +1230,8 @@ class PluginService extends Service {
 
   private packageDependencies(rt: Runtime): PackageDependencyInfo[] {
     return Object.entries(this.packageRequirements(rt)).map(([name, range]) => {
-      const pkg = this.packages.get(name)
-      const entries = this.entriesOf(name)
+      const pkg = this.dependencyPackage(name)
+      const entries = this.entriesOf(pkg?.name ?? name)
       const enabled = entries.filter(entry => !this.isDisabled(entry))
       const base = { name, range, entries: entries.map(entry => entry.entry.id) }
       if (!pkg) return { ...base, state: 'missing' }

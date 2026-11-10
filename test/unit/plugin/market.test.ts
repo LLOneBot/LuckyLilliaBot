@@ -653,6 +653,82 @@ describe('the market', () => {
   const catalogRequests = () => requestsFor(CATALOG).filter(url => decodeURIComponent(url.pathname) === `/${CATALOG}`)
   const installedVersion = (name: string) => JSON.parse(readFileSync(path.join(pluginRoot, name, 'package.json'), 'utf8')).version
   const installLocal = (data: Buffer, filename: string) => market.installLocal(saveLocalArchive(data), filename)
+  const BUILTIN = '@luckylillia/plugin-example'
+  const setupBuiltin = async () => {
+    await service?.dispose()
+    service = await ctx.plugin(PluginService, {
+      file: pluginsFile, roots: [pluginRoot], trust: true, builtins: [{
+        name: 'builtin:example', title: '示例内置插件', manifest: {},
+        npm: { name: BUILTIN, version: '1.0.0', abi: 1 },
+        plugin: { apply() { globalThis.__marketTest.push('bundled') } },
+      }],
+    })
+    market = new Market(ctx, new Registry(registry.url), pluginRoot)
+    return ctx.plugins.list().find(entry => entry.name === 'builtin:example')!
+  }
+  const publishBuiltin = (version: string, abi = 1) => publishPlugin(BUILTIN, {}, version, {
+    llbot: { builtin: { entry: 'builtin:example', abi } },
+    files: { 'index.js': "export function apply() { globalThis.__marketTest.push('updated') }" },
+  })
+
+  it('filters catalog origins before counting and paging, using only registered builtin identities', async () => {
+    await setupBuiltin()
+    publishBuiltin('1.1.0')
+    for (let index = 0; index < 25; index++) publishPlugin(`luckylillia-plugin-origin-${index}`)
+    const impostor = '@luckylillia/plugin-impostor'
+    publishPlugin(impostor, {}, '1.0.0', { llbot: { builtin: { entry: 'builtin:example', abi: 1 } } })
+    expect((await market.search('', 1)).total).toBe(28)
+    expect(await market.search('', 1, 'builtin')).toMatchObject({ total: 1, items: [{ name: BUILTIN, builtin: 'builtin:example' }] })
+    const first = await market.search('', 1, 'third-party')
+    const second = await market.search('', 2, 'third-party')
+    expect(first.total).toBe(27)
+    expect(first.items).toHaveLength(20)
+    expect(second.total).toBe(27)
+    expect(second.items).toHaveLength(7)
+    expect([...first.items, ...second.items].every(item => !item.builtin && item.name !== BUILTIN)).toBe(true)
+    expect(second.items.some(item => item.name === impostor)).toBe(true)
+    expect((await market.search('origin', 1, 'third-party')).total).toBe(25)
+    expect(await market.search('origin', 1, 'builtin')).toEqual({ total: 0, items: [] })
+    const routes = new Hono().route('/api/market', createMarketRoutes(ctx, market))
+    const response = await routes.request('/api/market/search?origin=third-party&page=2')
+    expect(await response.json()).toMatchObject({ success: true, data: { total: 27, items: second.items.map(item => ({ name: item.name })) } })
+    expect((await routes.request('/api/market/search?origin=unrecognized')).status).toBe(400)
+  })
+
+  it('lists bundled npm plugins and installs approved updates without replacing the running builtin', async () => {
+    const entry = await setupBuiltin()
+    await ctx.plugins.enable(entry.id)
+    publishBuiltin('1.0.0')
+    expect(await market.updates()).toEqual({ [BUILTIN]: { latest: '1.0.0' } })
+    expect(market.installed()).toContainEqual(expect.objectContaining({
+      name: BUILTIN, version: '1.0.0', builtin: 'builtin:example', managed: true, activeVersion: '1.0.0',
+    }))
+    publishBuiltin('1.1.0')
+    expect(await market.updates()).toEqual({ [BUILTIN]: { latest: '1.1.0', update: '1.1.0' } })
+    const configBefore = readFileSync(pluginsFile, 'utf8')
+    const outcome = await market.update(BUILTIN, '1.1.0', '1.0.0')
+    expect(outcome).toMatchObject({ previous: '1.0.0', version: '1.1.0', entries: [entry.id], reload: { status: 'restart-required' } })
+    expect(market.installed()).toContainEqual(expect.objectContaining({ name: BUILTIN, version: '1.1.0', activeVersion: '1.0.0', restartRequired: true }))
+    expect(readFileSync(pluginsFile, 'utf8')).toBe(configBefore)
+    expect(ctx.plugins.packageList()).toEqual([])
+    expect(globalThis.__marketTest).not.toContain('updated')
+    expect(await market.updates()).toEqual({ [BUILTIN]: { latest: '1.1.0' } })
+  })
+
+  it('requires compatible catalog approval for builtins and rejects local replacement and uninstall', async () => {
+    await setupBuiltin()
+    publishBuiltin('1.1.0', 99)
+    expect((await market.updates())[BUILTIN]).toMatchObject({ blocked: expect.stringContaining('different Bot runtime') })
+    await expect(market.update(BUILTIN, '1.1.0', '1.0.0')).rejects.toMatchObject({ status: 409 })
+    publishBuiltin('1.1.0')
+    registry.unlist(BUILTIN)
+    await expect(market.update(BUILTIN, '1.1.0', '1.0.0')).rejects.toMatchObject({ status: 404 })
+    await expect(installLocal(zip(localFiles({ name: BUILTIN, version: '1.1.0' })), 'builtin.zip'))
+      .rejects.toMatchObject({ status: 409, message: expect.stringContaining('不能用本地包覆盖') })
+    await expect(market.uninstall(BUILTIN)).rejects.toMatchObject({ status: 409, message: '内置插件不能卸载' })
+    expect(existsSync(path.join(pluginRoot, BUILTIN))).toBe(false)
+    expect(ctx.plugins.builtinPackageList()[0].version).toBe('1.0.0')
+  })
 
   it('installs an unlisted local ZIP with the catalog offline, without executing plugin code or install scripts', async () => {
     registry.failCatalog()
@@ -1335,7 +1411,7 @@ describe('the market', () => {
     registry.publish('a', '1.1.0', { dependencies: { c: '^1.0.0' }, files: { 'index.js': `export default 'a2'` } })
     registry.publish(PLUGIN, '1.1.0', { plugin: true, dependencies: { a: '^1.1.0', b: '^1.0.0' }, files: { 'index.js': pluginCode('v2') } })
     expect(await market.updates()).toEqual({ [PLUGIN]: { latest: '1.1.0', update: '1.1.0' } })
-    const outcome = await market.install(PLUGIN)
+    const outcome = await market.update(PLUGIN, '1.1.0', '1.0.0')
     expect(outcome).toMatchObject({ version: '1.1.0', previous: '1.0.0', reload: { status: 'reloaded' } })
     // Its dependencies are re-imported too, but only under Node's own loader (resolve-hook.test.ts)
     expect(globalThis.__marketTest).toEqual(['v1:a1+c1,b1+c2+a1+c1', expect.stringMatching(/^v2:/)])
@@ -1343,6 +1419,58 @@ describe('the market', () => {
     expect(versionAt('node_modules', 'd')).toBe('1.1.0')
     expect(status()).toMatchObject({ disabled: false, state: 'active', version: '1.1.0' })
     expect(readdirNames(pluginRoot)).toEqual([PLUGIN])
+  })
+
+  it('rejects stale manual updates, including requests queued for the same plugin', async () => {
+    await market.install(PLUGIN)
+    publishPlugin(PLUGIN, {}, '2.0.0')
+    const outcomes = await Promise.allSettled([
+      market.update(PLUGIN, '2.0.0', '1.0.0'),
+      market.update(PLUGIN, '2.0.0', '1.0.0'),
+    ])
+    expect(outcomes[0]).toMatchObject({ status: 'fulfilled', value: { previous: '1.0.0', version: '2.0.0' } })
+    expect(outcomes[1]).toMatchObject({ status: 'rejected', reason: { status: 409, message: expect.stringContaining('is now 2.0.0') } })
+    expect(installedVersion(PLUGIN)).toBe('2.0.0')
+  })
+
+  it('never installs an absent plugin or reinstalls/downgrades through the update endpoint', async () => {
+    await expect(market.update(PLUGIN, '2.0.0', '1.0.0')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('no longer installed') })
+    await market.install(PLUGIN)
+    registry.requests.length = 0
+    await expect(market.update(PLUGIN, '1.0.0', '1.0.0')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('not newer') })
+    await expect(market.update(PLUGIN, '0.9.0', '1.0.0')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('not newer') })
+    expect(registry.requests).toEqual([])
+    expect(installedVersion(PLUGIN)).toBe('1.0.0')
+  })
+
+  it('revalidates catalog and consumer requirements before a manual update writes files', async () => {
+    await market.install(PLUGIN)
+    const consumer = 'luckylillia-plugin-consumer'
+    publishPlugin(consumer, { [PLUGIN]: '^1.0.0' })
+    await market.install(consumer)
+    publishPlugin(PLUGIN, {}, '2.0.0')
+    registry.requests.length = 0
+    await expect(market.update(PLUGIN, '1.1.0', '1.0.0')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('catalog version 2.0.0') })
+    await expect(market.update(PLUGIN, '2.0.0', '1.0.0')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('would break') })
+    expect(tarballRequests()).toEqual([])
+    expect(installedVersion(PLUGIN)).toBe('1.0.0')
+  })
+
+  it('requires both versions for the WebUI manual update route', async () => {
+    const routes = new Hono().route('/api/market', createMarketRoutes(ctx, market))
+    const call = async (body: unknown) => {
+      const response = await routes.request('/api/market/update', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+      })
+      return { status: response.status, ...await response.json() as object }
+    }
+    for (const body of [{ name: PLUGIN }, { name: PLUGIN, version: '2.0.0' }, { name: PLUGIN, version: '2.0.0', currentVersion: 1 }]) {
+      expect(await call(body)).toMatchObject({ status: 400, success: false })
+    }
+    await market.install(PLUGIN)
+    publishPlugin(PLUGIN, {}, '2.0.0')
+    expect(await call({ name: PLUGIN, version: '2.0.0', currentVersion: '1.0.0' }))
+      .toMatchObject({ status: 200, success: true, data: { previous: '1.0.0', version: '2.0.0' } })
   })
 
   it('blocks an incompatible catalog version, including explicit requests, and preserves the installed plugin', async () => {

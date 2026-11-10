@@ -48,13 +48,32 @@ health 中的所选 UIN 和非空 UID 确认登录完成。列表暂时未就绪
 node scripts/sync-to-bot.mjs --bot-dir <Bot绝对路径>
 ```
 
-同步目标为 `src/native/lucky-lillia/production`。Bot 中运行 `npm run check` 和
-`npm run build`，产物及其完整原生包写入 `dist`。运行时验证哈希，并将当前平台文件
-复制到按 buildId 区分的缓存后加载，以便 Windows 上更新原安装目录。
+同步目标为 `src/native/production/<平台>/LuckyLillia.NTQQ.node`，bundle 的 loader、声明和 manifest
+位于 `production/` 根目录。Bot 构建复制到 `dist/native/<平台>/`，去掉原来的 `lucky-lillia`
+和内层 `native`。开发授权使用 `src/native/development/`，仅显式设置
+`LLBOT_BUILD_DEV_NATIVE=1` 时复制到 `dist/native-dev/`，不会回退到生产包。
+
+运行时先验证完整 bundle，再将当前平台 addon、配套 sidecar 和 build 元数据复制到系统临时目录。
+实际加载的是 `LuckyLillia.NTQQ.<addon完整SHA256>.node`，原安装目录里的 `.node` 不会被占用，
+Windows 上运行期间也可替换。缓存父目录是 `<平台>-<variant>-<build元数据SHA256>`，
+元数据摘要已经绑定 buildId 和 sidecar，避免重复 UUID 使路径过长。`getNativeDirectory()`
+仍返回与 addon 配套的 sidecar 所在目录；并发加载复用同一份已校验缓存，损坏缓存报错而不覆盖
+正在加载的文件。更新后重启 Bot 才会加载新版原生代码。
+
+Node 仓库的 `refresh-loader.mjs`、构建、合并和同步脚本会验证并迁移旧 schema 1 的
+`native/<平台>/` 布局到 schema 2 的平台直下布局，原生二进制、buildId 和 sidecar 哈希不变。
+同步完成并验证新路径后，只清理旧 Bot 目录中 manifest 管理的文件；用户配置和无关文件保留。
 
 新版只导出 `NativeQQ` 构造器。旧 manifest 使用 `lucky-lillia.node`
 文件名时，先验证并备份整个旧 bundle，再同步；不要单独替换二进制或沿用旧 loader。
 `--dev` 使用独立 development bundle，不能用 production 自动替代。
+
+2026-11-10 的本地验证：七平台产物完整性通过，二进制与 buildId 未变；Windows production
+和 development 都实际加载了带 SHA256 文件名的临时 addon，加载期间对隔离副本的原 `.node`
+重命名、替换成功，四个 Worker 并发加载及损坏缓存拒绝通过。Bot 源码入口与 Vite 产物入口、
+缺失开发包时报错和 `native-dev/` 装载已验证。默认 Windows 临时加载路径长 222 字符。
+没有启动 QQ、使用真实授权或重编译原生模块；复现本地加载验证：在 Node 仓库运行
+`node scripts/smoke-cache.mjs --dir dist`（开发包改为 `--dir dist-dev`）。
 
 ## Docker 更新
 

@@ -1,0 +1,44 @@
+{
+  "name": "@luckylillia/plugin-webui",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "This web interface itself: plugin management, the sidebar and the slots other plugins hang their pages and API on",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/service/webui"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "service",
+    "icon": "globe",
+    "service": {
+      "implements": [
+        "webuiServer"
+      ]
+    },
+    "description": {
+      "zh": "这个网页界面本身：插件管理、侧边栏和插槽，别的插件的页面和接口都挂在它上面",
+      "en": "This web interface itself: plugin management, the sidebar and the slots other plugins hang their pages and API on"
+    },
+    "title": "页面设置",
+    "builtin": {
+      "entry": "builtin:webui",
+      "abi": 1
+    }
+  }
+}

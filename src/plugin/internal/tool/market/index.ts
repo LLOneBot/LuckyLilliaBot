@@ -13,14 +13,21 @@ import { Installer, type InstallResult, type PackageSource } from './installer'
 import { PackageVersion, type PackageManifest, type Packument, Registry, RegistryError } from './registry'
 import { MarketSchema, type MarketSettings } from './settings'
 import { withLocalUpload } from './upload'
+import { matchesOrigin, type PluginOrigin } from './origin'
 
 export interface InstalledPackage {
   name: string
+  title?: string
   version: string
   description?: string
   /** In the plugin root the market installs into, as a directory of its own: it may update and remove it */
   managed: boolean
   root: string
+  /** Stable builtin:* entry name; bundled packages can be updated but never uninstalled. */
+  builtin?: string
+  activeVersion?: string
+  restartRequired?: boolean
+  error?: string
 }
 
 export interface UpdateInfo {
@@ -77,13 +84,27 @@ export class Market {
   }
 
   installed(): InstalledPackage[] {
-    return this.ctx.plugins.packageList().map(pkg => ({
+    const titles = new Map(this.ctx.plugins.list().map(entry => [entry.name, entry.title]))
+    return [...this.ctx.plugins.packageList().map(pkg => ({
       name: pkg.name,
       version: pkg.version,
       description: pkg.description,
       managed: this.manages(pkg.name, pkg.root),
       root: pkg.root,
-    })).sort((a, b) => Number(b.managed) - Number(a.managed) || a.name.localeCompare(b.name))
+    })), ...this.ctx.plugins.builtinPackageList().map(pkg => ({
+      name: pkg.name, title: titles.get(pkg.entryName), version: pkg.version,
+      managed: !pkg.root || this.manages(pkg.name, pkg.root),
+      root: pkg.root ?? this.installer.target(pkg.name)!,
+      builtin: pkg.entryName, activeVersion: pkg.activeVersion, restartRequired: pkg.restartRequired, error: pkg.error,
+    }))].sort((a, b) => Number(b.managed) - Number(a.managed) || a.name.localeCompare(b.name))
+  }
+
+  private builtin(name: string) {
+    return this.ctx.plugins.builtinPackageList().find(pkg => pkg.name === name)
+  }
+
+  private installedPackages() {
+    return [...this.ctx.plugins.packageList(), ...this.ctx.plugins.builtinPackageList()]
   }
 
   async updates(): Promise<Record<string, UpdateInfo>> {
@@ -112,7 +133,7 @@ export class Market {
         const deprecated = document.versions[pkg.version]?.deprecated
         if (deprecated) info.deprecated = deprecated
         const approved = await this.catalogVersion(entry, document)
-        const problem = this.incompatibility(approved)
+        const problem = this.builtin(pkg.name) && !newer(entry.version, pkg.version) ? undefined : this.incompatibility(approved)
         if (problem) info.blocked = problem
         else {
           const main = this.planned({ manifest: approved }, pkg.name)
@@ -129,34 +150,60 @@ export class Market {
     return result
   }
 
-  async search(text: string, page: number): Promise<{ total: number; items: (CatalogEntry & { installed?: string })[] }> {
-    const installed = new Map(this.ctx.plugins.packageList().map(pkg => [pkg.name, pkg.version]))
+  async search(text: string, page: number, origin: PluginOrigin = 'all'): Promise<{ total: number; items: (CatalogEntry & { installed?: string; builtin?: string })[] }> {
+    const installed = new Map(this.installedPackages().map(pkg => [pkg.name, pkg.version]))
+    const builtins = new Map(this.ctx.plugins.builtinPackageList().map(pkg => [pkg.name, pkg.entryName]))
     const terms = text.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean)
     const catalog = await this.catalog.load()
     const items = [...catalog.values()].filter(item => {
+      if (!matchesOrigin(builtins.has(item.name), origin)) return false
       const searchable = [item.name, item.title, item.description, item.author.name, item.repository].join(' ').toLocaleLowerCase()
       return terms.every(term => searchable.includes(term))
     })
     const start = (Math.max(1, page) - 1) * PAGE_SIZE
-    return { total: items.length, items: items.slice(start, start + PAGE_SIZE).map(item => ({ ...item, installed: installed.get(item.name) })) }
+    return { total: items.length, items: items.slice(start, start + PAGE_SIZE).map(item => ({
+      ...item, installed: installed.get(item.name), ...builtins.has(item.name) ? { builtin: builtins.get(item.name) } : {},
+    })) }
   }
 
   /** Only the catalog's exact version is installable. One install or removal at a time. */
   install(name: string, version?: string): Promise<InstallOutcome> {
+    return this.serial(() => this.installCatalog(name, version))
+  }
+
+  /** A manual update must still refer to the installed and target versions the user saw. */
+  update(name: string, version: string, currentVersion: string): Promise<InstallOutcome> {
     return this.serial(async () => {
       this.assertManageable(name)
-      // Keep a single catalog snapshot for the requested plugin and its whole dependency graph.
-      const catalog = await this.catalog.load()
-      const entry = this.assertListed(catalog, name)
-      if (version !== undefined && version !== entry.version) {
-        throw new MarketError(`${name}@${version} is not the catalog version ${entry.version}; refresh the plugin market`, 409)
+      const installed = this.installedPackages().find(pkg => pkg.name === name)
+      if (!installed) throw new MarketError(`${name} is no longer installed; refresh the plugin market`, 409)
+      if (installed.version !== currentVersion) {
+        throw new MarketError(`${name} is now ${installed.version}, not ${currentVersion}; refresh the plugin market`, 409)
       }
-      const chosen = await this.catalogVersion(entry)
-      const problem = this.incompatibility(chosen)
-      if (problem) throw new MarketError(`${name}@${entry.version} cannot run on this bot: ${problem}`, 409)
-      const plan = await this.planPlugins(this.planned({ manifest: chosen }, name), catalog)
-      return this.installPlan(plan)
+      if (!newer(version, installed.version)) {
+        throw new MarketError(`${name}@${version} is not newer than installed version ${installed.version}`, 409)
+      }
+      return this.installCatalog(name, version)
     })
+  }
+
+  private async installCatalog(name: string, version?: string): Promise<InstallOutcome> {
+    this.assertManageable(name)
+    // Keep a single catalog snapshot for the requested plugin and its whole dependency graph.
+    const catalog = await this.catalog.load()
+    const entry = this.assertListed(catalog, name)
+    if (version !== undefined && version !== entry.version) {
+      throw new MarketError(`${name}@${version} is not the catalog version ${entry.version}; refresh the plugin market`, 409)
+    }
+    const chosen = await this.catalogVersion(entry)
+    const builtin = this.builtin(name)
+    if (builtin && !newer(chosen.version, builtin.version)) {
+      throw new MarketError(`${name}@${chosen.version} is not newer than installed version ${builtin.version}`, 409)
+    }
+    const problem = this.incompatibility(chosen)
+    if (problem) throw new MarketError(`${name}@${entry.version} cannot run on this bot: ${problem}`, 409)
+    const plan = await this.planPlugins(this.planned({ manifest: chosen }, name), catalog)
+    return this.installPlan(plan)
   }
 
   /** Local uploads need no catalog approval; missing plugin dependencies still come from its pinned versions. */
@@ -167,6 +214,7 @@ export class Market {
       try {
         const source = await readLocalPackage(archive, filename, directory)
         const { name, version } = source.manifest
+        if (this.builtin(name)) throw new MarketError('内置插件只能从插件市场更新，不能用本地包覆盖', 409)
         this.assertManageable(name)
         const problem = this.incompatibility(source.manifest)
         if (problem) throw new MarketError(`${name}@${version} cannot run on this bot: ${problem}`, 409)
@@ -230,7 +278,7 @@ export class Market {
     catalog?: CatalogSnapshot,
     packument = (name: string) => this.registry.packument(name, true),
   ): Promise<PlannedPlugin[]> {
-    const installed = new Map(this.ctx.plugins.packageList().map(pkg => [pkg.name, pkg]))
+    const installed = new Map(this.installedPackages().map(pkg => [pkg.name, pkg]))
     const installedRequirements = new Map<string, PluginRequirement[]>()
     for (const pkg of installed.values()) {
       // The requested package is being replaced; its old requirements do not constrain its new version.
@@ -314,8 +362,18 @@ export class Market {
   private async installPackage(source: PackageSource): Promise<InstallOutcome> {
     const chosen = source.manifest
     const { name } = chosen
-    const previous = this.ctx.plugins.packageList().find(pkg => pkg.name === name)?.version
+    const builtin = this.builtin(name)
+    const previous = this.installedPackages().find(pkg => pkg.name === name)?.version
     const result = await this.installer.install(source)
+    if (builtin) {
+      await this.ctx.plugins.approveBuiltinPackage(name, chosen.version)
+      this.ctx.logger('market').info(`updated builtin ${name}@${chosen.version}; restart required`)
+      return {
+        ...result, previous,
+        entries: this.ctx.plugins.list().filter(entry => entry.name === builtin.entryName).map(entry => entry.id),
+        reload: { status: 'restart-required', reason: '内置插件更新将在重启 Bot 后生效' },
+      }
+    }
     this.ctx.logger('market').info(`installed ${name}@${chosen.version}${previous ? ` (was ${previous})` : ''}`)
     await this.ctx.plugins.scan()
     const entries = this.ctx.plugins.list().filter(status => status.name === name)
@@ -330,6 +388,7 @@ export class Market {
   /** Deletes the package, its entries with their settings, and the trust and approvals the user gave it. */
   uninstall(name: string): Promise<{ removed: string[] }> {
     return this.serial(async () => {
+      if (this.builtin(name)) throw new MarketError('内置插件不能卸载', 409)
       this.assertManageable(name)
       if (!this.ctx.plugins.packageList().some(pkg => pkg.name === name)) throw new MarketError(`${name} is not installed`, 404)
       await this.installer.uninstall(name)
@@ -350,8 +409,10 @@ export class Market {
 
   private assertManageable(name: string) {
     if (!this.installer.target(name)) throw new MarketError(`invalid package name ${name}`)
-    const pkg = this.ctx.plugins.packageList().find(pkg => pkg.name === name)
-    if (pkg && !this.manages(pkg.name, pkg.root)) {
+    const builtin = this.builtin(name)
+    if (builtin && !builtin.root) return
+    const pkg = builtin ?? this.ctx.plugins.packageList().find(pkg => pkg.name === name)
+    if (pkg?.root && !this.manages(pkg.name, pkg.root)) {
       throw new MarketError(`${name} is at ${pkg.root}, outside the market's directory ${this.installer.root}; it leaves that copy alone`, 409)
     }
   }
@@ -362,6 +423,8 @@ export class Market {
   }
 
   private incompatibility(version: PackageManifest): string | undefined {
+    const builtinProblem = this.ctx.plugins.checkBuiltinPackage(version.name, version)
+    if (builtinProblem) return builtinProblem
     const problem = sdkIncompatibility(version.peerDependencies?.[SDK_PACKAGE], this.ctx.plugins.hostSdk())
     return problem && `${version.version} ${problem}`
   }
@@ -422,18 +485,26 @@ export function createMarketRoutes(ctx: Context, market: Market): Hono {
     if (typeof name !== 'string' || !name) throw new MarketError('name is required')
     const version = value?.version
     if (version !== undefined && (typeof version !== 'string' || !version)) throw new MarketError('version should be a non-empty string')
-    return { name, version: version as string | undefined }
+    return { name, version: version as string | undefined, currentVersion: value?.currentVersion }
   }
 
   router.get('/search', c => respond(c, () => {
     const page = Math.max(1, Math.floor(Number(c.req.query('page') ?? 1)) || 1)
-    return market.search(c.req.query('q')?.trim() ?? '', page)
+    const origin = c.req.query('origin') ?? 'all'
+    if (origin !== 'all' && origin !== 'builtin' && origin !== 'third-party') throw new MarketError('origin must be all, builtin or third-party')
+    return market.search(c.req.query('q')?.trim() ?? '', page, origin)
   }))
   router.get('/installed', c => respond(c, () => market.installed()))
   router.get('/updates', c => respond(c, () => market.updates()))
   router.post('/install', c => respond(c, async () => {
     const { name, version } = await body(c)
     return market.install(name, version)
+  }))
+  router.post('/update', c => respond(c, async () => {
+    const { name, version, currentVersion } = await body(c)
+    if (!version) throw new MarketError('version is required')
+    if (typeof currentVersion !== 'string' || !currentVersion) throw new MarketError('currentVersion is required')
+    return market.update(name, version, currentVersion)
   }))
   router.post('/install-local', c => respond(c, () => withLocalUpload(c.req.raw, market.installer.root, (archive, filename) => market.installLocal(archive, filename))))
   router.post('/uninstall', c => respond(c, async () => market.uninstall((await body(c)).name)))

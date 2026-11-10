@@ -26,6 +26,7 @@ export interface PluginStatus {
   id: string
   name: string
   version?: string
+  packageName?: string
   description?: string
   manifest: PluginManifest
   disabled: boolean

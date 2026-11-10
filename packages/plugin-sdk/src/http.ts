@@ -51,6 +51,12 @@ export interface HttpFile {
  */
 export interface Http {
   readonly config: HttpConfig
+  /**
+   * Resolves the effective proxy for a native client without sending a request. Returns `''` for direct access.
+   * Uses the same merged settings and builtin proxy rules as fetch(). The returned address may contain
+   * authentication credentials: keep it private and resolve again when starting a new native connection.
+   */
+  proxy(url: string | URL, config?: HttpConfig): string
   get<T = any>(url: string, config?: HttpRequestConfig): Promise<T>
   delete<T = any>(url: string, config?: HttpRequestConfig): Promise<T>
   head(url: string, config?: HttpRequestConfig): Promise<Headers>
@@ -72,12 +78,19 @@ export interface HttpFetchInit extends RequestInit {
   dispatcher?: unknown
 }
 
+/** Mutable result of resolving a native client's proxy. An empty URL means direct access. */
+export interface HttpProxyResolution {
+  url: string
+}
+
 declare module 'cordis' {
   interface Context {
     http: Http
   }
 
   interface Events {
+    /** @mode emit. Synchronously resolve the effective proxy; initialized to direct access, with no request sent. */
+    'http/proxy'(url: URL, proxy: HttpProxyResolution, config: HttpConfig): void
     /** @mode emit. Before each request of `ctx.http`, with the settings it goes by; a listener may change `init` */
     'http/fetch-init'(url: URL, init: HttpFetchInit, config: HttpConfig): void
   }

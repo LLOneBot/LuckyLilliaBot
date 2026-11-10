@@ -1,0 +1,45 @@
+{
+  "name": "@luckylillia/plugin-satori",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Supports all protocol backends through Satori",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/adapter/satori"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "adapter",
+    "icon": "cpu",
+    "service": {
+      "implements": [
+        "satori"
+      ]
+    },
+    "description": {
+      "zh": "支持全部协议端的 Satori 适配器",
+      "en": "Supports all protocol backends through Satori"
+    },
+    "title": "Satori",
+    "builtin": {
+      "entry": "builtin:satori",
+      "abi": 1
+    },
+    "webui": "./lib/client/index.js"
+  }
+}

@@ -4,10 +4,12 @@ import {
   Trash2,
 } from 'lucide-react'
 import {
-  Lightbox, usePluginContext, usePlugins, type PluginEntryStatus, type WebUIContext, type WebUIPlugin,
+  Lightbox, usePluginContext, usePlugins, type PluginEntryStatus, type WebUIPlugin,
 } from '@luckylillia/plugin-sdk/webui'
 import { imageUrl, previewImages, type CatalogScreenshot } from '../images'
 import LocalInstallButton from './LocalInstallButton'
+import { MarketStore, type InstalledPackage } from './store'
+import { matchesOrigin, type PluginOrigin } from '../origin'
 
 export const name = 'builtin:market'
 
@@ -22,22 +24,7 @@ interface SearchItem {
   icon?: string
   screenshots?: readonly CatalogScreenshot[]
   installed?: string
-}
-
-interface InstalledPackage {
-  name: string
-  version: string
-  description?: string
-  managed: boolean
-  root: string
-}
-
-interface UpdateInfo {
-  latest?: string
-  update?: string
-  blocked?: string
-  deprecated?: string
-  error?: string
+  builtin?: string
 }
 
 interface InstallOutcome {
@@ -58,114 +45,29 @@ interface InstallOutcome {
 }
 
 const PAGE_SIZE = 20
-const UPDATE_CHECK_INTERVAL = 10 * 60_000
 // Local uploads do not reveal their package name until the server validates them.
 const LOCAL_INSTALL = ':local'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
-const titleOf = (name: string) => name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
+const titleOf = (name: string) => name.replace(/^(@[^/]+\/)?luckylillia-plugin-|^@luckylillia\/plugin-/, '')
 
 // One copy of the installed packages and their updates for the view, its tab's count and the cards
-const store = {
-  ctx: undefined as WebUIContext | undefined,
-  installed: null as InstalledPackage[] | null,
-  installedError: '',
-  loadingInstalled: false,
-  updates: null as Record<string, UpdateInfo> | null,
-  updatesError: '',
-  checking: false,
-  checkedAt: 0,
-  /** Packages being installed or removed */
-  busy: new Set<string>(),
-  listeners: new Set<() => void>(),
-  version: 0,
-}
-let installedRequest = 0
-let updateRequest = 0
-
-function emit() {
-  store.version++
-  for (const listener of store.listeners) listener()
-}
-
-async function loadInstalled() {
-  const request = ++installedRequest
-  store.loadingInstalled = true
-  emit()
-  try {
-    const installed = await store.ctx!.api<InstalledPackage[]>('/api/market/installed')
-    if (request === installedRequest) {
-      store.installed = installed
-      store.installedError = ''
-    }
-  } catch (e) {
-    if (request === installedRequest) store.installedError = errorText(e)
-  } finally {
-    if (request === installedRequest) {
-      store.loadingInstalled = false
-      emit()
-    }
-  }
-}
-
-async function checkUpdates(force = false) {
-  if (store.busy.size || (!force && (store.checking || Date.now() - store.checkedAt < UPDATE_CHECK_INTERVAL))) return
-  const request = ++updateRequest
-  store.checking = true
-  store.updatesError = ''
-  emit()
-  try {
-    const updates = await store.ctx!.api<Record<string, UpdateInfo>>('/api/market/updates')
-    if (request === updateRequest) {
-      store.updates = updates
-      store.checkedAt = Date.now()
-    }
-  } catch (e) {
-    if (request === updateRequest) {
-      store.updates = null
-      store.checkedAt = 0
-      store.updatesError = errorText(e)
-    }
-  } finally {
-    if (request === updateRequest) {
-      store.checking = false
-      emit()
-    }
-  }
-}
-
-function invalidateUpdates() {
-  // Installing/removing any package can change another plugin's dependency constraints.
-  // Ignore checks already in flight and refresh the whole result after the operation.
-  updateRequest++
-  store.updates = null
-  store.checkedAt = 0
-  store.checking = false
-  store.updatesError = ''
-}
-
-async function refreshMarket() {
-  await Promise.all([loadInstalled(), checkUpdates(true)])
-}
-
-function subscribe(listener: () => void) {
-  store.listeners.add(listener)
-  if (store.listeners.size === 1) {
-    loadInstalled()
-    checkUpdates()
-  }
-  return () => {
-    store.listeners.delete(listener)
-  }
-}
+const store = new MarketStore()
+const refreshMarket = () => store.refresh()
 
 function useMarket() {
-  useSyncExternalStore(subscribe, () => store.version)
+  useSyncExternalStore(store.subscribe, () => store.version)
   return store
 }
 
 async function install(name: string, version: string): Promise<boolean> {
   return performInstall(name, titleOf(name), () => store.ctx!.api<InstallOutcome>('/api/market/install', { body: { name, version } }))
+}
+
+async function update(pkg: InstalledPackage, version: string): Promise<boolean> {
+  return performInstall(pkg.name, titleOf(pkg.name), () => store.ctx!.api<InstallOutcome>('/api/market/update', {
+    body: { name: pkg.name, version, currentVersion: pkg.version },
+  }), '更新')
 }
 
 async function installLocal(file: File): Promise<boolean> {
@@ -176,12 +78,12 @@ async function installLocal(file: File): Promise<boolean> {
   return performInstall(LOCAL_INSTALL, file.name, () => store.ctx!.api<InstallOutcome>('/api/market/install-local', { body }))
 }
 
-async function performInstall(key: string, label: string, request: () => Promise<InstallOutcome>): Promise<boolean> {
-  if (store.busy.has(key) || store.busy.has(LOCAL_INSTALL)) return false
+async function performInstall(key: string, label: string, request: () => Promise<InstallOutcome>, action = '安装'): Promise<boolean> {
+  if (store.busy.size || !store.installed || store.installedError) return false
   const ctx = store.ctx!
   store.busy.add(key)
-  invalidateUpdates()
-  emit()
+  store.invalidateUpdates()
+  store.emit()
   try {
     const outcome = await request()
     const name = outcome.name
@@ -205,32 +107,40 @@ async function performInstall(key: string, label: string, request: () => Promise
     }
     return true
   } catch (e) {
-    ctx.toast(`安装 ${label} 失败：${errorText(e)}`, 'error')
+    ctx.toast(`${action} ${label} 失败：${errorText(e)}`, 'error')
     return false
   } finally {
-    await loadInstalled()
-    store.busy.delete(key)
-    emit()
-    await checkUpdates(true)
+    if (store.ctx === ctx) {
+      await store.loadInstalled()
+      if (store.ctx === ctx) {
+        store.busy.delete(key)
+        store.emit()
+        await store.checkUpdates(true)
+      }
+    }
   }
 }
 
 async function uninstall(name: string) {
-  if (store.busy.has(name) || store.busy.has(LOCAL_INSTALL)) return
+  if (store.busy.size || !store.installed || store.installedError) return
   const ctx = store.ctx!
   store.busy.add(name)
-  invalidateUpdates()
-  emit()
+  store.invalidateUpdates()
+  store.emit()
   try {
     await ctx.api('/api/market/uninstall', { body: { name } })
     ctx.toast(`已卸载 ${titleOf(name)}`)
   } catch (e) {
     ctx.toast(`卸载 ${titleOf(name)} 失败：${errorText(e)}`, 'error')
   } finally {
-    await loadInstalled()
-    store.busy.delete(name)
-    emit()
-    await checkUpdates(true)
+    if (store.ctx === ctx) {
+      await store.loadInstalled()
+      if (store.ctx === ctx) {
+        store.busy.delete(name)
+        store.emit()
+        await store.checkUpdates(true)
+      }
+    }
   }
 }
 
@@ -253,7 +163,7 @@ const InstallButton: React.FC<{ item: SearchItem }> = ({ item }) => {
     return <span title={`已装 ${installed}`} className="flex items-center gap-1.5 text-sm text-theme-muted px-2 py-1.5"><PackageCheck size={16} />已安装</span>
   }
   return (
-    <button type="button" disabled={market.busy.has(LOCAL_INSTALL)} onClick={() => install(item.name, item.version)} className="btn-primary flex items-center gap-1.5 text-sm" title={installed ? `已装 ${installed}，更新到 ${item.version}` : undefined}>
+    <button type="button" disabled={market.busy.size > 0 || !market.installed} onClick={() => installedPackage ? update(installedPackage, item.version) : install(item.name, item.version)} className="btn-primary flex items-center gap-1.5 text-sm" title={installed ? `已装 ${installed}，更新到 ${item.version}` : undefined}>
       {installed ? <ArrowUpCircle size={16} /> : <Download size={16} />}
       {installed ? '更新' : '安装'}
     </button>
@@ -309,30 +219,38 @@ const ResultCard: React.FC<{ item: SearchItem }> = ({ item }) => {
   )
 }
 
-const SearchView: React.FC = () => {
+const SearchView: React.FC<{ origin: PluginOrigin }> = ({ origin }) => {
   const ctx = usePluginContext()
   const [text, setText] = useState('')
-  const [query, setQuery] = useState({ text: '', page: 1 })
-  const [result, setResult] = useState<{ total: number; items: SearchItem[] } | null>(null)
+  const [query, setQuery] = useState({ text: '', page: 1, origin })
+  const page = query.origin === origin ? query.page : 1
+  const [loadedResult, setResult] = useState<{ total: number; items: SearchItem[]; query: typeof query } | null>(null)
+  const result = loadedResult?.query === query && query.origin === origin ? loadedResult : null
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    setQuery(current => current.origin === origin ? current : { ...current, origin, page: 1 })
+  }, [origin])
+
+  useEffect(() => {
+    if (query.origin !== origin) return
     let current = true
     setLoading(true)
     setError('')
-    ctx.api<{ total: number; items: SearchItem[] }>(`/api/market/search?q=${encodeURIComponent(query.text)}&page=${query.page}`)
-      .then(data => current && setResult(data), e => current && setError(errorText(e)))
+    setResult(null)
+    ctx.api<{ total: number; items: SearchItem[] }>(`/api/market/search?q=${encodeURIComponent(query.text)}&page=${page}&origin=${origin}`)
+      .then(data => current && setResult({ ...data, query }), e => current && setError(errorText(e)))
       .finally(() => current && setLoading(false))
     return () => {
       current = false
     }
-  }, [ctx, query])
+  }, [ctx, query, origin, page])
 
   const pages = result ? Math.max(1, Math.ceil(result.total / PAGE_SIZE)) : 1
   return (
     <div className="space-y-4">
-      <form onSubmit={(event) => { event.preventDefault(); setQuery({ text: text.trim(), page: 1 }) }} className="card p-4 flex gap-3">
+      <form onSubmit={(event) => { event.preventDefault(); setQuery({ text: text.trim(), page: 1, origin }) }} className="card p-4 flex gap-3">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-hint pointer-events-none" />
           <input value={text} onChange={event => setText(event.target.value)} placeholder="搜索插件名或包名，留空列出全部" className="input-field pl-10" />
@@ -350,13 +268,13 @@ const SearchView: React.FC = () => {
             <div>搜索失败：{error}</div>
             <div className="text-theme-muted mt-1">请点插件列表里「插件市场」卡片上的齿轮，检查 npm 源和目录包设置，然后重试。</div>
           </div>
-          <button type="button" onClick={() => setQuery({ ...query })} disabled={loading} className="btn-glass text-theme">重试</button>
+          <button type="button" onClick={() => setQuery({ ...query, origin, page })} disabled={loading} className="btn-glass text-theme">重试</button>
         </div>
       )}
 
       {!error && result && result.items.length === 0 && !loading && (
         <div className="card p-10 text-center text-theme-secondary">
-          {query.text ? '没有找到匹配的插件。' : '当前市场目录暂无收录的插件。'}
+          {query.text || origin !== 'all' ? '没有找到匹配的插件。' : '当前市场目录暂无收录的插件。'}
           <a href="https://github.com/LLOneBot/LuckyLillia.Market/issues/new/choose" target="_blank" rel="noopener noreferrer" className="ml-1 text-pink-500 hover:underline">登记插件</a>
         </div>
       )}
@@ -369,11 +287,11 @@ const SearchView: React.FC = () => {
 
       {!error && pages > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm text-theme-secondary">
-          <button type="button" disabled={query.page <= 1} onClick={() => setQuery({ ...query, page: query.page - 1 })} className="btn-glass disabled:opacity-40" title="上一页">
+          <button type="button" disabled={page <= 1} onClick={() => setQuery({ ...query, origin, page: page - 1 })} className="btn-glass disabled:opacity-40" title="上一页">
             <ChevronLeft size={18} />
           </button>
-          {query.page} / {pages}
-          <button type="button" disabled={query.page >= pages} onClick={() => setQuery({ ...query, page: query.page + 1 })} className="btn-glass disabled:opacity-40" title="下一页">
+          {page} / {pages}
+          <button type="button" disabled={page >= pages} onClick={() => setQuery({ ...query, origin, page: page + 1 })} className="btn-glass disabled:opacity-40" title="下一页">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -405,49 +323,69 @@ const InstalledRow: React.FC<{ pkg: InstalledPackage }> = ({ pkg }) => {
   const market = useMarket()
   const info = market.updates?.[pkg.name]
   const busy = market.busy.has(pkg.name)
-  const available = !busy && !market.busy.has(LOCAL_INSTALL) && !market.installedError
+  const available = market.busy.size === 0 && !market.installedError
   return (
     <div className="p-4 flex flex-wrap items-center gap-3">
       <div className="min-w-0 flex-1 space-y-0.5 break-words">
-        <div className="font-medium text-theme">{titleOf(pkg.name)}</div>
+        <div className="font-medium text-theme">{pkg.title ?? titleOf(pkg.name)}</div>
         <div className="text-xs text-theme-muted font-mono break-all">{pkg.name} · {pkg.version}</div>
+        {pkg.builtin && <div className="text-xs text-theme-muted">内置插件 · 更新后重启 Bot 生效</div>}
+        {pkg.error && <div className="text-xs text-red-500">内置插件更新未加载：{pkg.error}</div>}
+        {pkg.restartRequired && <div className="text-xs text-amber-600 dark:text-amber-400">已下载 {pkg.version}，重启 Bot 后生效{pkg.activeVersion && '；当前运行 ' + pkg.activeVersion}</div>}
         {!pkg.managed && <div className="text-xs text-theme-muted">在 {pkg.root}，是开发目录或链接，市场不动它</div>}
         {info?.update && <div className="text-xs text-pink-500">有新版本 {info.update}</div>}
+        {pkg.managed && market.checking && !info && <div className="text-xs text-theme-muted">正在检查更新…</div>}
+        {info?.latest && !info.update && !info.blocked && !info.error && (
+          <div className="text-xs text-theme-muted">{info.latest === pkg.version ? '已是最新版本' : `已安装版本高于市场版本 ${info.latest}`}</div>
+        )}
         {info?.blocked && <div className="text-xs text-amber-600 dark:text-amber-400">{info.latest && `市场版本 ${info.latest} 无法更新：`}{info.blocked}</div>}
         {info?.deprecated && <div className="text-xs text-amber-600 dark:text-amber-400">作者弃用了这个版本：{info.deprecated}</div>}
         {info?.error && <div className="text-xs text-red-500">检查更新失败：{info.error}</div>}
       </div>
       {busy && <Loader2 size={18} className="animate-spin text-theme-muted" />}
       {available && pkg.managed && info?.update && (
-        <button type="button" onClick={() => install(pkg.name, info.update!)} className="btn-primary flex items-center gap-1.5 text-sm">
+        <button type="button" onClick={() => update(pkg, info.update!)} className="btn-primary flex items-center gap-1.5 text-sm">
           <ArrowUpCircle size={16} />更新到 {info.update}
         </button>
       )}
-      {available && pkg.managed && <UninstallButton pkg={pkg} />}
+      {available && pkg.managed && !pkg.builtin && <UninstallButton pkg={pkg} />}
     </div>
   )
 }
 
-const InstalledView: React.FC<{ onSearch(): void }> = ({ onSearch }) => {
+const InstalledView: React.FC<{ origin: PluginOrigin; onSearch(): void }> = ({ origin, onSearch }) => {
   const market = useMarket()
+  const [updatesOnly, setUpdatesOnly] = useState(false)
+  const matching = market.installed?.filter(pkg => matchesOrigin(!!pkg.builtin, origin)) ?? []
+  const updateCount = matching.filter(pkg => market.updates?.[pkg.name]?.update).length
+  const packages = matching.filter(pkg => !updatesOnly || market.updates?.[pkg.name]?.update)
   if (!market.installed && !market.installedError) return <div className="flex justify-center py-16"><Loader2 size={32} className="animate-spin text-pink-500" /></div>
   return (
     <div className="space-y-4">
       <div className="card p-4 flex flex-wrap items-center gap-3">
-        <span className="text-sm text-theme-secondary">{market.installed ? `${market.installed.length} 个插件包` : '已安装插件'}</span>
+        <span className="text-sm text-theme-secondary">{market.installed ? `${matching.length} 个插件包` : '已安装插件'}</span>
+        {market.updates && <span className="text-sm text-theme-secondary">{updateCount ? `${updateCount} 个可更新` : '暂无可更新插件'}</span>}
         {market.checkedAt > 0 && <span className="text-xs text-theme-muted">{new Date(market.checkedAt).toLocaleTimeString()} 检查过更新</span>}
         <div className="flex-1" />
         <button type="button" onClick={refreshMarket} disabled={market.checking || market.loadingInstalled || market.busy.size > 0} className="btn-glass flex items-center gap-1.5 text-sm">
           <RefreshCw size={16} className={market.checking || market.loadingInstalled ? 'animate-spin' : ''} />检查更新
         </button>
       </div>
+      <label className="inline-flex items-center gap-2 text-sm text-theme-secondary">
+        <input type="checkbox" checked={updatesOnly} onChange={event => setUpdatesOnly(event.target.checked)} className="accent-pink-500" />
+        只看可更新
+      </label>
       {market.installed?.length === 0 && !market.installedError ? (
         <div className="card p-10 text-center text-theme-secondary">
           还没有装插件。<button type="button" onClick={onSearch} className="text-pink-500 hover:underline">去搜索</button>
         </div>
-      ) : !!market.installed?.length && (
+      ) : updatesOnly && !packages.length ? (
+        <div className="card p-10 text-center text-theme-secondary">{market.checking ? '正在检查更新…' : market.updates ? '暂无可更新插件' : '检查更新后显示可更新的插件'}</div>
+      ) : !packages.length && !market.installedError ? (
+        <div className="card p-10 text-center text-theme-secondary">没有符合筛选条件的插件。</div>
+      ) : !!packages.length && (
         <div className="card divide-y divide-black/5 dark:divide-white/10">
-          {market.installed.map(pkg => <InstalledRow key={pkg.name} pkg={pkg} />)}
+          {packages.map(pkg => <InstalledRow key={pkg.name} pkg={pkg} />)}
         </div>
       )}
     </div>
@@ -458,6 +396,7 @@ const InstalledView: React.FC<{ onSearch(): void }> = ({ onSearch }) => {
 const MarketView: React.FC = () => {
   const market = useMarket()
   const [view, setView] = useState<'search' | 'installed'>('search')
+  const [origin, setOrigin] = useState<PluginOrigin>('all')
   const updates = Object.values(market.updates ?? {}).filter(info => info.update).length
   return (
     <div className="space-y-6">
@@ -473,6 +412,11 @@ const MarketView: React.FC = () => {
           disabled={!market.installed || !!market.installedError || market.busy.size > 0}
           onInstall={installLocal}
         />
+        <div className="w-full flex flex-wrap gap-2" role="group" aria-label="插件来源">
+          {([['all', '全部'], ['builtin', '内置插件'], ['third-party', '第三方插件']] as const).map(([value, label]) => (
+            <button key={value} type="button" aria-pressed={origin === value} onClick={() => setOrigin(value)} className={tab(origin === value)}>{label}</button>
+          ))}
+        </div>
         <p className="w-full text-xs text-theme-muted">安装时会从插件市场补齐所需插件；新装的插件和依赖默认不启用，到「插件列表」里启用</p>
       </div>
       {(market.installedError || market.updatesError) && (
@@ -485,21 +429,25 @@ const MarketView: React.FC = () => {
           <button type="button" onClick={refreshMarket} disabled={market.checking || market.loadingInstalled || market.busy.size > 0} className="btn-glass text-theme">重试</button>
         </div>
       )}
-      {view === 'search' && <SearchView />}
-      {view === 'installed' && <InstalledView onSearch={() => setView('search')} />}
+      {view === 'search' && <SearchView origin={origin} />}
+      {view === 'installed' && <InstalledView origin={origin} onSearch={() => setView('search')} />}
     </div>
   )
 }
 
 const UpdateBadge: React.FC<{ plugin: PluginEntryStatus }> = ({ plugin }) => {
   const market = useMarket()
-  const update = market.updates?.[plugin.name]?.update
-  if (!update || market.installedError) return null
-  const busy = market.busy.has(plugin.name) || market.busy.has(LOCAL_INSTALL)
+  const pkg = market.installed?.find(pkg => (pkg.builtin ?? pkg.name) === plugin.name)
+  const target = pkg && market.updates?.[pkg.name]?.update
+  if (pkg?.restartRequired) {
+    return <span className="text-xs text-amber-600 dark:text-amber-400">更新待重启</span>
+  }
+  if (!target || !pkg?.managed || market.installedError) return null
+  const busy = market.busy.size > 0
   return (
-    <button type="button" disabled={busy} onClick={() => install(plugin.name, update)} title="从插件市场更新" className="btn-glass flex items-center gap-1 text-xs text-pink-500">
+    <button type="button" disabled={busy} onClick={() => update(pkg, target)} title="从插件市场更新" className="btn-glass flex items-center gap-1 text-xs text-pink-500">
       {busy ? <Loader2 size={14} className="animate-spin" /> : <ArrowUpCircle size={14} />}
-      更新到 {update}
+      更新到 {target}
     </button>
   )
 }
@@ -513,10 +461,11 @@ const UpdateCount: React.FC = () => {
 }
 
 const apply: WebUIPlugin = (ctx) => {
-  store.ctx = ctx
+  const disconnect = store.connect(ctx)
   // A tab of the plugin page rather than a page of its own: finding plugins and switching them on go together
   ctx.slot('plugins.views', { id: 'market', label: '插件市场', component: MarketView, title: '插件市场', badge: UpdateCount, order: 10 })
   ctx.slot('plugins.card.actions', { id: 'market-update', label: '插件更新', component: UpdateBadge })
+  return disconnect
 }
 
 export default apply

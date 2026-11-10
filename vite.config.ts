@@ -9,7 +9,7 @@ function writeVersion(): Plugin {
   return {
     name: 'write-version',
     buildStart() {
-      const nativeRoot = path.resolve('src/native/lucky-lillia/production')
+      const nativeRoot = path.resolve('src/native/production')
       const loader = createRequire(import.meta.url)(path.join(nativeRoot, 'loader.cjs'))
       const bundle = loader.inspectBundle(nativeRoot, { allTargets: true })
       if (bundle.manifest.variant !== 'production') throw new Error('Production Bot build requires production native artifacts')
@@ -90,13 +90,15 @@ export default defineConfig({
             ...external.map(genCpModule),
             { src: './packages/plugin-sdk/lib', dest: 'dist/node_modules/@luckylillia/plugin-sdk/lib', flatten: false },
             { src: './packages/plugin-sdk/package.json', dest: 'dist/node_modules/@luckylillia/plugin-sdk/' },
+            { src: './output/builtin-packages', dest: 'dist/builtin-plugins', flatten: false },
+            { src: './output/builtin-packages/@luckylillia/plugin-webui/lib/webui', dest: 'dist/webui', flatten: false },
             { src: './src/main/config/default_config.json', dest: 'dist/' },
             { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
             { src: './doc/使用说明.txt', dest: 'dist/' },
             { src: './doc/更新日志.txt', dest: 'dist/' },
-            { src: './src/native/lucky-lillia/production', dest: 'dist/native/lucky-lillia/production', flatten: false },
+            { src: './src/native/production', dest: 'dist/native', flatten: false },
             ...(process.env.LLBOT_BUILD_DEV_NATIVE === '1'
-              ? [{ src: './src/native/lucky-lillia/development', dest: 'dist/native/lucky-lillia/development', flatten: false }]
+              ? [{ src: './src/native/development', dest: 'dist/native-dev', flatten: false }]
               : []),
           ],
         }),

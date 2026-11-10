@@ -1,0 +1,45 @@
+{
+  "name": "@luckylillia/plugin-milky",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "NTQQ-only Milky protocol adapter",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/adapter/milky"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "adapter",
+    "icon": "milk",
+    "service": {
+      "implements": [
+        "milky"
+      ]
+    },
+    "description": {
+      "zh": "仅支持 NTQQ 协议端的 Milky 适配器",
+      "en": "NTQQ-only Milky protocol adapter"
+    },
+    "title": "Milky",
+    "builtin": {
+      "entry": "builtin:milky",
+      "abi": 1
+    },
+    "webui": "./lib/client/index.js"
+  }
+}

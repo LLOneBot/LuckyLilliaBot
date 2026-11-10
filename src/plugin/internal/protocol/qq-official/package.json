@@ -1,0 +1,40 @@
+{
+  "name": "@luckylillia/plugin-qq-official",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Runs a QQ open platform bot (AppID login) that plugins can chat through as well",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/protocol/qq-official"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "protocol",
+    "icon": "bot",
+    "description": {
+      "zh": "接入 QQ 开放平台的官方机器人（AppID 登录），插件同样能在它上面收发消息",
+      "en": "Runs a QQ open platform bot (AppID login) that plugins can chat through as well"
+    },
+    "title": "QQ 官方机器人",
+    "builtin": {
+      "entry": "builtin:qq-official",
+      "abi": 1
+    },
+    "webui": "./lib/client/index.js"
+  }
+}

@@ -14,6 +14,27 @@ import { builtin as commands } from './service/commands/builtin'
 import { builtin as database } from './service/database/builtin'
 import { builtin as market } from './tool/market/builtin'
 import { builtin as proxy } from './service/proxy/builtin'
+import './runtime-imports'
+import webuiPackage from './service/webui/package.json'
+import dashboardPackage from './tool/dashboard/package.json'
+import logsPackage from './tool/logs/package.json'
+import ntProtocolPackage from './protocol/nt-protocol/package.json'
+import onebot11Package from './adapter/onebot11/package.json'
+import satoriPackage from './adapter/satori/package.json'
+import milkyPackage from './adapter/milky/package.json'
+import qqOfficialPackage from './protocol/qq-official/package.json'
+import webqqPackage from './tool/webqq/package.json'
+import emailNotificationPackage from './tool/email-notification/package.json'
+import ntqqUniversalPackage from './service/ntqq-universal/package.json'
+import commandsPackage from './service/commands/package.json'
+import databasePackage from './service/database/package.json'
+import marketPackage from './tool/market/package.json'
+import proxyPackage from './service/proxy/package.json'
+
+const packages = [webuiPackage, dashboardPackage, logsPackage, ntProtocolPackage, onebot11Package, satoriPackage,
+  milkyPackage, qqOfficialPackage, webqqPackage, emailNotificationPackage, ntqqUniversalPackage, commandsPackage,
+  databasePackage, marketPackage, proxyPackage]
+const packagesByEntry = new Map(packages.map(pkg => [pkg.llbot.builtin.entry, pkg]))
 
 /**
  * The builtin entries, each defined next to its code in `<category>/<name>/builtin.ts`: the category is the one its
@@ -23,4 +44,8 @@ import { builtin as proxy } from './service/proxy/builtin'
 export const builtinPlugins: BuiltinPlugin[] = [
   webui, dashboard, logs, ntProtocol, onebot11, satori, milky, qqOfficial, webqq, emailNotification, ntqqUniversal, commands, database,
   market, proxy,
-]
+].map(builtin => {
+  const pkg = packagesByEntry.get(builtin.name)
+  if (!pkg) throw new Error('Builtin has no npm package: ' + builtin.name)
+  return { ...builtin, npm: { name: pkg.name, version: pkg.version, abi: pkg.llbot.builtin.abi } }
+})

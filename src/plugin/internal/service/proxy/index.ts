@@ -1,6 +1,7 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
 import { ProxyAgent } from 'undici'
+import type { HttpConfig } from '@luckylillia/plugin-sdk'
 import { proxyUrlProblem, ProxySchema, type ProxySettings } from './settings'
 
 /** Answers 204 when it is reachable: the usual test that a proxy gets out */
@@ -82,13 +83,29 @@ export const Config = ProxySchema
  */
 export function apply(ctx: Context, config: ProxySettings) {
   const agents = new Map<string, ProxyAgent>()
+  const addressOf = (url: URL, http: HttpConfig): string => {
+    const address = http.proxyAgent ?? (isLocal(url) ? '' : config.proxyAgent)
+    if (!address) return ''
+    // Native clients and fetch must agree. Never expose a credential-bearing URL in validation errors.
+    if (typeof address !== 'string' || proxyUrlProblem(address)) throw new Error('Invalid proxy address')
+    try {
+      const parsed = new URL(address)
+      decodeURIComponent(parsed.username)
+      decodeURIComponent(parsed.password)
+    } catch { throw new Error('Invalid proxy address') }
+    return address
+  }
   ctx.effect(() => () => {
     for (const agent of agents.values()) agent.close().catch(() => {})
     agents.clear()
   })
 
+  ctx.on('http/proxy', (url, proxy, http) => {
+    proxy.url = addressOf(url, http)
+  })
+
   ctx.on('http/fetch-init', (url, init, http) => {
-    const address = http.proxyAgent ?? (isLocal(url) ? '' : config.proxyAgent)
+    const address = addressOf(url, http)
     if (!address) return
     let agent = agents.get(address)
     if (!agent) agents.set(address, agent = new ProxyAgent(address))

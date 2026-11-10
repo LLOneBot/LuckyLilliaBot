@@ -96,7 +96,7 @@ describe('registry failures', () => {
     ['catalog-status-404', 404],
   ] as const)('maps catalog failure %s to HTTP %i', async (name, status) => {
     const warn = vi.fn()
-    const ctx = { plugins: { packageList: () => [] }, logger: () => ({ warn }) } as unknown as Context
+    const ctx = { plugins: { packageList: () => [], builtinPackageList: () => [] }, logger: () => ({ warn }) } as unknown as Context
     const registry = new Registry(url)
     const market = new Market(ctx, registry, '.tmp/unused-registry-test', new Catalog(registry, name))
     const response = await createMarketRoutes(ctx, market).request('/search')

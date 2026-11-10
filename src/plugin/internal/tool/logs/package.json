@@ -1,0 +1,40 @@
+{
+  "name": "@luckylillia/plugin-logs",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Live logs in the WebUI",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/tool/logs"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "tool",
+    "icon": "scroll-text",
+    "description": {
+      "zh": "在 WebUI 里实时看日志",
+      "en": "Live logs in the WebUI"
+    },
+    "title": "日志",
+    "builtin": {
+      "entry": "builtin:logs",
+      "abi": 1
+    },
+    "webui": "./lib/client/index.js"
+  }
+}

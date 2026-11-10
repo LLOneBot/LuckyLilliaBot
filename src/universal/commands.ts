@@ -13,9 +13,13 @@ export interface CommandSettings {
   bare: boolean
   /** `platform:userId`, or a user id on every platform: they may run every command. */
   owners: string[]
+  /** Permission overrides for one plugin entry's command; aliases share the canonical command's permission. */
+  permissions?: { owner: string; command: string; authority: NonNullable<CommandConfig['authority']> }[]
+  /** Extra names for one plugin entry's command; an empty owner identifies host commands. */
+  aliases?: { owner: string; command: string; aliases: string[] }[]
 }
 
-export const DEFAULT_SETTINGS: CommandSettings = { prefixes: ['/'], bare: true, owners: [] }
+export const DEFAULT_SETTINGS: CommandSettings = { prefixes: ['/'], bare: true, owners: [], aliases: [], permissions: [] }
 
 interface Declaration {
   name: string
@@ -246,7 +250,8 @@ export class CommandService extends Service implements Commands {
   command(def: string, description = '', config: CommandConfig = {}): CommandApi {
     const command = new Command(this.ctx, def, description, config)
     command.disposeCommand = this.ctx.effect(() => {
-      const clash = this.commands.find(other => other.names.some(name => command.names.some(mine => same(name, mine))))
+      const names = this.names(command)
+      const clash = this.commands.find(other => this.names(other).some(name => names.some(mine => same(name, mine))))
       if (clash) this.home.logger('commands').warn(`指令 ${command.name} 和已有的 ${clash.name} 重名，两个插件都收的消息由先注册的处理`)
       this.commands.push(command)
       this.scheduleMenus()
@@ -259,22 +264,37 @@ export class CommandService extends Service implements Commands {
     return command
   }
 
+  /** Resolve settings at use time so changing aliases never replaces commands or their owning plugins. */
+  private names(command: Command): string[] {
+    const owner = this.bots.ownerOf(command.ctx) ?? ''
+    const custom = (this.settings.current.aliases ?? [])
+      .filter(row => row.owner === owner && row.command === command.name)
+      .flatMap(row => row.aliases)
+    const names = new Map<string, string>()
+    for (const name of [...command.names, ...custom]) {
+      if (name && !names.has(name.toLowerCase())) names.set(name.toLowerCase(), name)
+    }
+    return [...names.values()]
+  }
+
   list(): CommandInfo[] {
+    const names = new Map(this.commands.map(command => [command, this.names(command)]))
     return this.commands.map((command) => {
       const conflicts: CommandInfo['conflicts'] = []
       for (const other of this.commands) {
         if (other === command) continue
-        for (const name of command.names) {
-          if (other.names.some(theirs => same(theirs, name))) conflicts.push({ name, with: this.bots.ownerOf(other.ctx) })
+        for (const name of names.get(command)!) {
+          if (names.get(other)!.some(theirs => same(theirs, name))) conflicts.push({ name, with: this.bots.ownerOf(other.ctx) })
         }
       }
       return {
         name: command.name,
-        aliases: [...command.aliases],
+        aliases: names.get(command)!.slice(1),
         description: command.description,
         syntax: command.syntax,
         hidden: !!command.config.hidden,
-        authority: command.config.authority ?? 'everyone',
+        authority: this.authority(command),
+        defaultAuthority: command.config.authority ?? 'everyone',
         owner: this.bots.ownerOf(command.ctx),
         conflicts,
       }
@@ -339,7 +359,7 @@ export class CommandService extends Service implements Commands {
       const body = text.slice(prefix.length)
       let best: { command: Command; name: string } | undefined
       for (const command of candidates) {
-        for (const name of command.names) {
+        for (const name of this.names(command)) {
           if (body.length < name.length || !same(body.slice(0, name.length), name)) continue
           if (body.length > name.length && !/\s/.test(body[name.length])) continue
           if (!best || name.length > best.name.length) best = { command, name }
@@ -354,8 +374,14 @@ export class CommandService extends Service implements Commands {
     return !!id && this.settings.current.owners.some(owner => owner === id || owner === `${session.platform}:${id}`)
   }
 
+  private authority(command: Command): CommandInfo['authority'] {
+    const owner = this.bots.ownerOf(command.ctx) ?? ''
+    const override = this.settings.current.permissions?.find(row => row.owner === owner && same(row.command, command.name))
+    return override?.authority ?? command.config.authority ?? 'everyone'
+  }
+
   private async permitted(command: Command, session: Session): Promise<boolean> {
-    const authority = command.config.authority ?? 'everyone'
+    const authority = this.authority(command)
     if (authority === 'everyone' || this.isOwner(session)) return true
     if (authority === 'owner' || !session.guildId || !session.userId) return false
     type Role = { id?: string; name?: string }

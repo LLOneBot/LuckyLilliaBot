@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "dev": "tsx watch --exclude \"./data/**\" --exclude \"./examples/**\" --exclude \"../LuckyLillia.Plugins/**\" src/main/main.ts",
-    "build": "npm run build:sdk && vite build",
+    "build": "npm run build:sdk && npm run build:builtins && vite build",
+    "build:builtins": "node scripts/sync-builtin-manifests.mjs --check && node scripts/build-builtins.mjs",
     "build:sdk": "tsc -p packages/plugin-sdk && node packages/plugin-sdk/scripts/build-testing.mjs",
     "dev-webui": "npm --prefix src/plugin/internal/service/webui/FE run dev",
     "build-webui": "npm --prefix src/plugin/internal/service/webui/FE run build",

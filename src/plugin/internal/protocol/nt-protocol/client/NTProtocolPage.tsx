@@ -34,14 +34,14 @@ const NTProtocolPage: React.FC = () => {
   const config = usePluginConfig<NTProtocolConfig>()
   const disabled = entry?.disabled ?? false
   const [info, setInfo] = useState<LoginInfo | null>(null)
-  // The account last seen online: its card stays while it is offline
+  // The pure protocol keeps its last account while reconnecting; the bridge goes back to its login flow.
   const [known, setKnown] = useState<{ uin: string; nick: string } | null>(null)
   // Online at the last poll; undefined before the first
   const wasOnline = useRef<boolean | undefined>(undefined)
   const [tokenStatus, setTokenStatus] = useState<AuthTokenStatus | null>(null)
   // Sticky, so that the form stays while the token it submitted is being checked
   const [tokenForm, setTokenForm] = useState<'missing' | 'invalid' | null>(null)
-  // A logged-in account that drops offline keeps its card until asked: a reconnect must not run into a QR login
+  // Only the pure protocol keeps an offline card until asked, so reconnecting does not trigger QR login.
   const [relogin, setRelogin] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
@@ -152,7 +152,7 @@ const NTProtocolPage: React.FC = () => {
         保存后改用{LOGIN_MODES.find(mode => mode.id === draftMode)?.label}登录
       </p>
     )
-  } else if (account && (info.online || (!relogin && !bridgeDown))) {
+  } else if (account && (info.online || (info.mode === 'direct' && !relogin))) {
     body = (
       <>
         <div className="flex items-center gap-4 p-4 bg-theme-item rounded-xl">

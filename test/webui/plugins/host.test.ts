@@ -76,4 +76,22 @@ describe('plugin client host', () => {
       .not.toThrow()
     expect(owned('builtin:fine').map(c => c.kind)).toEqual(['page'])
   })
+
+  it('replaces a bundled client with the activated npm version and restores the bundled fallback', async () => {
+    startBuiltinClients()
+    const plugin = { ...externalPlugin('builtin:fine'), builtin: true }
+    expect(hasExternalClient(plugin)).toBe(true)
+    await ensureClient(plugin.name, plugin.webui!)
+    expect(owned(plugin.name).map(c => c.kind)).toEqual(['page', 'config'])
+    expect(owned(plugin.name).find(c => c.kind === 'page')).toMatchObject({ key: 'home' })
+    syncClients([{ ...plugin, webui: undefined }])
+    expect(owned(plugin.name)).toHaveLength(1)
+    expect(owned(plugin.name)[0]).toMatchObject({ kind: 'page', key: 'fine' })
+  })
+
+  it('uses the activated builtin settings client even while the protocol or plugin is disabled', async () => {
+    const plugin = { ...externalPlugin('builtin:fine', true), builtin: true }
+    syncClients([plugin])
+    await expect.poll(() => owned(plugin.name).map(c => c.kind)).toEqual(['page', 'config'])
+  })
 })

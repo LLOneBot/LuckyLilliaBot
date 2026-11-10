@@ -46,6 +46,10 @@ export interface TestCommandSettings {
   bare: boolean
   /** `platform:userId`, or a user id on every platform */
   owners: string[]
+  /** Extra aliases for one plugin entry's command; owner is empty in this test app. */
+  aliases?: { owner: string; command: string; aliases: string[] }[]
+  /** Override a command's permission; owner is its plugin entry id, or empty in this test app. */
+  permissions?: { owner: string; command: string; authority: 'everyone' | 'admin' | 'owner' }[]
 }
 
 export interface TestApp {

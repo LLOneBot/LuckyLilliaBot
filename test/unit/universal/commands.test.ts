@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Bot, NeutralEvent, Universal } from '@luckylillia/plugin-sdk'
 import BotsService from '@/universal/bots'
 import { CommandService, CommandSettings, DEFAULT_SETTINGS, tokenize } from '@/universal/commands'
+import * as CommandsPlugin from '@/plugin/internal/service/commands'
+import { CommandsSchema, commandsSettings } from '@/plugin/internal/service/commands/settings'
 
 let ctx: Context
 let settings: { current: CommandSettings }
@@ -62,6 +64,123 @@ describe('tokenize', () => {
 })
 
 describe('commands', () => {
+  it('runs every configured alias alongside the canonical name and plugin aliases, without duplicate list entries', async () => {
+    ctx.command('hello <name>').alias('hi', 'HI', 'HELLO').action((_, name) => `hello ${name}`)
+    settings.current = { ...settings.current, aliases: [
+      { owner: '', command: 'hello', aliases: ['greet', '问好', 'HI', 'HELLO'] },
+      { owner: '', command: 'hello', aliases: ['GREET', 'greet friend'] },
+    ] }
+    for (const name of ['hello', 'hi', 'GREET', '问好', 'greet friend']) await say(`/${name} world`)
+    expect(sent).toEqual(Array(5).fill('hello world'))
+    expect(ctx.commands.list()[0].aliases).toEqual(['hi', 'greet', '问好', 'greet friend'])
+  })
+
+  it('updates and clears custom aliases immediately, keeps plugin defaults, and restores aliases after registration', async () => {
+    const owners = new WeakMap<object, string>()
+    ctx.bots.usePolicy({ owner: ctx => owners.get(ctx.fiber), accepts: () => true, rank: () => undefined, failed: () => {} })
+    const plugin = { inject: ['commands'], apply: (ctx: Context) => {
+      ctx.command('hello').alias('hi').action(() => 'hello')
+    } }
+    const first = await ctx.plugin(plugin)
+    owners.set(first.ctx.fiber, 'greeting')
+    settings.current = { ...settings.current, aliases: [{ owner: 'greeting', command: 'hello', aliases: ['hey', '你好'] }] }
+    await say('/hey')
+    settings.current = { ...settings.current, aliases: [{ owner: 'greeting', command: 'hello', aliases: ['welcome'] }] }
+    await say('/hey')
+    await say('/你好')
+    await say('/welcome')
+    settings.current = { ...settings.current, aliases: [] }
+    await say('/welcome')
+    await say('/hi')
+    expect(sent).toEqual(['hello', 'hello', 'hello'])
+    expect(ctx.commands.list()[0].aliases).toEqual(['hi'])
+
+    settings.current = { ...settings.current, aliases: [{ owner: 'greeting', command: 'hello', aliases: ['welcome'] }] }
+    await first.dispose()
+    await say('/welcome')
+    expect(sent).toHaveLength(3)
+    expect(ctx.commands.list()).toEqual([])
+    const second = await ctx.plugin(plugin)
+    owners.set(second.ctx.fiber, 'greeting')
+    await say('/welcome')
+    expect(sent).toHaveLength(4)
+    expect(ctx.commands.list()[0].aliases).toEqual(['hi', 'welcome'])
+  })
+
+  it('keeps aliases tied to plugin entries and scopes, reporting conflicts between effective names', async () => {
+    const owners = new WeakMap<object, string>()
+    ctx.bots.usePolicy({
+      owner: ctx => owners.get(ctx.fiber),
+      accepts: (owner, place) => owner === 'g1' ? place.guildId === 'G1' : place.guildId === 'G2',
+      rank: () => undefined,
+      failed: () => {},
+    })
+    for (const owner of ['g1', 'g2']) {
+      const fiber = await ctx.plugin({ inject: ['commands'], apply: (ctx: Context) => {
+        ctx.command('sign').alias(`default-${owner}`).action(() => owner)
+      } })
+      owners.set(fiber.ctx.fiber, owner)
+    }
+    settings.current = { ...settings.current, aliases: [
+      { owner: 'g1', command: 'sign', aliases: ['check in', 'shared'] },
+      { owner: 'g2', command: 'sign', aliases: ['attend', 'SHARED'] },
+      { owner: '', command: 'sign', aliases: ['host-sign'] },
+    ] }
+    const g2 = { channel: { id: 'G2', type: 0 }, guild: { id: 'G2' } }
+    await say('/check in')
+    await say('/attend')
+    await say('/check in', g2)
+    await say('/attend', g2)
+    await say('/host-sign')
+    expect(sent).toEqual(['g1', 'g2'])
+    expect(ctx.commands.list().map(({ owner, aliases, conflicts }) => ({ owner, aliases, conflicts }))).toEqual([
+      { owner: 'g1', aliases: ['default-g1', 'check in', 'shared'], conflicts: [{ name: 'sign', with: 'g2' }, { name: 'shared', with: 'g2' }] },
+      { owner: 'g2', aliases: ['default-g2', 'attend', 'SHARED'], conflicts: [{ name: 'sign', with: 'g1' }, { name: 'SHARED', with: 'g1' }] },
+    ])
+    settings.current = { ...settings.current, aliases: [
+      { owner: 'g1', command: 'sign', aliases: ['default-g2'] },
+    ] }
+    expect(ctx.commands.list()[0].conflicts).toEqual([{ name: 'sign', with: 'g2' }, { name: 'default-g2', with: 'g2' }])
+    settings.current = { ...settings.current, aliases: [] }
+    expect(ctx.commands.list()[0].conflicts).toEqual([{ name: 'sign', with: 'g2' }])
+  })
+
+  it('uses longest custom aliases at element boundaries, retains typed arguments, and allows next middleware', async () => {
+    settings.current = { ...settings.current, prefixes: ['!'], bare: false, aliases: [
+      { owner: '', command: 'inspect', aliases: ['show user', 'check user'] },
+    ] }
+    const calls: unknown[] = []
+    const seen: string[] = []
+    ctx.command('show [text:text]').action((_, text) => { calls.push(['short', text]) })
+    ctx.command('inspect <user:user> [content:text]').action(async ({ next }, user, content) => {
+      calls.push([user, content])
+      await next()
+    })
+    ctx.on('bot/message', (session, next) => { seen.push(session.content); return next() })
+    const element = '<at id="U2" name="another user"/>'
+    const image = '<img src="https://example.com/image.png"/>'
+    const content = `!SHOW USER${element} ${image}`
+    await say(content)
+    await say(`!check user${element} words`)
+    await say(`check user${element}`)
+    await say(`!check users${element}`)
+    await say(`!check user${h.text(element)}`)
+    expect(calls).toEqual([['U2', image], ['U2', 'words']])
+    expect(seen).toEqual([content, `!check user${element} words`, `check user${element}`, `!check users${element}`, `!check user${h.text(element)}`])
+  })
+
+  it('shares permissions and cooldown across the canonical name and all custom aliases', async () => {
+    settings.current = { ...settings.current, owners: ['test:U9'], aliases: [
+      { owner: '', command: 'reload', aliases: ['restart', '重载'] },
+    ] }
+    ctx.command('reload', '', { authority: 'owner', cooldown: 60_000 }).action(() => 'reloaded')
+    await say('/restart')
+    await say('/restart', { user: { id: 'U9' } })
+    await say('/reload', { user: { id: 'U9' } })
+    await say('/重载', { user: { id: 'U9' } })
+    expect(sent).toEqual(['你没有权限使用这个指令。', 'reloaded', '请在 60 秒后再试。', '请在 60 秒后再试。'])
+  })
+
   it('runs a command after a prefix or none, by its longest name, alias and case aside, and leaves the rest to others', async () => {
     const seen: string[] = []
     ctx.command('sign', '签到').alias('签到').action(() => 'signed')
@@ -291,5 +410,74 @@ describe('commands', () => {
     expect(newMenu).toHaveBeenCalledOnce()
     expect(newMenu.mock.calls[0][0].map(command => command.name)).toEqual(['sign'])
     await newProtocol.dispose()
+  })
+})
+
+describe('command alias settings', () => {
+  it('defaults to no custom aliases and normalizes duplicate rows without changing multi-word aliases', () => {
+    expect(new CommandsSchema()).toEqual(DEFAULT_SETTINGS)
+    const normalized = commandsSettings.normalize!({ ...DEFAULT_SETTINGS, aliases: [
+      { owner: ' plugin-a ', command: ' hello ', aliases: [' hi ', '', '  ', 'HI', 'HELLO', 'greet friend'] },
+      { owner: 'plugin-a', command: 'hello', aliases: ['greet friend', '问好', 'hi'] },
+      { owner: 'plugin-b', command: 'hello', aliases: ['hi'] },
+      { owner: '', command: 'empty', aliases: ['', '   '] },
+    ] })
+    expect(normalized.aliases).toEqual([
+      { owner: 'plugin-a', command: 'hello', aliases: ['hi', 'greet friend', '问好'] },
+      { owner: 'plugin-b', command: 'hello', aliases: ['hi'] },
+    ])
+    expect(commandsSettings.check!(normalized, true)).toEqual([])
+  })
+
+  it('reports separate aliases containing a newline, tab or control character', () => {
+    const normalized = commandsSettings.normalize!({ ...DEFAULT_SETTINGS, aliases: [
+      { owner: '', command: 'hello', aliases: ['hi\nthere', 'hi\tthere', 'hi\u0000there', 'hi there'] },
+    ] })
+    expect(normalized.aliases![0].aliases).toEqual(['hi\nthere', 'hi\tthere', 'hi\u0000there', 'hi there'])
+    const issues = commandsSettings.check!(normalized, true)
+    expect(issues.map(issue => issue.path)).toEqual([
+      ['aliases', '0', 'aliases', '0'], ['aliases', '0', 'aliases', '1'], ['aliases', '0', 'aliases', '2'],
+    ])
+    expect(issues[0].message).toContain('每个别名只能填写一行')
+  })
+
+  it.each(['hello', [null], [{ command: 'hello', aliases: [42] }], [{ command: 'hello', owner: 42, aliases: ['hi'] }]])(
+    'leaves malformed alias settings to schema validation: %j', (aliases) => {
+      const normalized = commandsSettings.normalize!({ ...DEFAULT_SETTINGS, aliases } as CommandSettings)
+      const result = CommandsSchema['~standard'].validate(normalized) as { issues?: unknown[] }
+      expect(result.issues?.length).toBeGreaterThan(0)
+    },
+  )
+
+  it('applies an actual plugin config update without restarting the command service or dependent plugins', async () => {
+    const root = new Context()
+    const timer = await root.plugin(TimerService)
+    const bots = await root.plugin(BotsService)
+    const service = await root.plugin(CommandsPlugin, { ...DEFAULT_SETTINGS })
+    const starts = vi.fn()
+    const stops = vi.fn()
+    const commandPlugin = await root.plugin({ inject: ['commands'], apply(ctx: Context) {
+      starts()
+      ctx.on('dispose', stops)
+      ctx.command('hello').alias('hi').action(() => 'hello')
+    } })
+    try {
+      await service.update({ ...DEFAULT_SETTINGS, aliases: [{ owner: '', command: 'hello', aliases: ['hey', '问好'] }] })
+      await root.bots.dispatch(bot, message('/hey'))
+      await root.bots.dispatch(bot, message('/问好'))
+      expect(sent).toEqual(['hello', 'hello'])
+      expect(root.commands.list()[0].aliases).toEqual(['hi', 'hey', '问好'])
+      await service.update({ ...DEFAULT_SETTINGS, aliases: [] })
+      await root.bots.dispatch(bot, message('/hey'))
+      await root.bots.dispatch(bot, message('/hi'))
+      expect(sent).toEqual(['hello', 'hello', 'hello'])
+      expect(starts).toHaveBeenCalledOnce()
+      expect(stops).not.toHaveBeenCalled()
+    } finally {
+      await commandPlugin.dispose()
+      await service.dispose()
+      await bots.dispose()
+      await timer.dispose()
+    }
   })
 })
