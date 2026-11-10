@@ -29,7 +29,13 @@ export async function transformOutgoingMessage(
       } else if (segment.type === 'mention_all' && isGroup) {
         elements.push(SendElement.at(0, AtType.All, '@全体成员'))
       } else if (segment.type === 'face') {
-        elements.push(SendElement.face(+segment.data.face_id, segment.data.is_large ? 3 : undefined))
+        let isLarge = false
+        if (segment.data.is_large === undefined || segment.data.is_large === null) {
+            isLarge = segments.length === 1
+        } else {
+            isLarge = segment.data.is_large
+        }
+        elements.push(SendElement.face(+segment.data.face_id, isLarge))
       } else if (segment.type === 'reply') {
         const peer = {
           chatType: isGroup ? 2 : 1,

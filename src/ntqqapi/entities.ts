@@ -150,7 +150,11 @@ export namespace SendElement {
     }
   }
 
-  export function face(faceId: number, faceType?: number): SendFaceElement {
+  export function face(faceId: number, isLarge?: boolean): SendFaceElement
+  export function face(faceId: number, faceType?: number): SendFaceElement
+  export function face(faceId: number, arg?: number | boolean): SendFaceElement {
+    const isLarge = (typeof arg === 'boolean') ? arg : true
+    let faceType = (typeof arg === 'number') ? arg : undefined
     // 从face_config.json中获取表情名称
     const sysFaces = faceConfig.sysface
     const face = sysFaces.find(face => face.QSid === String(faceId))
@@ -163,7 +167,7 @@ export namespace SendElement {
       else {
         faceType = 4
       }
-      if (face?.AniStickerType) {
+      if (isLarge && face?.AniStickerType) {
         faceType = 3
       }
     }
