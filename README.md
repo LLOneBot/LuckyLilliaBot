@@ -4,7 +4,6 @@
 <div align="center">
   <img src="./logo.jpg" width="200" alt="Logo" />
   <p><strong>Lucky Lillia Bot</strong></p>
-  <p>OneBot 11, Satori, Milky Server</p>
 </div>
 
 
