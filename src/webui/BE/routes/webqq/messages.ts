@@ -176,7 +176,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
             elements.push(picElement)
           }
         } else if (item.type === 'face' && item.faceId !== undefined) {
-          elements.push(SendElement.face(item.faceId))
+          elements.push(SendElement.face(item.faceId, content.length === 1))
         } else if (item.type === 'file' && item.filePath && item.fileName) {
           uploadedFiles.push(item.filePath)
           files.push({ filePath: item.filePath, fileName: item.fileName })

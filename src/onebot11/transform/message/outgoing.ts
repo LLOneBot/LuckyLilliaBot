@@ -122,7 +122,8 @@ export async function transformOutgoingSegments(
         const faceId = segment.data?.id
         const faceType: FaceType | undefined = segment.data?.sub_type
         if (faceId) {
-          sendElements.push(SendElement.face(+faceId, faceType))
+            if (faceType) sendElements.push(SendElement.face(+faceId, faceType))
+            else sendElements.push(SendElement.face(+faceId, messageData.length === 1))
         }
       }
         break
