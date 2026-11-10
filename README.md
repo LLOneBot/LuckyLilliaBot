@@ -7,8 +7,6 @@
   <p>OneBot 11, Satori, Milky Server</p>
 </div>
 
-## Document
-<https://luckylillia.com>
 
 ## References
 
