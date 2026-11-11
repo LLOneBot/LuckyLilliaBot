@@ -13,7 +13,7 @@ import PluginCard from './PluginCard'
 import { findConflicts } from './meta'
 import {
   CATEGORIES, CategoryKey, filterPlugins, groupByCategory, pageNumbers, paginate, pluginCategory, sortPlugins,
-  StatusFilter,
+  OriginFilter, StatusFilter,
 } from './listing'
 import PluginConfigDialog from './PluginConfigDialog'
 import PluginDetailsDialog from './PluginDetailsDialog'
@@ -35,11 +35,12 @@ interface View {
   mode: string
   category: CategoryKey | 'all'
   status: StatusFilter
+  origin: OriginFilter
   search: string
   page: number
 }
 
-const DEFAULT_VIEW: View = { mode: 'list', category: 'all', status: 'all', search: '', page: 1 }
+const DEFAULT_VIEW: View = { mode: 'list', category: 'all', status: 'all', origin: 'all', search: '', page: 1 }
 
 function loadView(): View {
   try {
@@ -97,7 +98,7 @@ const PluginsPage: React.FC = () => {
   const update = (patch: Partial<View>) => setView(previous => ({ ...previous, page: 1, ...patch }))
 
   const sorted = useMemo(() => sortPlugins(plugins ?? []), [plugins])
-  const matching = useMemo(() => filterPlugins(sorted, view), [sorted, view.status, view.search])
+  const matching = useMemo(() => filterPlugins(sorted, view), [sorted, view.status, view.origin, view.search])
   const counts = useMemo(() => {
     const result = new Map<CategoryKey, number>()
     for (const plugin of matching) result.set(pluginCategory(plugin), (result.get(pluginCategory(plugin)) ?? 0) + 1)
@@ -120,7 +121,7 @@ const PluginsPage: React.FC = () => {
     for (const plugin of plugins ?? []) if (!plugin.builtin) result.set(plugin.name, (result.get(plugin.name) ?? 0) + 1)
     return result
   }, [plugins])
-  const filtered = view.status !== 'all' || !!view.search.trim() || view.category !== 'all'
+  const filtered = view.status !== 'all' || view.origin !== 'all' || !!view.search.trim() || view.category !== 'all'
   const current = CATEGORIES.find(category => category.key === view.category)
   // A view whose plugin went off falls back to the list
   const added = useSlotContents('plugins.views')
@@ -281,6 +282,11 @@ const PluginsPage: React.FC = () => {
                 )}
               </div>
               <Select value={view.status} options={STATUS_OPTIONS} onChange={status => update({ status })} className="w-36 flex-shrink-0" />
+            </div>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="插件来源">
+              {([['all', '全部'], ['builtin', '内置插件'], ['third-party', '第三方插件']] as const).map(([value, label]) => (
+                <button key={value} type="button" aria-pressed={view.origin === value} onClick={() => update({ origin: value })} className={tab(view.origin === value)}>{label}</button>
+              ))}
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => update({ category: 'all' })} className={tab(view.category === 'all')}>

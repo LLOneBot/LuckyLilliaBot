@@ -9,7 +9,6 @@ import {
 import { imageUrl, previewImages, type CatalogScreenshot } from '../images'
 import LocalInstallButton from './LocalInstallButton'
 import { MarketStore, type InstalledPackage } from './store'
-import { matchesOrigin, type PluginOrigin } from '../origin'
 
 export const name = 'builtin:market'
 
@@ -219,38 +218,33 @@ const ResultCard: React.FC<{ item: SearchItem }> = ({ item }) => {
   )
 }
 
-const SearchView: React.FC<{ origin: PluginOrigin }> = ({ origin }) => {
+const SearchView: React.FC = () => {
   const ctx = usePluginContext()
   const [text, setText] = useState('')
-  const [query, setQuery] = useState({ text: '', page: 1, origin })
-  const page = query.origin === origin ? query.page : 1
+  const [query, setQuery] = useState({ text: '', page: 1 })
+  const page = query.page
   const [loadedResult, setResult] = useState<{ total: number; items: SearchItem[]; query: typeof query } | null>(null)
-  const result = loadedResult?.query === query && query.origin === origin ? loadedResult : null
+  const result = loadedResult?.query === query ? loadedResult : null
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    setQuery(current => current.origin === origin ? current : { ...current, origin, page: 1 })
-  }, [origin])
-
-  useEffect(() => {
-    if (query.origin !== origin) return
     let current = true
     setLoading(true)
     setError('')
     setResult(null)
-    ctx.api<{ total: number; items: SearchItem[] }>(`/api/market/search?q=${encodeURIComponent(query.text)}&page=${page}&origin=${origin}`)
+    ctx.api<{ total: number; items: SearchItem[] }>(`/api/market/search?q=${encodeURIComponent(query.text)}&page=${page}`)
       .then(data => current && setResult({ ...data, query }), e => current && setError(errorText(e)))
       .finally(() => current && setLoading(false))
     return () => {
       current = false
     }
-  }, [ctx, query, origin, page])
+  }, [ctx, query, page])
 
   const pages = result ? Math.max(1, Math.ceil(result.total / PAGE_SIZE)) : 1
   return (
     <div className="space-y-4">
-      <form onSubmit={(event) => { event.preventDefault(); setQuery({ text: text.trim(), page: 1, origin }) }} className="card p-4 flex gap-3">
+      <form onSubmit={(event) => { event.preventDefault(); setQuery({ text: text.trim(), page: 1 }) }} className="card p-4 flex gap-3">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-hint pointer-events-none" />
           <input value={text} onChange={event => setText(event.target.value)} placeholder="搜索插件名或包名，留空列出全部" className="input-field pl-10" />
@@ -268,13 +262,13 @@ const SearchView: React.FC<{ origin: PluginOrigin }> = ({ origin }) => {
             <div>搜索失败：{error}</div>
             <div className="text-theme-muted mt-1">请点插件列表里「插件市场」卡片上的齿轮，检查 npm 源和目录包设置，然后重试。</div>
           </div>
-          <button type="button" onClick={() => setQuery({ ...query, origin, page })} disabled={loading} className="btn-glass text-theme">重试</button>
+          <button type="button" onClick={() => setQuery({ ...query })} disabled={loading} className="btn-glass text-theme">重试</button>
         </div>
       )}
 
       {!error && result && result.items.length === 0 && !loading && (
         <div className="card p-10 text-center text-theme-secondary">
-          {query.text || origin !== 'all' ? '没有找到匹配的插件。' : '当前市场目录暂无收录的插件。'}
+          {query.text ? '没有找到匹配的插件。' : '当前市场目录暂无收录的插件。'}
           <a href="https://github.com/LLOneBot/LuckyLillia.Market/issues/new/choose" target="_blank" rel="noopener noreferrer" className="ml-1 text-pink-500 hover:underline">登记插件</a>
         </div>
       )}
@@ -287,11 +281,11 @@ const SearchView: React.FC<{ origin: PluginOrigin }> = ({ origin }) => {
 
       {!error && pages > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm text-theme-secondary">
-          <button type="button" disabled={page <= 1} onClick={() => setQuery({ ...query, origin, page: page - 1 })} className="btn-glass disabled:opacity-40" title="上一页">
+          <button type="button" disabled={page <= 1} onClick={() => setQuery({ ...query, page: page - 1 })} className="btn-glass disabled:opacity-40" title="上一页">
             <ChevronLeft size={18} />
           </button>
           {page} / {pages}
-          <button type="button" disabled={page >= pages} onClick={() => setQuery({ ...query, origin, page: page + 1 })} className="btn-glass disabled:opacity-40" title="下一页">
+          <button type="button" disabled={page >= pages} onClick={() => setQuery({ ...query, page: page + 1 })} className="btn-glass disabled:opacity-40" title="下一页">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -353,10 +347,10 @@ const InstalledRow: React.FC<{ pkg: InstalledPackage }> = ({ pkg }) => {
   )
 }
 
-const InstalledView: React.FC<{ origin: PluginOrigin; onSearch(): void }> = ({ origin, onSearch }) => {
+const InstalledView: React.FC<{ onSearch(): void }> = ({ onSearch }) => {
   const market = useMarket()
   const [updatesOnly, setUpdatesOnly] = useState(false)
-  const matching = market.installed?.filter(pkg => matchesOrigin(!!pkg.builtin, origin)) ?? []
+  const matching = market.installed ?? []
   const updateCount = matching.filter(pkg => market.updates?.[pkg.name]?.update).length
   const packages = matching.filter(pkg => !updatesOnly || market.updates?.[pkg.name]?.update)
   if (!market.installed && !market.installedError) return <div className="flex justify-center py-16"><Loader2 size={32} className="animate-spin text-pink-500" /></div>
@@ -396,7 +390,6 @@ const InstalledView: React.FC<{ origin: PluginOrigin; onSearch(): void }> = ({ o
 const MarketView: React.FC = () => {
   const market = useMarket()
   const [view, setView] = useState<'search' | 'installed'>('search')
-  const [origin, setOrigin] = useState<PluginOrigin>('all')
   const updates = Object.values(market.updates ?? {}).filter(info => info.update).length
   return (
     <div className="space-y-6">
@@ -412,11 +405,6 @@ const MarketView: React.FC = () => {
           disabled={!market.installed || !!market.installedError || market.busy.size > 0}
           onInstall={installLocal}
         />
-        <div className="w-full flex flex-wrap gap-2" role="group" aria-label="插件来源">
-          {([['all', '全部'], ['builtin', '内置插件'], ['third-party', '第三方插件']] as const).map(([value, label]) => (
-            <button key={value} type="button" aria-pressed={origin === value} onClick={() => setOrigin(value)} className={tab(origin === value)}>{label}</button>
-          ))}
-        </div>
         <p className="w-full text-xs text-theme-muted">安装时会从插件市场补齐所需插件；新装的插件和依赖默认不启用，到「插件列表」里启用</p>
       </div>
       {(market.installedError || market.updatesError) && (
@@ -429,8 +417,8 @@ const MarketView: React.FC = () => {
           <button type="button" onClick={refreshMarket} disabled={market.checking || market.loadingInstalled || market.busy.size > 0} className="btn-glass text-theme">重试</button>
         </div>
       )}
-      {view === 'search' && <SearchView origin={origin} />}
-      {view === 'installed' && <InstalledView origin={origin} onSearch={() => setView('search')} />}
+      {view === 'search' && <SearchView />}
+      {view === 'installed' && <InstalledView onSearch={() => setView('search')} />}
     </div>
   )
 }

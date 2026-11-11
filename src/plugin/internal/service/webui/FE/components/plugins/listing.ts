@@ -22,6 +22,7 @@ export function pluginCategory(plugin: PluginStatus): CategoryKey {
 }
 
 export type StatusFilter = 'all' | 'enabled' | 'disabled' | 'attention'
+export type OriginFilter = 'all' | 'builtin' | 'third-party'
 
 /** What needs a look: files or versions that do not fit, a failed start, an enabled plugin still waiting. */
 export function needsAttention(plugin: PluginStatus): boolean {
@@ -44,6 +45,7 @@ export function sortPlugins(plugins: PluginStatus[]): PluginStatus[] {
 
 export interface ListingQuery {
   status: StatusFilter
+  origin?: OriginFilter
   /** Matched against the title, the package name and the description */
   search: string
 }
@@ -52,6 +54,8 @@ export interface ListingQuery {
 export function filterPlugins(plugins: PluginStatus[], query: ListingQuery): PluginStatus[] {
   const words = query.search.trim().toLowerCase()
   return plugins.filter((plugin) => {
+    if (query.origin === 'builtin' && !plugin.builtin) return false
+    if (query.origin === 'third-party' && plugin.builtin) return false
     if (query.status === 'enabled' && plugin.disabled) return false
     if (query.status === 'disabled' && !plugin.disabled) return false
     if (query.status === 'attention' && !needsAttention(plugin)) return false
