@@ -43,7 +43,13 @@ export class PmhqQQProtocol extends QQProtocolBase {
     // 订阅 recv 事件, 转发为 qq/raw 供 dispatcher 用. (旧代码里叫 startHook, 现在归内部)
     this.addResListener((data: any) => {
       if (data?.type === 'recv' && data.data?.cmd && data.data?.pb) {
-        const payload = Buffer.from(data.data.pb, 'hex')
+        let payload = Buffer.from(data.data.pb, 'hex')
+        // PMHQ 9.x recv pb has a 4-byte big-endian length header (len = header + body).
+        // Parsing it as protobuf shifts fields and the message is silently dropped (#870/#881).
+        // Strip it when it matches; bare protobuf payloads are left untouched.
+        if (payload.length > 4 && payload.readUInt32BE(0) === payload.length) {
+          payload = payload.subarray(4)
+        }
         this.ctx.parallel('qq/raw', { cmd: data.data.cmd, payload })
       }
     })
