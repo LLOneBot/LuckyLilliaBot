@@ -195,6 +195,12 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 - 频道的被动回复和流式状态与群聊 / C2C 分开保存，即使平台消息 ID 相同也不会互相占用、去重或串流。频道按钮回复使用事件的 `event_id`。只由主 Bot 发在线状态和同步插件指令菜单。
 - `bot.internal`：合并群聊 / 单聊 / 频道的全部 REST 接口，方法名大多和 Koishi 一致；`sendMessage` / `deleteMessage` 保留群聊含义，频道版本是 `sendGuildMessage` / `deleteGuildMessage`。所有原始方法仍接收腾讯原始 ID；SDK 的 `internalOf(bot, 'qq')` 包含合并后的接口，不再有 `qqguild` 平台分支（`getJoinRequestList`、`approveJoinRequest`、`getGroupMemberBlacklist`、`createJoinApprovalStrategy`、`generateUrlLink`、`createPinsMessage`、`createSchedule`……，列表在 `internal.ts`）。参数：先按顺序填路径参数，再是 body（GET / DELETE 是 query），body 后可再跟 query
 
+### Markdown 图片素材
+
+官方[素材管理文档](https://bot.q.qq.com/wiki/develop/api-v2/server-inter/message/material-management.html)支持将本地图片上传后，以 `qqbot-media://image/v1/...` 嵌入单条 Markdown。`bot.internal` 提供 `prepareMediaImage`、`completeMediaImage`、`getMediaImages`、`deleteMediaImage`，所有接口都使用当前机器人的凭证。流程为 prepare → PUT 预签名 URL（Content-Type 与 prepare 一致）→ complete（md5 使用 PUT 返回的 ETag）→ `session.send()` → 删除本次素材。`preview_url` 是临时查看链接，不能代替 Markdown 引用。
+
+每张不超过 10 MB，支持 png/jpeg/gif/webp，最多 100 张；未引用的素材 90 天后过期。已发送消息有平台转存的副本，删除素材不会影响旧消息。动态预览应等发送完成后清理自己上传的素材；发送失败也应清理，不删除其他插件或用户上传的素材。直接传 `data:` 图片仍使用原来的拆分逻辑，需要单条 Markdown 的插件先调用素材接口。
+
 ## 8. 菜单
 
 单聊菜单的 `privateSlash` / `privateMenu` 和群聊指令面板的 `groupSlash` / `groupPanels` 按 owner 2026-11-05 要求暂时从 UI 隐藏（schema `.hidden()`），现有配置和同步逻辑继续生效。
@@ -231,6 +237,8 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
   - 因此改掉的：纯文本里的 `<qqbot-at-user />` 原样显示（改成 markdown）；反斜杠转义原样显示、实体后的空格被吃（改成实体 + `&nbsp;`）；卡片的 ark 发不出（改成 markdown）；群里没有流式（攒成一条）；流不结束就一直挂着"生成中"（加 `stream="end"` 和空闲结束）；每片流都占回复次数（单聊不算）；同一频道两段回复同时进行会串（按 `referrer` 回复）
 - **2026-11-05 真机订阅验证**：公域测试机器人使用与 crack 1.0.33 相同的 12 类默认订阅成功上线；这验证了该 AppID 能订阅这组事件，未验证每类事件的实际收发。后续按 owner 要求将原来的 `qq` / `qqguild` 双身份合并为一个 `qq` Bot
 
+- **2026-11-12 素材接口真机验证**：使用现有官方机器人完成 prepare → PUT（Content-Type、ETag）→ complete → 查询 → 下载临时预览并校验 SHA-256 → delete → 再次查询确认移除。409,911 字节的 PNG 上传前后完全一致，返回有效的 `qqbot-media://image/v1/...` 引用。查询接口的 `total` 实际为数字字符串，类型兼容两种形式。单条 Markdown 的请求格式通过适配器测试验证，此次未做聊天端实际收发。
+
 ## 11. 未验证
 
 - `GROUP_MEMBER_EVENT`、`INTERACTION` 对其他未申请权限的机器人是否也能订（当前测试 AppID 已验证能订）；频道的实际收发和管理功能，包括频道的 ark 卡片、`<emoji:id>` 收发和流式
@@ -239,4 +247,4 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 - `<qqbot-at-everyone />`（会提醒全群，没测）
 - `GROUP_MESSAGE_CREATE`（全量群消息）的 `mentions` 是否真带 `is_you`；`GROUP_AT_MESSAGE_CREATE` 里 @ 了别人时，那些 @ 在 content 里的写法
 - `<faceType=…>` 的格式和 `ext` 里名字带不带方括号（别的项目实测过，我们没有）；群和单聊能不能发表情、怎么写
-- 官方文档里有、还没接的：单聊 `msg_type` 6（输入中状态，`input_notify`）、`msg_type` 8（图文卡片 `card`，也许不用申请 ark）、`stream_messages` 新流式接口（实测能用）、素材管理（`/v2/media-images` 上传图片后在 markdown 里用 `qqbot-media://` 引用，存 100 张，本地图片就能放进 markdown 了）
+- 官方文档里有、还没接的：单聊 `msg_type` 6（输入中状态，`input_notify`）、`msg_type` 8（图文卡片 `card`，也许不用申请 ark）、`stream_messages` 新流式接口（实测能用）。素材接口的上传、查询和删除已真机验证，素材引用在聊天端的实际显示尚待验证。

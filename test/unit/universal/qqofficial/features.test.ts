@@ -304,6 +304,31 @@ describe('markdown and buttons', () => {
     expect(messages()[0].body).toEqual({ msg_type: 0, content: '官网 ( https://example.com ) https://example.com' })
   })
 
+  it('exposes official material APIs and sends an uploaded image reference in one Markdown message', async () => {
+    await start()
+    const image = { image_id: 'image/1', url: 'qqbot-media://image/v1/test-asset', ttl: 7776000 }
+    reply = call => {
+      if (call.path === '/v2/media-images/prepare') return { body: { upload_id: 'upload-1', presigned_url: 'https://upload.example.test/image.png', expires_in: 3600 } }
+      if (call.path === '/v2/media-images/complete') return { body: image }
+      if (call.path === '/v2/media-images') return { body: { images: [image], next_cursor: '', total: 1 } }
+    }
+    const prepared = await qq().internal.prepareMediaImage({ file_name: 'preview.png', file_size: 123, content_type: 'image/png', md5: 'a'.repeat(32), sha1: 'b'.repeat(40) })
+    const uploaded = await qq().internal.completeMediaImage({ upload_id: prepared.upload_id, md5: 'a'.repeat(32) })
+    expect((await qq().internal.getMediaImages({ cursor: 'cursor-1' })).total).toBe(1)
+    const content = '![封面 #560px #395px](' + uploaded.url + ')\n\n**视频标题**\n\nAI 总结：示例'
+    await qq().sendMessage('G1', h('markdown', {}, content))
+    expect(messages()).toHaveLength(1)
+    expect(messages()[0].body).toEqual({ msg_type: 2, markdown: { content } })
+    expect(calls.some(call => call.path.endsWith('/files'))).toBe(false)
+    await qq().internal.deleteMediaImage(uploaded.image_id)
+    expect(calls.filter(call => call.path.startsWith('/v2/media-images')).map(call => [call.method, call.path, call.query])).toEqual([
+      ['POST', '/v2/media-images/prepare', ''],
+      ['POST', '/v2/media-images/complete', ''],
+      ['GET', '/v2/media-images', '?cursor=cursor-1'],
+      ['DELETE', '/v2/media-images/image%2F1/delete', ''],
+    ])
+  })
+
   it('splits inline data images out of markdown into media of their own', async () => {
     await start()
     await qq().sendMessage('private:U3', h('markdown', 'before ![x](data:image/png;base64,AAAA) after'))

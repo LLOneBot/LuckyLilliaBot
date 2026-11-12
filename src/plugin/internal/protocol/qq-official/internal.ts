@@ -17,6 +17,22 @@ export interface Internal {
 export interface GroupInternal extends Internal {
   sendMessage(groupOpenid: string, data: SendRequest): Promise<SendResponse>
   sendPrivateMessage(openid: string, data: SendRequest): Promise<SendResponse>
+  prepareMediaImage(data: {
+    file_name: string
+    file_size: number
+    content_type: string
+    md5: string
+    sha1: string
+  }): Promise<{ upload_id: string; presigned_url: string; expires_in: number }>
+  completeMediaImage(data: { upload_id: string; md5: string }): Promise<{
+    image_id: string; url: string; ttl: number; preview_url?: string
+  }>
+  getMediaImages(params?: { cursor?: string }): Promise<{
+    images: { image_id: string; url: string; file_name: string; created_at: number; expires_at: number; preview_url?: string }[]
+    next_cursor: string
+    total: number | string
+  }>
+  deleteMediaImage(imageId: string): Promise<unknown>
   acknowledgeInteraction(interactionId: string, data: { code: number }): Promise<unknown>
   getGroupInfo(groupOpenid: string): Promise<GroupInfo>
   getBotGroupState(groupOpenid: string): Promise<BotGroupState>
@@ -71,6 +87,10 @@ const GROUP_ROUTES: Routes = {
   '/v2/users/{user.id}/upload_part_finish': { POST: 'uploadPartFinishPrivate' },
   '/v2/groups/{channel.id}/upload_prepare': { POST: 'uploadPrepareGuild' },
   '/v2/groups/{channel.id}/upload_part_finish': { POST: 'uploadPartFinishGuild' },
+  '/v2/media-images/prepare': { POST: 'prepareMediaImage' },
+  '/v2/media-images/complete': { POST: 'completeMediaImage' },
+  '/v2/media-images': { GET: 'getMediaImages' },
+  '/v2/media-images/{image.id}/delete': { DELETE: 'deleteMediaImage' },
   '/gateway': { GET: 'getGateway' },
   '/gateway/bot': { GET: 'getGatewayBot' },
   '/interactions/{interaction.id}': { PUT: 'acknowledgeInteraction' },

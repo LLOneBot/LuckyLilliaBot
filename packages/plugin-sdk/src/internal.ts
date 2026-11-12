@@ -264,6 +264,7 @@ export interface QQInternal {
   addGuildMemberRole: Call
   approveJoinRequest: Call
   batchRemoveGroupMembers: Call
+  completeMediaImage: Call
   completeUploadGuild: Call
   completeUploadPrivate: Call
   controlChannelAudio: Call
@@ -282,6 +283,7 @@ export interface QQInternal {
   deleteDM: Call
   deleteGuildMessage: Call
   deleteJoinApprovalStrategy: Call
+  deleteMediaImage: Call
   deleteMessage: Call
   deletePanel: Call
   deletePrivateMessage: Call
@@ -310,6 +312,7 @@ export interface QQInternal {
   getJoinApprovalStrategyList: Call
   getJoinRequestList: Call
   getMe: Call
+  getMediaImages: Call
   getMenu: Call
   getMessage: Call
   getMessageSetting: Call
@@ -334,6 +337,7 @@ export interface QQInternal {
   modifySchedule: Call
   muteGuildMember: Call
   muteGuildOrMembers: Call
+  prepareMediaImage: Call
   removeChannelMic: Call
   removeGuildAnnounce: Call
   removeGuildMember: Call
