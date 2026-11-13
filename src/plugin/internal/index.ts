@@ -14,6 +14,7 @@ import { builtin as commands } from './service/commands/builtin'
 import { builtin as database } from './service/database/builtin'
 import { builtin as market } from './tool/market/builtin'
 import { builtin as proxy } from './service/proxy/builtin'
+import { builtin as messageOrder } from './tool/message-order/builtin'
 import './runtime-imports'
 import webuiPackage from './service/webui/package.json'
 import dashboardPackage from './tool/dashboard/package.json'
@@ -30,10 +31,11 @@ import commandsPackage from './service/commands/package.json'
 import databasePackage from './service/database/package.json'
 import marketPackage from './tool/market/package.json'
 import proxyPackage from './service/proxy/package.json'
+import messageOrderPackage from './tool/message-order/package.json'
 
 const packages = [webuiPackage, dashboardPackage, logsPackage, ntProtocolPackage, onebot11Package, satoriPackage,
   milkyPackage, qqOfficialPackage, webqqPackage, emailNotificationPackage, ntqqUniversalPackage, commandsPackage,
-  databasePackage, marketPackage, proxyPackage]
+  databasePackage, marketPackage, proxyPackage, messageOrderPackage]
 const packagesByEntry = new Map(packages.map(pkg => [pkg.llbot.builtin.entry, pkg]))
 
 /**
@@ -43,7 +45,7 @@ const packagesByEntry = new Map(packages.map(pkg => [pkg.llbot.builtin.entry, pk
  */
 export const builtinPlugins: BuiltinPlugin[] = [
   webui, dashboard, logs, ntProtocol, onebot11, satori, milky, qqOfficial, webqq, emailNotification, ntqqUniversal, commands, database,
-  market, proxy,
+  market, proxy, messageOrder,
 ].map(builtin => {
   const pkg = packagesByEntry.get(builtin.name)
   if (!pkg) throw new Error('Builtin has no npm package: ' + builtin.name)

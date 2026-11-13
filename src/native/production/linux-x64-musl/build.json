@@ -6,12 +6,120 @@
   },
   "variant": "production",
   "target": "x86_64-unknown-linux-musl",
-  "buildId": "eeb9affb-3b9b-4211-a39e-a87e87e9a9c3",
+  "buildId": "18e6dc7b-f3a2-4686-b654-c5ce76345ba0",
   "profile": "release",
+  "protection": {
+    "kind": "vmprotect",
+    "mode": "ultra",
+    "options": 333568,
+    "regions": [
+      "auth_client_operation",
+      "auth_commit_binding",
+      "auth_confirm_info",
+      "auth_confirm_operation",
+      "auth_confirmation_lifetime",
+      "auth_credentials_generation",
+      "auth_http_status",
+      "auth_lifecycle_check",
+      "auth_operation_grant",
+      "auth_report_interval",
+      "auth_tls_verify",
+      "make_challenge",
+      "native_auth_client",
+      "native_operation_integrity",
+      "native_runtime_integrity",
+      "native_startup_integrity",
+      "write_runtime_config"
+    ],
+    "instructions": {
+      "auth_client_operation": 195,
+      "auth_commit_binding": 63,
+      "auth_confirm_info": 1734,
+      "auth_confirm_operation": 333,
+      "auth_confirmation_lifetime": 23,
+      "auth_credentials_generation": 60,
+      "auth_http_status": 81,
+      "auth_lifecycle_check": 184,
+      "auth_operation_grant": 93,
+      "auth_report_interval": 149,
+      "auth_tls_verify": 2174,
+      "make_challenge": 141,
+      "native_auth_client": 359,
+      "native_operation_integrity": 207,
+      "native_runtime_integrity": 194,
+      "native_startup_integrity": 136,
+      "write_runtime_config": 521
+    },
+    "exportsPreserved": true,
+    "sdkImportsRemoved": true,
+    "compatibility": {
+      "musl": {
+        "kind": "bss-loader",
+        "abi": 1,
+        "file": "liblucky_vmp_f8dd212bd99f44a8997a8145808f05d1.so",
+        "sha256": "848e49ce945ce9a8b9a2470bd1b77fd96996d625d696d84484134a363850917a",
+        "sourceSha256": "cdf24cb30ac539807e5d2395467f949af57efc027e5dc04832eb88f4cc0185c3"
+      }
+    },
+    "sourceSha256": "a505c20cc6727134f47d2419ddfa6612c539384007b35741060be3fcea11d536",
+    "profileSha256": "2f65aabc78c54974b88c4abf826a41b1430dd1e1a5480c8a26e9678110910218",
+    "toolVersion": "VMProtect Ultimate v 3.10.3 (build 2535) Copyright 2003-2025 VMProtect Software",
+    "target": "x86_64-unknown-linux-musl",
+    "binaryFormat": "elf",
+    "nodeTarget": "linux-x64-musl",
+    "nodeVersion": "22.23.4",
+    "nodeLoadChecked": true
+  },
   "addon": "LuckyLillia.NTQQ.node",
   "sidecar": "libpmhq.so",
+  "runtime": "liblucky_vmp_f8dd212bd99f44a8997a8145808f05d1.so",
+  "sidecarProtection": {
+    "kind": "vmprotect",
+    "component": "sidecar",
+    "mode": "ultra",
+    "options": 333568,
+    "regions": [
+      "sidecar_build_proof",
+      "sidecar_decrypt_anchors",
+      "sidecar_image_integrity"
+    ],
+    "instructions": {
+      "sidecar_build_proof": 278,
+      "sidecar_decrypt_anchors": 202,
+      "sidecar_image_integrity": 33
+    },
+    "exportsPreserved": true,
+    "sdkImportsRemoved": true,
+    "compatibility": {
+      "musl": {
+        "kind": "bss-loader",
+        "abi": 1,
+        "file": "liblucky_vmp_80ab53a470cc4c23a26a725ffc30b7f5.so",
+        "sha256": "08429e4ca4ca576814891ddc089c0af18125548c98c924f472c41872317d51c1",
+        "sourceSha256": "cdf24cb30ac539807e5d2395467f949af57efc027e5dc04832eb88f4cc0185c3"
+      }
+    },
+    "sourceSha256": "3d09f02a5d126b84edb72c5328688f7156bdf3f8e504afaf214b589e817e175f",
+    "profileSha256": "cc1861ac4424b63e2dd23ab6bac9c77bbc5a6e08aae32932422bc8961ac4ed3c",
+    "toolVersion": "VMProtect Ultimate v 3.10.3 (build 2535) Copyright 2003-2025 VMProtect Software",
+    "target": "x86_64-unknown-linux-musl",
+    "binaryFormat": "elf",
+    "loadTarget": "linux-x64-musl",
+    "loadChecked": true,
+    "checks": [
+      "dlopen",
+      "management exports",
+      "constructor",
+      "image integrity",
+      "missing proof rejected",
+      "invalid proof rejected"
+    ]
+  },
+  "sidecarRuntime": "liblucky_vmp_80ab53a470cc4c23a26a725ffc30b7f5.so",
   "files": {
-    "LuckyLillia.NTQQ.node": "48976d09a3569514bf1bff6f319feff05a45ae3eb865cd7373b9ea9d9f45f2ba",
-    "libpmhq.so": "4ad08623d3f1139dae0747d18845ad890ab50f46477583317051db010c7ef202"
+    "LuckyLillia.NTQQ.node": "d2761c3c9840c18700f6bb234df6372e7a28a72765c67abc6f50191a64724973",
+    "libpmhq.so": "d0c800b6727021623f3054662915e8934de4e0998f850b6871d72b4696af2edf",
+    "liblucky_vmp_f8dd212bd99f44a8997a8145808f05d1.so": "848e49ce945ce9a8b9a2470bd1b77fd96996d625d696d84484134a363850917a",
+    "liblucky_vmp_80ab53a470cc4c23a26a725ffc30b7f5.so": "08429e4ca4ca576814891ddc089c0af18125548c98c924f472c41872317d51c1"
   }
 }

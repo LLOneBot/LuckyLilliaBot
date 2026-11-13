@@ -6,12 +6,118 @@
   },
   "variant": "production",
   "target": "aarch64-unknown-linux-gnu",
-  "buildId": "32d6554c-0f77-4357-ad35-8dde2945e93a",
+  "buildId": "38e41c6e-dcd1-4664-ba77-4449ad9008f2",
   "profile": "release",
+  "protection": {
+    "kind": "vmprotect",
+    "mode": "ultra",
+    "options": 333568,
+    "regions": [
+      "auth_client_operation",
+      "auth_commit_binding",
+      "auth_confirm_info",
+      "auth_confirm_operation",
+      "auth_confirmation_lifetime",
+      "auth_credentials_generation",
+      "auth_http_status",
+      "auth_lifecycle_check",
+      "auth_operation_grant",
+      "auth_report_interval",
+      "auth_tls_verify",
+      "make_challenge",
+      "native_auth_client",
+      "native_operation_integrity",
+      "native_runtime_integrity",
+      "native_startup_integrity",
+      "write_runtime_config"
+    ],
+    "instructions": {
+      "auth_client_operation": 207,
+      "auth_commit_binding": 100,
+      "auth_confirm_info": 1544,
+      "auth_confirm_operation": 338,
+      "auth_confirmation_lifetime": 31,
+      "auth_credentials_generation": 73,
+      "auth_http_status": 79,
+      "auth_lifecycle_check": 203,
+      "auth_operation_grant": 93,
+      "auth_report_interval": 142,
+      "auth_tls_verify": 2051,
+      "make_challenge": 156,
+      "native_auth_client": 357,
+      "native_operation_integrity": 229,
+      "native_runtime_integrity": 193,
+      "native_startup_integrity": 128,
+      "write_runtime_config": 476
+    },
+    "exportsPreserved": true,
+    "sdkImportsRemoved": true,
+    "compatibility": {
+      "arm64": {
+        "kind": "rust-pthread",
+        "abi": 1,
+        "rustVersion": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "targetSpecSha256": "7b25a528839cb3a3f0705030c3b228ee5166ffa7dcdee680d3903f86562d7402",
+        "functionPrefixes": 5586,
+        "narrowedTables": 1729
+      }
+    },
+    "sourceSha256": "4fff39208ea35cbfb3cdd603ed3c4e0476057efc5c46229632f56763a4a2dd61",
+    "profileSha256": "2f65aabc78c54974b88c4abf826a41b1430dd1e1a5480c8a26e9678110910218",
+    "toolVersion": "VMProtect Ultimate v 3.10.3 (build 2535) Copyright 2003-2025 VMProtect Software",
+    "target": "aarch64-unknown-linux-gnu",
+    "binaryFormat": "elf",
+    "nodeTarget": "linux-arm64-glibc",
+    "nodeVersion": "24.13.0",
+    "nodeLoadChecked": true
+  },
   "addon": "LuckyLillia.NTQQ.node",
   "sidecar": "libpmhq.so",
+  "sidecarProtection": {
+    "kind": "vmprotect",
+    "component": "sidecar",
+    "mode": "ultra",
+    "options": 333568,
+    "regions": [
+      "sidecar_build_proof",
+      "sidecar_decrypt_anchors",
+      "sidecar_image_integrity"
+    ],
+    "instructions": {
+      "sidecar_build_proof": 242,
+      "sidecar_decrypt_anchors": 201,
+      "sidecar_image_integrity": 51
+    },
+    "exportsPreserved": true,
+    "sdkImportsRemoved": true,
+    "compatibility": {
+      "arm64": {
+        "kind": "rust-pthread",
+        "abi": 1,
+        "rustVersion": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "targetSpecSha256": "7b25a528839cb3a3f0705030c3b228ee5166ffa7dcdee680d3903f86562d7402",
+        "functionPrefixes": 893,
+        "narrowedTables": 135
+      }
+    },
+    "sourceSha256": "520b16dcfa1a23af6e2ea7c5f8503fc22a4d24a1f8afce2275d88fd31e0f9b7e",
+    "profileSha256": "cc1861ac4424b63e2dd23ab6bac9c77bbc5a6e08aae32932422bc8961ac4ed3c",
+    "toolVersion": "VMProtect Ultimate v 3.10.3 (build 2535) Copyright 2003-2025 VMProtect Software",
+    "target": "aarch64-unknown-linux-gnu",
+    "binaryFormat": "elf",
+    "loadTarget": "linux-arm64-glibc",
+    "loadChecked": true,
+    "checks": [
+      "dlopen",
+      "management exports",
+      "constructor",
+      "image integrity",
+      "missing proof rejected",
+      "invalid proof rejected"
+    ]
+  },
   "files": {
-    "LuckyLillia.NTQQ.node": "e9753cfb6bb16f3af7a6f7d2cefd643d07a9e66f26e1ec2286486bc6ca7bc3c4",
-    "libpmhq.so": "d2f72a9bca04d57e6bc536193faf5c370d6267efb7957804cdb53a1579481eb3"
+    "LuckyLillia.NTQQ.node": "d78e22f1740a6dca660aac3e7f9e0e8a6e7dd21433f64d56097ada0c6d767d16",
+    "libpmhq.so": "09f15b9ffcefdc1acaf9fef061a45f076faf35e71555ab9f0b265ba935beab87"
   }
 }

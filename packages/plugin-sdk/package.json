@@ -1,6 +1,6 @@
 {
   "name": "@luckylillia/plugin-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "SDK for writing LuckyLillia Bot plugins",
   "type": "module",
   "main": "./lib/index.js",
@@ -34,7 +34,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/LLOneBot/LuckyLilliaBot.git",
+    "url": "git+https://github.com/LuckyLilliaDev/LuckyLilliaBot.git",
     "directory": "packages/plugin-sdk"
   },
   "author": "linyuchen",
@@ -53,6 +53,8 @@
     }
   },
   "devDependencies": {
+    "@types/node": "^24.12.4",
+    "esbuild": "~0.28.0",
     "typescript": "^7.0.2"
   },
   "publishConfig": {

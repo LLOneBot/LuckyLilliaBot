@@ -53,7 +53,6 @@ const pluginShared = ['cordis', 'cosmokit', 'schemastery', '@standard-schema/spe
 
 const external = [...new Set([
   'ws',
-  'silk-wasm',
   // Carries its HTTP parser as embedded WASM: copied as it is rather than bundled
   'undici',
   ...getModuleDependencies('reggol'),

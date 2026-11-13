@@ -1,0 +1,8 @@
+{
+  "generator": "silk-wasm 3.7.1 encode(pcm, 24000)",
+  "input": "one second of mono s16le 440 Hz sine, amplitude 8000, 24000 Hz",
+  "encodedSha256": "64acf8da8e0ebaabee12f5232b45c91fa15c4cafe845a90d5653473b42659a93",
+  "decodedPcmSha256": "83d8878fe09d61190df15dc045d2b20cd2b5f428e74a5c86faa1384020debfca",
+  "decodedPcmBytes": 48000,
+  "durationMs": 1040
+}

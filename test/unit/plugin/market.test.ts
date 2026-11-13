@@ -10,6 +10,7 @@ import { Context, Fiber } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { Hono } from 'hono'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { PluginCategory } from '@luckylillia/plugin-sdk'
 import PluginService from '@/plugin/host'
 import { createMarketRoutes, Market, MarketError } from '@/plugin/internal/tool/market'
 import { readLocalPackage as readArchive } from '@/plugin/internal/tool/market/archive'
@@ -482,6 +483,8 @@ interface Publish {
   title?: string
   description?: string
   author?: { name: string; url?: string }
+  /** Category registered in the catalog, independently of llbot.category. */
+  category?: PluginCategory
   /** Leaves the latest tag where it is */
   untagged?: boolean
   /** Serves bytes that fail the checksum */
@@ -494,7 +497,7 @@ const CATALOG = '@luckylillia/market'
 async function startRegistry() {
   const documents = new Map<string, Packument>()
   const tarballs = new Map<string, Buffer>()
-  const entries = new Map<string, { name: string; title: string; description: string; author: { name: string; url?: string }; repository: string }>()
+  const entries = new Map<string, { name: string; title: string; description: string; author: { name: string; url?: string }; repository: string; category?: PluginCategory }>()
   const versions = new Map<string, string>()
   let catalogVersion = 0
   let catalogFailure = 0
@@ -563,6 +566,7 @@ async function startRegistry() {
         name, title: options.title ?? name, description: options.description ?? `${name} plugin`,
         author: options.author ?? { name: 'Alice', url: 'https://github.com/alice' },
         repository: `https://github.com/example/${name.split('/').pop()}`,
+        category: options.category,
       })
       if (options.pinnedVersion) versions.set(name, options.pinnedVersion)
       else if (!options.untagged || !versions.has(name)) versions.set(name, version)
@@ -572,8 +576,7 @@ async function startRegistry() {
 
   function publishCatalog() {
     publish(CATALOG, `1.0.${++catalogVersion}`, { files: {
-      'plugins.json': JSON.stringify([...entries.values()]),
-      'versions.json': JSON.stringify(Object.fromEntries(versions)),
+      'plugins.json': JSON.stringify([...entries.values()].map(entry => ({ ...entry, version: versions.get(entry.name) }))),
     } })
   }
   publishCatalog()
@@ -598,6 +601,7 @@ describe('the market', () => {
   let market: Market
 
   const PLUGIN = 'luckylillia-plugin-greet'
+  const emptyCategories = { protocol: 0, adapter: 0, chat: 0, tool: 0, service: 0, other: 0 }
   const pluginCode = (tag: string) => `
     import a from 'a'
     import b from 'b'
@@ -671,6 +675,25 @@ describe('the market', () => {
     files: { 'index.js': "export function apply() { globalThis.__marketTest.push('updated') }" },
   })
 
+  it('returns the whole catalog for the unified list without fetching individual plugin metadata', async () => {
+    await setupBuiltin()
+    publishBuiltin('1.1.0')
+    for (let index = 0; index < 25; index++) publishPlugin(`luckylillia-plugin-full-${index}`)
+    await market.install(PLUGIN, '1.0.0')
+    registry.requests.length = 0
+    const routes = new Hono().route('/api/market', createMarketRoutes(ctx, market))
+    const response = await routes.request('/api/market/catalog')
+    expect(response.status).toBe(200)
+    const { success, data } = await response.json() as { success: boolean; data: { name: string; builtin?: string }[] }
+    expect(success).toBe(true)
+    expect(data).toHaveLength(27)
+    expect(data.find(item => item.name === BUILTIN)).toMatchObject({ name: BUILTIN, builtin: 'builtin:example' })
+    expect(data.find(item => item.name === 'luckylillia-plugin-full-24')).toMatchObject({ name: 'luckylillia-plugin-full-24' })
+    expect(requestsFor(PLUGIN)).toEqual([])
+    expect(tarballRequests()).toEqual([])
+    expect(catalogRequests()).toHaveLength(1)
+  })
+
   it('filters catalog origins before counting and paging, using only registered builtin identities', async () => {
     await setupBuiltin()
     publishBuiltin('1.1.0')
@@ -688,11 +711,93 @@ describe('the market', () => {
     expect([...first.items, ...second.items].every(item => !item.builtin && item.name !== BUILTIN)).toBe(true)
     expect(second.items.some(item => item.name === impostor)).toBe(true)
     expect((await market.search('origin', 1, 'third-party')).total).toBe(25)
-    expect(await market.search('origin', 1, 'builtin')).toEqual({ total: 0, items: [] })
+    expect(await market.search('origin', 1, 'builtin')).toEqual({ total: 0, items: [], categories: emptyCategories })
     const routes = new Hono().route('/api/market', createMarketRoutes(ctx, market))
     const response = await routes.request('/api/market/search?origin=third-party&page=2')
     expect(await response.json()).toMatchObject({ success: true, data: { total: 27, items: second.items.map(item => ({ name: item.name })) } })
     expect((await routes.request('/api/market/search?origin=unrecognized')).status).toBe(400)
+  })
+
+  it('filters every catalog category, treats uncategorized entries as other, and returns all category counts', async () => {
+    const categories: PluginCategory[] = ['protocol', 'adapter', 'chat', 'tool', 'service', 'other']
+    for (const category of categories) publishPlugin(`luckylillia-plugin-category-${category}`, {}, '1.0.0', { category })
+    const counts = { protocol: 1, adapter: 1, chat: 1, tool: 1, service: 1, other: 2 }
+    expect(await market.search('', 1)).toMatchObject({ total: 7, categories: counts })
+    for (const category of categories) {
+      const result = await market.search('', 1, 'all', category)
+      const names = [`luckylillia-plugin-category-${category}`]
+      if (category === 'other') names.unshift(PLUGIN)
+      expect(result.items.map(item => item.name)).toEqual(names)
+      expect(result.total).toBe(names.length)
+      expect(result.categories).toEqual(counts)
+    }
+    expect(await market.search('not-in-catalog', 1, 'all', 'chat')).toEqual({ total: 0, items: [], categories: emptyCategories })
+    const routes = new Hono().route('/api/market', createMarketRoutes(ctx, market))
+    expect(await (await routes.request('/api/market/search')).json()).toMatchObject({ success: true, data: { total: 7, categories: counts } })
+    expect(await (await routes.request('/api/market/search?category=all')).json()).toMatchObject({ success: true, data: { total: 7, categories: counts } })
+    expect((await routes.request('/api/market/search?category=unrecognized')).status).toBe(400)
+  })
+
+  it('combines category selection with keywords and origins while keeping counts for the other categories', async () => {
+    await setupBuiltin()
+    publishPlugin(BUILTIN, {}, '1.1.0', { category: 'service', title: '天气内置服务' })
+    const tool = 'luckylillia-plugin-weather-tool'
+    const service = 'luckylillia-plugin-weather-service'
+    publishPlugin(tool, {}, '1.0.0', { category: 'tool', title: '天气工具' })
+    publishPlugin(service, {}, '1.0.0', { category: 'service', title: '天气数据服务' })
+    publishPlugin('luckylillia-plugin-conversation', {}, '1.0.0', { category: 'chat', title: '闲聊助手' })
+    const all = await market.search('天气', 1, 'all', 'service')
+    expect(all.items.map(item => item.name)).toEqual([BUILTIN, service])
+    expect(all).toMatchObject({ total: 2, categories: { ...emptyCategories, tool: 1, service: 2 } })
+    const thirdParty = await market.search('天气', 1, 'third-party', 'service')
+    expect(thirdParty.items.map(item => item.name)).toEqual([service])
+    expect(thirdParty).toMatchObject({ total: 1, categories: { ...emptyCategories, tool: 1, service: 1 } })
+    expect(await market.search('天气', 1, 'builtin', 'tool')).toEqual({
+      total: 0, items: [], categories: { ...emptyCategories, service: 1 },
+    })
+    const routes = new Hono().route('/api/market', createMarketRoutes(ctx, market))
+    const query = new URLSearchParams({ q: '天气', origin: 'third-party', category: 'service' })
+    const response = await routes.request(`/api/market/search?${query}`)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ success: true, data: JSON.parse(JSON.stringify(thirdParty)) })
+  })
+
+  it('filters categories before pagination and counts all matching entries on every page', async () => {
+    const tools: string[] = []
+    for (let index = 0; index < 25; index++) {
+      const name = `luckylillia-plugin-paged-tool-${index}`
+      tools.push(name)
+      publishPlugin(`luckylillia-plugin-paged-service-${index}`, {}, '1.0.0', { category: 'service' })
+      publishPlugin(name, {}, '1.0.0', { category: 'tool' })
+    }
+    const first = await market.search('paged', 1, 'all', 'tool')
+    const second = await market.search('paged', 2, 'all', 'tool')
+    const empty = await market.search('paged', 3, 'all', 'tool')
+    expect(first.items.map(item => item.name)).toEqual(tools.slice(0, 20))
+    expect(second.items.map(item => item.name)).toEqual(tools.slice(20))
+    expect(empty.items).toEqual([])
+    for (const page of [first, second, empty]) {
+      expect(page.total).toBe(25)
+      expect(page.categories).toEqual({ ...emptyCategories, tool: 25, service: 25 })
+    }
+  })
+
+  it('takes categories from the catalog instead of npm manifests or installed plugin metadata', async () => {
+    const categorized = 'luckylillia-plugin-category-source'
+    const uncategorized = 'luckylillia-plugin-category-source-missing'
+    publishPlugin(categorized, {}, '1.0.0', { category: 'tool', llbot: { category: 'chat' } })
+    publishPlugin(uncategorized, {}, '1.0.0', { llbot: { category: 'service' } })
+    const before = await market.search('category-source', 1)
+    expect(before.categories).toEqual({ ...emptyCategories, tool: 1, other: 1 })
+    expect(requestsFor(categorized)).toEqual([])
+    expect(requestsFor(uncategorized)).toEqual([])
+    await market.install(categorized)
+    expect(JSON.parse(readFileSync(path.join(pluginRoot, categorized, 'package.json'), 'utf8')).llbot.category).toBe('chat')
+    const tools = await market.search('category-source', 1, 'all', 'tool')
+    expect(tools.items).toEqual([expect.objectContaining({ name: categorized, category: 'tool', installed: '1.0.0' })])
+    expect(tools.categories).toEqual(before.categories)
+    expect((await market.search('category-source', 1, 'all', 'chat')).items).toEqual([])
+    expect((await market.search('category-source', 1, 'all', 'other')).items.map(item => item.name)).toEqual([uncategorized])
   })
 
   it('lists bundled npm plugins and installs approved updates without replacing the running builtin', async () => {
@@ -1548,6 +1653,92 @@ describe('the market', () => {
     // Installed again, it asks for trust again
     expect(JSON.parse(readFileSync(pluginsFile, 'utf8'))).toMatchObject({ trusted: [], messageOrder: [] })
     await expect(market.uninstall(PLUGIN)).rejects.toThrow(/not installed/)
+  })
+
+  it('retains every instance configuration and scope across uninstall, restart and market reinstall', async () => {
+    const name = 'luckylillia-plugin-retained'
+    publishPlugin(name, {}, '1.0.0', { files: { 'index.js': `
+      import Schema from 'schemastery'
+      export const Config = Schema.object({ token: Schema.string().role('secret').default(''), n: Schema.number().default(1) })
+      export function apply() {}
+    ` } })
+    await market.install(name)
+    const first = ctx.plugins.list().find(entry => entry.name === name)!
+    await ctx.plugins.updateConfig(first.id, { token: 'secret-one', n: 7 })
+    await ctx.plugins.setScope(first.id, { platforms: ['qq'], guilds: { mode: 'allow', ids: ['qq:group'] } })
+    await ctx.plugins.enable(first.id, { trust: true })
+    const second = await ctx.plugins.add(name, { token: 'secret-two', n: 9 }, { trust: true })
+    await ctx.plugins.setScope(second.id, { users: { mode: 'deny', ids: ['ntqq:123'] } })
+    await ctx.plugins.setMessageOrder([second.id, first.id])
+    await ctx.plugins.updateUiPrefs({ hide: [`${name}|page|home`], order: { [`${name}|dashboard.cards|card`]: 2 } })
+    const saved = JSON.parse(readFileSync(pluginsFile, 'utf8')).entries.filter((entry: { name: string }) => entry.name === name)
+      .map((entry: object) => ({ ...entry, disabled: true }))
+    const routes = new Hono().route('/api/market', createMarketRoutes(ctx, market))
+    const response = await routes.request('/api/market/uninstall', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, keepConfig: true }),
+    })
+    expect(await response.json()).toMatchObject({ success: true, data: { removed: [first.id, second.id] } })
+    expect(ctx.plugins.list().filter(entry => entry.name === name)).toEqual([])
+    expect(market.installed().some(pkg => pkg.name === name)).toBe(false)
+    expect(existsSync(path.join(pluginRoot, name))).toBe(false)
+    expect(JSON.parse(readFileSync(pluginsFile, 'utf8'))).toMatchObject({
+      entries: [], retained: saved, trusted: [], messageOrder: [], ui: { hidden: [], order: {} },
+    })
+
+    await service!.dispose()
+    ctx = new Context()
+    await ctx.plugin(TimerService)
+    service = await ctx.plugin(PluginService, { file: pluginsFile, roots: [pluginRoot], trust: true })
+    market = new Market(ctx, new Registry(registry.url), pluginRoot)
+    expect(ctx.plugins.list()).toEqual([])
+    const result = await market.install(name)
+    expect(result.entries).toEqual([first.id, second.id])
+    expect(ctx.plugins.list().filter(entry => entry.name === name).map(entry => ({ id: entry.id, disabled: entry.disabled, trusted: entry.trusted })))
+      .toEqual([{ id: first.id, disabled: true, trusted: false }, { id: second.id, disabled: true, trusted: false }])
+    const restored = JSON.parse(readFileSync(pluginsFile, 'utf8'))
+    expect(restored.entries).toEqual(saved)
+    expect(restored.retained).toBeUndefined()
+    await expect(ctx.plugins.enable(first.id)).rejects.toMatchObject({ name: 'Error', message: expect.stringContaining('trust') })
+    const description = await ctx.plugins.describe(first.id)
+    expect(JSON.stringify(description)).not.toContain('secret-one')
+    await ctx.plugins.enable(first.id, { trust: true })
+    expect(ctx.plugins.get(first.id).state).toBe('active')
+  })
+
+  it.each([undefined, false])('removes configs permanently when keepConfig is %s', async keepConfig => {
+    const name = 'luckylillia-plugin-forget-config'
+    publishPlugin(name, {}, '1.0.0', { files: { 'index.js': `
+      import Schema from 'schemastery'
+      export const Config = Schema.object({ value: Schema.string().default('default') })
+      export function apply() {}
+    ` } })
+    await market.install(name)
+    const first = ctx.plugins.list().find(entry => entry.name === name)!
+    await ctx.plugins.updateConfig(first.id, { value: 'erase-me' })
+    await ctx.plugins.setScope(first.id, { platforms: ['ntqq'] })
+    const routes = new Hono().route('/api/market', createMarketRoutes(ctx, market))
+    const response = await routes.request('/api/market/uninstall', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, keepConfig }),
+    })
+    expect(response.status).toBe(200)
+    expect(JSON.parse(readFileSync(pluginsFile, 'utf8')).retained).toBeUndefined()
+    await market.install(name)
+    const current = ctx.plugins.list().find(entry => entry.name === name)!
+    expect(current.id).not.toBe(first.id)
+    expect(current.scope).toBeUndefined()
+    expect((await ctx.plugins.describe(current.id)).effective).toEqual({ value: 'default' })
+  })
+
+  it.each([null, 'true', 0, {}, []])('rejects a non-boolean keepConfig without removing anything: %j', async keepConfig => {
+    await market.install(PLUGIN)
+    const routes = new Hono().route('/api/market', createMarketRoutes(ctx, market))
+    const response = await routes.request('/api/market/uninstall', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: PLUGIN, keepConfig }),
+    })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ success: false, message: 'keepConfig must be a boolean' })
+    expect(status()).toBeDefined()
+    expect(existsSync(dir())).toBe(true)
   })
 
   it('answers the WebUI with what went wrong', async () => {

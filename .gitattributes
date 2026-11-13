@@ -9,3 +9,8 @@ Dockerfile* text eol=lf
 *.bat text eol=crlf
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
+
+# Native bundles are SHA256-verified byte for byte, including their text files.
+# Preserve the canonical bundle bytes on every platform.
+/src/native/production/** -text
+/src/native/development/** -text

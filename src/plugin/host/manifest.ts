@@ -39,6 +39,8 @@ export interface PluginPackage {
   description?: string
   /** package.json `author` */
   author?: PluginAuthor
+  /** Browser URL normalized from package.json `repository`; HTTP(S) only. */
+  repository?: string
   /** `peerDependencies['@luckylillia/plugin-sdk']`, if declared. */
   sdkRange?: string
   /** Absolute path of the `llbot.webui` module, when it exists inside the package. */
@@ -121,6 +123,7 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
     },
     description: typeof pkg.description === 'string' ? pkg.description : undefined,
     author: parseAuthor(pkg.author),
+    repository: parseRepository(pkg.repository),
     sdkRange: pkg.peerDependencies?.[SDK_PACKAGE],
     webui,
     iconFile: typeof icon === 'string' && isImagePath(icon) ? packageFile(root, icon, 'llbot.icon', warnings) : undefined,
@@ -149,6 +152,26 @@ export function parseAuthor(value: unknown): PluginAuthor | undefined {
   // It becomes a link in the WebUI
   if (url && /^https?:\/\//i.test(url)) author.url = url
   return author
+}
+
+/** npm repository metadata is a browser link here, never a Git transport URL. */
+export function parseRepository(value: unknown): string | undefined {
+  const field = value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>).url : value
+  if (typeof field !== 'string') return
+  let source = field.trim()
+  if (!source || /[\u0000-\u001f\u007f\\]/.test(source)) return
+  source = source.replace(/^git\+(?=https?:\/\/)/i, '')
+    .replace(/^(?:github:|git@github\.com:)/i, 'https://github.com/')
+    .replace(/^(?:git:\/\/|(?:git\+)?ssh:\/\/git@)github\.com\//i, 'https://github.com/')
+  try {
+    const url = new URL(source)
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return
+    url.pathname = url.pathname.replace(/\.git\/?$/i, '')
+    return url.href
+  } catch {
+    return
+  }
 }
 
 /** `llbot.screenshots`: images, or `{ src, caption }`; what is not an image in the package is dropped with a warning */

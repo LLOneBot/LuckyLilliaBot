@@ -6,11 +6,11 @@
   },
   "variant": "production",
   "targets": {
-    "darwin-arm64": {
-      "target": "aarch64-apple-darwin",
-      "directory": "darwin-arm64",
-      "buildId": "ba4c0622-b9a9-43e0-a1ef-8a87f3b582b2",
-      "metadataSha256": "eed68922ccbdb9bff1581c0e3ed9f6e5f24d063b0e4572d220616aac30187209"
+    "win-x64": {
+      "target": "x86_64-pc-windows-msvc",
+      "directory": "win-x64",
+      "buildId": "896feea1-178f-4e90-802a-c0482c2d54c7",
+      "metadataSha256": "adaf634fb64cd365d21ca3638985de2c77429a95a0a9b3ba702e8921172d2a81"
     },
     "darwin-x64": {
       "target": "x86_64-apple-darwin",
@@ -18,62 +18,66 @@
       "buildId": "7a1a0121-d7f0-485f-a781-a7d624a4cfab",
       "metadataSha256": "f067f4c3a1d86c40dad734cddb2b3d4895ee87d213f7e2a183627e19a27fe60d"
     },
-    "linux-arm64-glibc": {
-      "target": "aarch64-unknown-linux-gnu",
-      "directory": "linux-arm64-glibc",
-      "buildId": "32d6554c-0f77-4357-ad35-8dde2945e93a",
-      "metadataSha256": "1181d37a317e22c370fee70c790d51ca8a05598dffddc97352f7eb5a9a1760f8"
-    },
-    "linux-arm64-musl": {
-      "target": "aarch64-unknown-linux-musl",
-      "directory": "linux-arm64-musl",
-      "buildId": "339bd61e-4bc0-4660-adc6-3c98fc0291e0",
-      "metadataSha256": "ca18296a9240a94b64e79a84b4f01540c7835053a292d3f242ad13754ea71f9e"
+    "darwin-arm64": {
+      "target": "aarch64-apple-darwin",
+      "directory": "darwin-arm64",
+      "buildId": "ba4c0622-b9a9-43e0-a1ef-8a87f3b582b2",
+      "metadataSha256": "eed68922ccbdb9bff1581c0e3ed9f6e5f24d063b0e4572d220616aac30187209"
     },
     "linux-x64-glibc": {
       "target": "x86_64-unknown-linux-gnu",
       "directory": "linux-x64-glibc",
-      "buildId": "d7aaaf1f-2cb4-48ac-b6c6-6aaad4cbac42",
-      "metadataSha256": "9330c2b754705842ba6750eac8d53885b323fb42a6cbd2977ebb090c846aa2bd"
+      "buildId": "1343857c-3f4f-4cb5-8176-b2c559e1bd67",
+      "metadataSha256": "f88fd8e2a9c057fd17da2f357c9e1189543784689993cf5a141b78c914bfb702"
+    },
+    "linux-arm64-glibc": {
+      "target": "aarch64-unknown-linux-gnu",
+      "directory": "linux-arm64-glibc",
+      "buildId": "38e41c6e-dcd1-4664-ba77-4449ad9008f2",
+      "metadataSha256": "b73f45950d8ce8cac428e81959a6b8365d027ad15543e2d54776f39c40913c02"
     },
     "linux-x64-musl": {
       "target": "x86_64-unknown-linux-musl",
       "directory": "linux-x64-musl",
-      "buildId": "eeb9affb-3b9b-4211-a39e-a87e87e9a9c3",
-      "metadataSha256": "7b4ddab29eb5c2772b6eadd1230aa40c560562c109637ea910e3ae2e08e0599e"
+      "buildId": "18e6dc7b-f3a2-4686-b654-c5ce76345ba0",
+      "metadataSha256": "6c2720f70995e2cea1ff0f11f4cbb9b58d9395137ad1b5a00be18247a0435493"
     },
-    "win-x64": {
-      "target": "x86_64-pc-windows-msvc",
-      "directory": "win-x64",
-      "buildId": "8daaebdf-c1fc-4e52-ae42-07718fcb0edc",
-      "metadataSha256": "f2f730029c4946925c97452f0512b369f2af55d32b1be420be60f07a285193f5"
+    "linux-arm64-musl": {
+      "target": "aarch64-unknown-linux-musl",
+      "directory": "linux-arm64-musl",
+      "buildId": "5392303c-4cc6-435b-ae3e-346b9d089648",
+      "metadataSha256": "477682a0b6030f71d86963e1ce99f7cce2e5da81a7a64e33acdb45d7157b6652"
     }
   },
   "files": {
-    "darwin-arm64/LuckyLillia.NTQQ.node": "601e5d4e36b12984acb23754f4807dc4d39655e98854f6ccbd0c5775c8c6040e",
-    "darwin-arm64/libpmhq.dylib": "98778f8ae86bac12cb2ca71e4f69ea8f00199f0928158183b6fabb1d317d9b2b",
-    "darwin-arm64/build.json": "eed68922ccbdb9bff1581c0e3ed9f6e5f24d063b0e4572d220616aac30187209",
     "index.js": "ae270f6519cd59644d97bf3cb15df53c2e1d307007dd60429a45e6407b1f6b75",
-    "loader.cjs": "088e683b0afe91aeff54b784c5c65e63eafddda568a95e0ab51b49f9eb5606fd",
+    "loader.cjs": "85fdbb91aa37907b1d4bf657da41e9e169aef69afb6ef8b343dcfc13a9e1ed93",
     "targets.cjs": "5f7d5b0fd61381666a1be3bf075123afad029381fa06e122f189c725e0738ace",
-    "index.d.ts": "2fcb7f3146502199541dce57dbae40b7458450570181b1c37b4675c8f8942010",
+    "index.d.ts": "52c845d85a122b33916f2340420cf4402d00fbf343a802cf15e48609c17baba0",
     "package.json": "b5d9c2e41d518189f085aa34108708ea8ed145852a6edbf6d18e8198b0fc8610",
+    "win-x64/LuckyLillia.NTQQ.node": "66a33422b5c1522e73367b5699d7d526f4f4b3d4bbae891c8a5ca16de46b6072",
+    "win-x64/build.json": "adaf634fb64cd365d21ca3638985de2c77429a95a0a9b3ba702e8921172d2a81",
     "darwin-x64/LuckyLillia.NTQQ.node": "3cbb2d0c8db297532f4736c4fd99400ee4e18d0dc507750b0b16bdc1a890a291",
     "darwin-x64/libpmhq.dylib": "f8d410443629d973be0717de39cc065ac940f73db610b93e0a3c38d5f668f3fb",
     "darwin-x64/build.json": "f067f4c3a1d86c40dad734cddb2b3d4895ee87d213f7e2a183627e19a27fe60d",
-    "linux-arm64-glibc/LuckyLillia.NTQQ.node": "e9753cfb6bb16f3af7a6f7d2cefd643d07a9e66f26e1ec2286486bc6ca7bc3c4",
-    "linux-arm64-glibc/libpmhq.so": "d2f72a9bca04d57e6bc536193faf5c370d6267efb7957804cdb53a1579481eb3",
-    "linux-arm64-glibc/build.json": "1181d37a317e22c370fee70c790d51ca8a05598dffddc97352f7eb5a9a1760f8",
-    "linux-arm64-musl/LuckyLillia.NTQQ.node": "f0ee03da3d3461aa030170740639f20a1730acff6ba863f82dd8d881b419848b",
-    "linux-arm64-musl/libpmhq.so": "f5332f957b0eed08f00010ce9a0bd944c59591f1dfe07f2e5d5c06b0441062f8",
-    "linux-arm64-musl/build.json": "ca18296a9240a94b64e79a84b4f01540c7835053a292d3f242ad13754ea71f9e",
-    "linux-x64-glibc/LuckyLillia.NTQQ.node": "dae094e7584c3694ed927a29bbb703c6c3d1819a567dfabb05fac3baeb1200b1",
-    "linux-x64-glibc/libpmhq.so": "4f185730009b97b1ed9a04c4d4bee3f9cfc232aa74c18b35d6bce3880fc543ad",
-    "linux-x64-glibc/build.json": "9330c2b754705842ba6750eac8d53885b323fb42a6cbd2977ebb090c846aa2bd",
-    "linux-x64-musl/LuckyLillia.NTQQ.node": "48976d09a3569514bf1bff6f319feff05a45ae3eb865cd7373b9ea9d9f45f2ba",
-    "linux-x64-musl/libpmhq.so": "4ad08623d3f1139dae0747d18845ad890ab50f46477583317051db010c7ef202",
-    "linux-x64-musl/build.json": "7b4ddab29eb5c2772b6eadd1230aa40c560562c109637ea910e3ae2e08e0599e",
-    "win-x64/LuckyLillia.NTQQ.node": "791457994b6399d31eb80b40ae7cbd205327e208c00c18481af9daf03484fc43",
-    "win-x64/build.json": "f2f730029c4946925c97452f0512b369f2af55d32b1be420be60f07a285193f5"
+    "darwin-arm64/LuckyLillia.NTQQ.node": "601e5d4e36b12984acb23754f4807dc4d39655e98854f6ccbd0c5775c8c6040e",
+    "darwin-arm64/libpmhq.dylib": "98778f8ae86bac12cb2ca71e4f69ea8f00199f0928158183b6fabb1d317d9b2b",
+    "darwin-arm64/build.json": "eed68922ccbdb9bff1581c0e3ed9f6e5f24d063b0e4572d220616aac30187209",
+    "linux-x64-glibc/LuckyLillia.NTQQ.node": "c462c50dec554699e3f62375b162a67a167b6952daa58946f9147ca88d3fe929",
+    "linux-x64-glibc/libpmhq.so": "4138a5d47529f4b3075e86a89a5d8f89a6332225162d090f63fbe9a57f082ab4",
+    "linux-x64-glibc/build.json": "f88fd8e2a9c057fd17da2f357c9e1189543784689993cf5a141b78c914bfb702",
+    "linux-arm64-glibc/LuckyLillia.NTQQ.node": "d78e22f1740a6dca660aac3e7f9e0e8a6e7dd21433f64d56097ada0c6d767d16",
+    "linux-arm64-glibc/libpmhq.so": "09f15b9ffcefdc1acaf9fef061a45f076faf35e71555ab9f0b265ba935beab87",
+    "linux-arm64-glibc/build.json": "b73f45950d8ce8cac428e81959a6b8365d027ad15543e2d54776f39c40913c02",
+    "linux-x64-musl/LuckyLillia.NTQQ.node": "d2761c3c9840c18700f6bb234df6372e7a28a72765c67abc6f50191a64724973",
+    "linux-x64-musl/libpmhq.so": "d0c800b6727021623f3054662915e8934de4e0998f850b6871d72b4696af2edf",
+    "linux-x64-musl/liblucky_vmp_f8dd212bd99f44a8997a8145808f05d1.so": "848e49ce945ce9a8b9a2470bd1b77fd96996d625d696d84484134a363850917a",
+    "linux-x64-musl/liblucky_vmp_80ab53a470cc4c23a26a725ffc30b7f5.so": "08429e4ca4ca576814891ddc089c0af18125548c98c924f472c41872317d51c1",
+    "linux-x64-musl/build.json": "6c2720f70995e2cea1ff0f11f4cbb9b58d9395137ad1b5a00be18247a0435493",
+    "linux-arm64-musl/LuckyLillia.NTQQ.node": "2f1e2b5f2839b8e31fbed9846142cd3d9237506945e68f1416683919ad067d69",
+    "linux-arm64-musl/libpmhq.so": "8431b3238f01a4ce03604044a94cdddd6e4c7148ab09d9d7838ff88d3ce5b845",
+    "linux-arm64-musl/liblucky_vmp_daa1167e442a4fad92852b7aed3a1144.so": "04f7298cd81fe650139facbbed2c86cbb838162426cc636ad83e87b068bd6eb4",
+    "linux-arm64-musl/liblucky_vmp_792e6acaf641433c8f0b4a9157258b47.so": "c261104a5e6a519f3fa846322203d99abdc181e01bf8fd93ea114420eb391a9d",
+    "linux-arm64-musl/build.json": "477682a0b6030f71d86963e1ce99f7cce2e5da81a7a64e33acdb45d7157b6652"
   }
 }

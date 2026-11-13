@@ -4,9 +4,10 @@ import { OutgoingSegment } from '@/plugin/internal/adapter/milky/generated/schem
 import { AtType, SendMessageElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import { SendElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/entities'
 import { TEMP_DIR } from '@/common/globalVars'
-import { writeFile } from 'node:fs/promises'
+import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import { isFFmpegUnavailableError } from '@/common/utils/ffmpeg'
 
 export async function transformOutgoingMessage(
   ctx: Context,
@@ -75,9 +76,9 @@ export async function transformOutgoingMessage(
         const recordBuffer = await resolveMilkyUri(segment.data.uri)
         const tempPath = path.join(TEMP_DIR, `audio-${randomUUID()}`)
         await writeFile(tempPath, recordBuffer)
+        deleteAfterSentFiles.push(tempPath)
         const pttElement = await SendElement.ptt(ctx, tempPath)
         elements.push(pttElement)
-        deleteAfterSentFiles.push(tempPath)
       } else if (segment.type === 'video') {
         const videoBuffer = await resolveMilkyUri(segment.data.uri)
         const tempPath = path.join(TEMP_DIR, `video-${randomUUID()}`)
@@ -119,6 +120,11 @@ export async function transformOutgoingMessage(
         elements.push(arkElement)
       }
     } catch (error) {
+      // Keep the actionable plugin error instead of silently dropping the requested voice segment.
+      if (isFFmpegUnavailableError(error)) {
+        await Promise.allSettled(deleteAfterSentFiles.map(file => unlink(file)))
+        throw error
+      }
       ctx.logger.error('MilkyTransform', `Failed to transform segment ${segment.type}: ${error}`)
     }
   }

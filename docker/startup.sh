@@ -13,8 +13,6 @@ sed -i "/\"webui\": {/,/}/ {
     s/\"host\":[[:space:]]*\"127.0.0.1\"/\"host\": \"\"/g
 }" "$FILE"
 
-sed -i "s|\"ffmpeg\":[[:space:]]*\"\"|\"ffmpeg\": \"/usr/bin/ffmpeg\"|g" "$FILE"
-
 mkdir -p /app/llbot/data
 
 case "$PROTOCOL_MODE" in

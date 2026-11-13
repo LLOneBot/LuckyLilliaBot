@@ -68,10 +68,14 @@ export type SlotCardinality = 'list' | 'single' | 'keyed' | 'chain'
  * The props of a `chain` slot include `next`, which the slot passes on itself.
  */
 export interface SlotMap {
-  /** Buttons next to 重新扫描 on the plugin page. The plugin page has nothing to replace: it is how users keep plugins in check. */
+  /** Additional actions in the plugin page's filter toolbar. */
   'plugins.toolbar': { props: {}; options: {} }
-  /** More views of the plugin page, as tabs after 插件列表: the plugin market is one. */
-  'plugins.views': { props: {}; options: PluginsViewOptions }
+  /** Additional views opened from the plugin page's toolbar. Catalogs use plugins.catalog. */
+  'plugins.views': { props: PluginsViewProps; options: PluginsViewOptions }
+  /** Catalog data and package operations for the host's unified plugin list; renders no cards. */
+  'plugins.catalog': { props: PluginCatalogProps; options: {} }
+  /** Upload controls inside the host's local installation dialog. */
+  'plugins.install': { props: { onInstalled(): void; disabled?: boolean }; options: {} }
   /** Buttons on each card of the plugin page, before its own. */
   'plugins.card.actions': { props: { plugin: PluginEntryStatus }; options: {} }
   /** Cards on the Dashboard, declared by the Dashboard plugin. It draws the card, its title and width; the component, its inside. */
@@ -98,6 +102,111 @@ export interface DashboardCardOptions {
    * left, so one rendering nothing leaves no gap.
    */
   size?: 'normal' | 'wide' | 'full'
+}
+
+export interface PluginsViewProps {
+  /**
+   * The host's settings action for an installed entry, identified by its id from usePlugins().
+   * Opens the same settings page or config dialog as its plugin card, including for disabled plugins.
+   * Undefined if the entry is missing, busy, or has no settings.
+   */
+  configAction(id: string): { open(): void; label: string } | undefined
+  /** Opens the same details dialog as a plugin card, including for packages not installed yet. */
+  showDetails(source: PluginDetailsSource): void
+}
+
+export interface PluginDetailsContent {
+  markdown?: string
+  /** URL the markdown's relative image paths resolve against, ending in a slash. */
+  base: string
+  screenshots: LightboxImage[]
+}
+
+/** A catalog entry ready for display, without another metadata request. */
+export interface PluginCatalogItem extends PluginDetailsSource {
+  version: string
+  category?: string
+  repository?: string
+  /** Builtin entry name, when this package updates a bundled plugin. */
+  builtin?: string
+}
+
+export interface PluginInstalledPackage {
+  name: string
+  title?: string
+  version: string
+  description?: string
+  managed: boolean
+  root: string
+  builtin?: string
+  activeVersion?: string
+  restartRequired?: boolean
+  error?: string
+}
+
+export interface PluginUpdateInfo {
+  latest?: string
+  update?: string
+  blocked?: string
+  deprecated?: string
+  error?: string
+}
+
+/** Snapshot and guarded actions supplied by a catalog plugin. Installed entries remain owned by the host. */
+export interface PluginCatalogState {
+  items: PluginCatalogItem[] | null
+  loading: boolean
+  error?: string
+  installed: PluginInstalledPackage[] | null
+  installedError?: string
+  updates: Record<string, PluginUpdateInfo> | null
+  updatesError?: string
+  checking: boolean
+  loadingInstalled: boolean
+  checkedAt: number
+  busy: readonly string[]
+  retry(): void
+  refresh(): void
+  install(name: string, version: string): Promise<boolean>
+  update(name: string): Promise<boolean>
+  /** Retain per-entry configuration for a later reinstall when keepConfig is true. */
+  uninstall(name: string, options?: { keepConfig?: boolean }): Promise<boolean>
+}
+
+export interface PluginCatalogProps {
+  /** Fetch the catalog only when browsing uninstalled or all plugins. */
+  loadCatalog: boolean
+  /** Publish after render; clear the snapshot on unmount. */
+  onChange(state: PluginCatalogState | null): void
+}
+
+export interface PluginMetaRowProps {
+  title: string
+  category?: string
+  author?: { name: string; url?: string }
+  packageName?: string
+  repository?: string
+  /** Actions immediately after the package/repository links, e.g. a details button. */
+  children?: unknown
+  className?: string
+}
+
+/** The category, author and package links shared by installed plugin cards and market results. */
+export declare const PluginMetaRow: WebUIComponent<PluginMetaRowProps>
+
+/** Known metadata and screenshots display immediately; a loader can supply additional package details. */
+export interface PluginDetailsSource {
+  name: string
+  title: string
+  version?: string
+  description?: string
+  author?: { name: string; url?: string; email?: string }
+  icon?: string
+  iconUrl?: string
+  /** Available before the full details load, and if loading fails. */
+  screenshots?: LightboxImage[]
+  /** Omit when the caller already has all preview data, such as a market catalog entry. */
+  load?(): Promise<PluginDetailsContent>
 }
 
 export interface PluginsViewOptions {
@@ -258,6 +367,21 @@ export interface PluginEntryStatus {
   missingDeps: string[]
   /** What an enabled builtin says about its settings, e.g. that something still has to be filled in */
   notice?: string
+  /** Metadata from the installed package; the title may be localized. */
+  manifest?: { title?: string | Record<string, string>; icon?: string }
+  iconUrl?: string
+  /** This entry has active message listeners. */
+  messages?: boolean
+  /** Its saved position in the message processing order. */
+  rank?: number
+  scope?: {
+    platforms?: string[]
+    bots?: string[]
+    guilds?: { mode: 'allow' | 'deny'; ids: string[] }
+    users?: { mode: 'allow' | 'deny'; ids: string[] }
+    direct?: boolean
+  }
+  listenerError?: { at: number; message: string; count: number }
 }
 
 /**
@@ -447,6 +571,20 @@ export declare function useSlotMatches(name: keyof SlotMap): string[]
 
 /** An icon from the `llbot.icon` list by its lucide name; unknown names get the puzzle piece. */
 export declare const Icon: WebUIComponent<{ name?: string; size?: number; className?: string }>
+
+export interface PluginIconProps {
+  plugin: { iconUrl?: string; manifest: { icon?: string } }
+  /** Size and corners of the image or icon tile. */
+  className: string
+  /** Background and text classes used when the image is absent or fails to load. */
+  fill: string
+  size: number
+  /** Greys out the image of a plugin that is not running. */
+  muted?: boolean
+}
+
+/** The same package image, with an icon fallback, that the plugin page uses. */
+export declare const PluginIcon: WebUIComponent<PluginIconProps>
 
 export interface LightboxImage {
   url: string

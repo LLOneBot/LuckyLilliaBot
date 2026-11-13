@@ -299,14 +299,14 @@ export class MessageEncoder {
       this.elements.push(SendElement.face(+attrs.id, +attrs.type))
     } else if (type === 'author') {
       Object.assign(this.stack[0].author, attrs)
-    } else if (type === 'luckylillia:market-face') {
+    } else if (type === 'ntqq:market-face') {
       this.elements.push(SendElement.mface(
         +attrs.emojiPackageId,
         attrs.emojiId,
         attrs.key,
         attrs.summary
       ))
-    } else if (type === 'luckylillia:ark' && attrs.data) {
+    } else if (type === 'ntqq:ark' && attrs.data) {
       // A card is a message of its own; Core.sendMessage signs one without a token when a signer is set
       await this.flush()
       this.elements.push(SendElement.ark(attrs.data))

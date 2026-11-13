@@ -3,7 +3,7 @@ FROM node:24-alpine
 ARG LLBOT_VERSION
 
 RUN set -eux; \
-    apk add --no-cache ffmpeg tzdata unzip wget ca-certificates; \
+    apk add --no-cache tzdata unzip wget ca-certificates; \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
     echo "Asia/Shanghai" > /etc/timezone
 

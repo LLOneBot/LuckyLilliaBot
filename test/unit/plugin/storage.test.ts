@@ -178,7 +178,8 @@ describe("ctx.storage.dir('bot', bot)", () => {
     writePlugin('perbot', `
       export async function apply(ctx) {
         globalThis.__storage.push(['perbot', await ctx.storage.dir('bot', 'qq:1905402647')])
-        globalThis.__storage.push(['perbot', await ctx.storage.dir('bot', { sid: 'luckylillia:10001' })])
+        globalThis.__storage.push(['perbot', await ctx.storage.dir('bot', { sid: 'ntqq:10001' })])
+        globalThis.__storage.push(['perbot', await ctx.storage.dir('bot', 'luckylillia:10001')])
         await ctx.storage.dir('bot', 'qq:../escape').catch(e => globalThis.__storage.push(['perbot', e.message]))
       }
     `)
@@ -186,9 +187,11 @@ describe("ctx.storage.dir('bot', bot)", () => {
     await plugins.enable(byName('perbot').id)
     await expect.poll(() => recorded('perbot')).toEqual([
       ['perbot', path.join(dataDir, 'perbot', 'bots', 'qq+1905402647')],
-      ['perbot', path.join(dataDir, 'perbot', 'bots', 'luckylillia+10001')],
+      ['perbot', path.join(dataDir, 'perbot', 'bots', 'ntqq+10001')],
+      ['perbot', path.join(dataDir, 'perbot', 'bots', 'ntqq+10001')],
       ['perbot', 'cannot derive a data directory from bot "qq:../escape"'],
     ])
+    expect(existsSync(path.join(dataDir, 'perbot', 'bots', 'luckylillia+10001'))).toBe(false)
   })
 
   it('reuses legacy QQ data without a login or a second empty directory', async () => {
@@ -197,7 +200,7 @@ describe("ctx.storage.dir('bot', bot)", () => {
     writeFileSync(path.join(legacy, 'state.json'), '{"count":7}')
     writePlugin('legacy', `
       export async function apply(ctx) {
-        globalThis.__storage.push(['legacy', await ctx.storage.dir('bot', 'luckylillia:10001')])
+        globalThis.__storage.push(['legacy', await ctx.storage.dir('bot', 'ntqq:10001')])
         globalThis.__storage.push(['other', await ctx.storage.dir('bot', 'qq:10001')])
       }
     `)
@@ -206,10 +209,11 @@ describe("ctx.storage.dir('bot', bot)", () => {
     expect(recorded('legacy')).toEqual([['legacy', legacy]])
     expect(readFileSync(path.join(legacy, 'state.json'), 'utf8')).toBe('{"count":7}')
     expect(existsSync(path.join(dataDir, 'legacy', 'bots', 'luckylillia+10001'))).toBe(false)
+    expect(existsSync(path.join(dataDir, 'legacy', 'bots', 'ntqq+10001'))).toBe(false)
     expect(recorded('other')).toEqual([['other', path.join(dataDir, 'legacy', 'bots', 'qq+10001')]])
   })
 
-  it('prefers an existing bot directory and leaves both sets of data untouched', async () => {
+  it.each(['ntqq', 'luckylillia'])('reuses the old bot directory for %s before the numeric directory, leaving all data intact', async (platform) => {
     const legacy = path.join(dataDir, 'both', '10001')
     const current = path.join(dataDir, 'both', 'bots', 'luckylillia+10001')
     for (const dir of [legacy, current]) mkdirSync(dir, { recursive: true })
@@ -217,7 +221,7 @@ describe("ctx.storage.dir('bot', bot)", () => {
     writeFileSync(path.join(current, 'new.txt'), 'new')
     writePlugin('both', `
       export async function apply(ctx) {
-        globalThis.__storage.push(['both', await ctx.storage.dir('bot', 'luckylillia:10001')])
+        globalThis.__storage.push(['both', await ctx.storage.dir('bot', '${platform}:10001')])
       }
     `)
     const plugins = await boot()
@@ -225,6 +229,42 @@ describe("ctx.storage.dir('bot', bot)", () => {
     expect(recorded('both')).toEqual([['both', current]])
     expect(readFileSync(path.join(legacy, 'old.txt'), 'utf8')).toBe('old')
     expect(readFileSync(path.join(current, 'new.txt'), 'utf8')).toBe('new')
+    expect(existsSync(path.join(dataDir, 'both', 'bots', 'ntqq+10001'))).toBe(false)
+  })
+
+  it.each(['ntqq', 'luckylillia'])('prefers the canonical directory for %s when all historical directories exist', async (platform) => {
+    const legacy = path.join(dataDir, 'all', '10001')
+    const legacyBot = path.join(dataDir, 'all', 'bots', 'luckylillia+10001')
+    const current = path.join(dataDir, 'all', 'bots', 'ntqq+10001')
+    for (const dir of [legacy, legacyBot, current]) {
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(path.join(dir, 'state.txt'), dir)
+    }
+    writePlugin('all', `
+      export async function apply(ctx) {
+        globalThis.__storage.push(['all', await ctx.storage.dir('bot', '${platform}:10001')])
+      }
+    `)
+    const plugins = await boot()
+    await plugins.enable(byName('all').id)
+    expect(recorded('all')).toEqual([['all', current]])
+    for (const dir of [legacy, legacyBot, current]) expect(readFileSync(path.join(dir, 'state.txt'), 'utf8')).toBe(dir)
+  })
+
+  it('fails visibly if a legacy data path is a file, instead of silently creating an empty directory', async () => {
+    const legacyBot = path.join(dataDir, 'blocked', 'bots', 'luckylillia+10001')
+    mkdirSync(path.dirname(legacyBot), { recursive: true })
+    writeFileSync(legacyBot, 'old data')
+    writePlugin('blocked', `
+      export async function apply(ctx) {
+        await ctx.storage.dir('bot', 'ntqq:10001').catch(e => globalThis.__storage.push(['blocked', e.message]))
+      }
+    `)
+    const plugins = await boot()
+    await plugins.enable(byName('blocked').id)
+    expect(recorded('blocked')).toEqual([['blocked', `plugin data path is not a directory: ${legacyBot}`]])
+    expect(readFileSync(legacyBot, 'utf8')).toBe('old data')
+    expect(existsSync(path.join(dataDir, 'blocked', 'bots', 'ntqq+10001'))).toBe(false)
   })
 
   it('rejects the removed implicit account scope', async () => {

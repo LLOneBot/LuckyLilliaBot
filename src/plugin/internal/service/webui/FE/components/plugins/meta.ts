@@ -1,6 +1,6 @@
 import {
   Bell, Book, BookOpen, Bot, Brain, Calendar, Clock, Cloud, Code, Cpu, Database, Dice5, FileText, Gamepad2, Gift,
-  Globe, Hand, Heart, Image, Info, Languages, LayoutDashboard, LucideIcon, Mail, MessageSquare, Milk, Music, Network,
+  Globe, Hand, Heart, Image, Info, Languages, LayoutDashboard, LucideIcon, Mail, MessageSquare, MessagesSquare, Milk, Music, Network,
   Puzzle, Radio, Repeat, ScrollText, Search, Send, Settings, ShieldBan, Sliders, Smartphone, Smile, Sparkles, Star, Store,
   Terminal, Timer, Trophy, Users, Wrench, Zap,
 } from 'lucide-react'
@@ -11,7 +11,7 @@ const ICONS: Record<string, LucideIcon> = {
   bell: Bell, book: Book, 'book-open': BookOpen, bot: Bot, brain: Brain, calendar: Calendar, clock: Clock,
   cloud: Cloud, code: Code, cpu: Cpu, database: Database, 'dice-5': Dice5, 'file-text': FileText,
   'gamepad-2': Gamepad2, gift: Gift, globe: Globe, hand: Hand, heart: Heart, image: Image, info: Info,
-  languages: Languages, 'layout-dashboard': LayoutDashboard, mail: Mail, 'message-square': MessageSquare, milk: Milk,
+  languages: Languages, 'layout-dashboard': LayoutDashboard, mail: Mail, 'message-square': MessageSquare, 'messages-square': MessagesSquare, milk: Milk,
   music: Music, network: Network, puzzle: Puzzle, radio: Radio, repeat: Repeat, 'scroll-text': ScrollText,
   search: Search, send: Send, settings: Settings, 'shield-ban': ShieldBan, sliders: Sliders, smartphone: Smartphone, smile: Smile,
   sparkles: Sparkles, star: Star, store: Store, terminal: Terminal, timer: Timer, trophy: Trophy, users: Users,
@@ -22,7 +22,7 @@ export function iconByName(name: string | undefined): LucideIcon {
   return ICONS[name ?? ''] ?? Puzzle
 }
 
-export function pluginIcon(plugin: PluginStatus): LucideIcon {
+export function pluginIcon(plugin: Pick<PluginStatus, 'manifest'>): LucideIcon {
   return iconByName(plugin.manifest.icon)
 }
 
@@ -112,7 +112,7 @@ export const SERVICE_LABEL: Record<string, string> = {
 }
 
 /** The platforms of the bots, named for people */
-export const PLATFORM_LABEL: Record<string, string> = { luckylillia: 'QQ 号', qq: 'QQ 官方机器人', qqguild: 'QQ 频道' }
+export const PLATFORM_LABEL: Record<string, string> = { ntqq: 'NTQQ', qq: 'QQ 官方机器人', qqguild: 'QQ 频道' }
 
 /** What a scope leaves out, in a few words; undefined when it lets everything through. */
 export function scopeSummary(scope: EntryScope | undefined): string | undefined {

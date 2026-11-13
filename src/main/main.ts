@@ -1,8 +1,6 @@
 import path from 'node:path'
 import { installHostLifecycle } from './hostLifecycle'
 
-// fluent-ffmpeg 需要用到这个
-globalThis.__dirname = import.meta.dirname
 import Log from './log'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
@@ -22,6 +20,7 @@ import PluginService from '../plugin/host'
 import BotsService from '../universal/bots'
 import HttpService from '../universal/http'
 import { builtinPlugins } from '../plugin/internal'
+import { installFFmpegBridge } from '@/common/utils/ffmpeg'
 
 declare module 'cordis' {
   interface Events {
@@ -51,6 +50,7 @@ async function onLoad() {
   }
 
   const ctx = new Context()
+  installFFmpegBridge(ctx)
   installHostLifecycle(() => ctx.fiber.dispose(), error => getLogger('main').error(error))
 
   // Awaited: until their exporters are in, log lines go nowhere (the migration below logs what it moved)

@@ -89,9 +89,11 @@ export interface PluginStatus {
   trusted?: boolean
   /** package.json `author` */
   author?: PluginAuthor
+  /** Browser URL normalized from package.json `repository`; HTTP(S) only. */
+  repository?: string
   /** URL of the image its package names in `llbot.icon`; absent for a lucide icon */
   iconUrl?: string
-  /** The package declares `llbot.details` or `llbot.screenshots`, which its card offers behind 详情 */
+  /** The package declares local `llbot.details` or `llbot.screenshots` to load when opening 详情. */
   hasDetails?: boolean
 }
 
@@ -450,24 +452,58 @@ class PluginService extends Service {
     this.changed()
   }
 
+  /** Remove every runtime entry, optionally keeping its raw configuration for a later installation. */
+  removePackage(name: string, options: { keepConfig?: boolean } = {}): Promise<string[]> {
+    if (this.builtins.has(name) || this.builtinPackages.has(name)) {
+      throw new PluginForbiddenError(`${name} is builtin and cannot be removed`)
+    }
+    return this.lock(name, async () => {
+      const runtimes = this.entriesOf(name)
+      for (const rt of runtimes) await this.stop(rt)
+      const removed = runtimes.map(rt => rt.entry.id)
+      const ids = new Set(removed)
+      const retained = (this.data.retained ?? []).filter(entry => entry.name !== name)
+      if (options.keepConfig) {
+        // Never retain the masked values returned by describe()/the WebUI, or mutable disposed runtimes.
+        retained.push(...runtimes.map(rt => ({ ...structuredClone(rt.entry), disabled: true })))
+      }
+      if (retained.length) this.data.retained = retained
+      else delete this.data.retained
+      for (const id of removed) this.runtimes.delete(id)
+      this.data.entries = this.data.entries.filter(entry => !ids.has(entry.id))
+      if (this.data.messageOrder) this.data.messageOrder = this.data.messageOrder.filter(id => !ids.has(id))
+      this.clearPackageApprovals(name)
+      // Entries, retained configs and removed trust are committed together in the instance's plugins.json.
+      await this.save()
+      this.ctx.emit('plugins/ui', this.uiPrefs())
+      this.changed()
+      return removed
+    })
+  }
+
   /**
    * Drops a package's trust and the positions and visibility of its WebUI contributions. For
    * a package that is gone: installing it again asks again.
    */
   async forget(name: string): Promise<void> {
+    if (!this.clearPackageApprovals(name)) return
+    await this.save()
+    this.ctx.emit('plugins/ui', this.uiPrefs())
+    this.changed()
+  }
+
+  private clearPackageApprovals(name: string): boolean {
     const ui = this.data.ui
     const prefix = `${name}|`
     const granted = this.data.trusted?.includes(name)
       || ui?.hidden.some(key => key.startsWith(prefix)) || Object.keys(ui?.order ?? {}).some(key => key.startsWith(prefix))
-    if (!granted) return
+    if (!granted) return false
     if (this.data.trusted) this.data.trusted = this.data.trusted.filter(item => item !== name)
     if (ui) {
       ui.hidden = ui.hidden.filter(key => !key.startsWith(prefix))
       for (const key of Object.keys(ui.order)) if (key.startsWith(prefix)) delete ui.order[key]
     }
-    await this.save()
-    this.ctx.emit('plugins/ui', this.uiPrefs())
-    this.changed()
+    return true
   }
 
   /**
@@ -867,7 +903,7 @@ class PluginService extends Service {
       })
       .map(pkg => pkg.name)
     // An edit of what the WebUI shows (title, icon, details) needs no reload, but the list goes out again
-    const shown = (pkg: PluginPackage) => JSON.stringify([pkg.manifest, pkg.description, pkg.author, pkg.iconFile, pkg.detailsFile, pkg.screenshots])
+    const shown = (pkg: PluginPackage) => JSON.stringify([pkg.manifest, pkg.description, pkg.author, pkg.repository, pkg.iconFile, pkg.detailsFile, pkg.screenshots])
     const edited = [...next.values()].some(pkg => {
       const old = this.packages.get(pkg.name)
       return old && shown(old) !== shown(pkg)
@@ -886,7 +922,19 @@ class PluginService extends Service {
     let created = false
     for (const name of added) {
       if (this.entriesOf(name).length) continue
-      this.createEntry(name, true)
+      const retained = this.data.retained?.filter(entry => entry.name === name) ?? []
+      if (retained.length) {
+        for (const saved of retained) {
+          const entry: PluginEntry = { ...saved, disabled: true }
+          if (this.runtimes.has(entry.id)) entry.id = newEntryId(this.reservedEntryIds())
+          this.data.entries.push(entry)
+          this.runtimes.set(entry.id, { entry, reloadCount: 0 })
+        }
+        const remaining = this.data.retained!.filter(entry => entry.name !== name)
+        if (remaining.length) this.data.retained = remaining
+        else delete this.data.retained
+        this.clearPackageApprovals(name)
+      } else this.createEntry(name, true)
       created = true
     }
     if (created) await this.save()
@@ -1117,6 +1165,7 @@ class PluginService extends Service {
       webui: pkg?.webui && webuiUrl(pkg, this.webuiVersions.get(pkg.name) ?? 0),
     }
     if (pkg?.author) status.author = pkg.author
+    if (pkg?.repository) status.repository = pkg.repository
     if (pkg?.iconFile) status.iconUrl = assetUrl(pkg, pkg.iconFile)
     if (pkg?.detailsFile || pkg?.screenshots.length) status.hasDetails = true
     if (entry.scope) status.scope = entry.scope
@@ -1318,13 +1367,17 @@ class PluginService extends Service {
   }
 
   private createEntry(name: string, disabled: boolean, config?: unknown): Runtime {
-    const entry: PluginEntry = { id: newEntryId(new Set(this.runtimes.keys())), name }
+    const entry: PluginEntry = { id: newEntryId(this.reservedEntryIds()), name }
     if (disabled) entry.disabled = true
     if (config !== undefined) entry.config = config
     this.data.entries.push(entry)
     const rt: Runtime = { entry, reloadCount: 0 }
     this.runtimes.set(entry.id, rt)
     return rt
+  }
+
+  private reservedEntryIds(): Set<string> {
+    return new Set([...this.runtimes.keys(), ...this.data.retained?.map(entry => entry.id) ?? []])
   }
 
   private entriesOf(name: string): Runtime[] {

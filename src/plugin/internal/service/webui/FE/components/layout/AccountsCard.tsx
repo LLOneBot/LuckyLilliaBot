@@ -18,7 +18,7 @@ const STATUS: Record<number, { label: string; dot: string }> = {
   [RECONNECT]: { label: '正在重连', dot: 'bg-amber-400' },
 }
 const statusOf = (bot: BotInfo) => STATUS[bot.status] ?? { label: '离线', dot: 'bg-neutral-400' }
-const PROTOCOL_LABEL: Record<string, string> = { luckylillia: 'NTQQ', qq: 'QQ 官方机器人', qqguild: 'QQ 频道' }
+const PROTOCOL_LABEL: Record<string, string> = { ntqq: 'NTQQ', qq: 'QQ 官方机器人', qqguild: 'QQ 频道' }
 const protocolOf = (bot: BotInfo) => PROTOCOL_LABEL[bot.platform] ?? bot.platform
 // Online first, then the ones on their way, then the rest; a stable sort keeps each group in the order given
 const rank = (bot: BotInfo) => (bot.status === ONLINE ? 0 : bot.status === CONNECT || bot.status === RECONNECT ? 1 : 2)

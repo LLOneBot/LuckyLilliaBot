@@ -57,9 +57,11 @@ export interface PluginStatus {
   trusted?: boolean
   /** package.json `author` */
   author?: PluginAuthor
+  /** Browser URL normalized from package.json repository. */
+  repository?: string
   /** The image its package names in `llbot.icon`; absent for a lucide icon */
   iconUrl?: string
-  /** It declares details or screenshots, behind 详情 on its card */
+  /** It declares local details or screenshots to load when opening 详情. */
   hasDetails?: boolean
 }
 
@@ -70,12 +72,7 @@ export interface PluginAuthor {
 }
 
 /** GET /api/plugins/:id/details */
-export interface PluginDetails {
-  markdown?: string
-  /** URL the markdown's relative image paths resolve against, ending in a slash */
-  base: string
-  screenshots: { url: string; caption?: string }[]
-}
+export type PluginDetails = import('@luckylillia/plugin-sdk/webui').PluginDetailsContent
 
 /** Mirrors src/plugin/host/scope.ts */
 export interface IdFilter {

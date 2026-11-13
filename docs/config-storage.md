@@ -46,7 +46,7 @@
 ```
 
 - 实例名:`[A-Za-z0-9][A-Za-z0-9_-]{0,63}`,QQ 号也是合法实例名,原样作为目录名。
-- 插件数据跟实例走:两个实例启用同一个插件,数据互不相干。`<key>`:第三方插件用包名把 `/` 换成 `+`;内置条目用 `_builtin+<名字>`(冒号在 Windows 路径里非法,`_` 开头不会撞真实包名)。`dir('bot', bot)` 按平台和账号隔离，不需要登录；旧 `<key>/<QQ号>/` 在新目录不存在时沿用，两者都存在时优先新目录，旧数据不移动、不合并。旧 `dir('account')` 接口已删除；卸载插件不删数据。插件的结构化数据用 `ctx.database`(实例的 `database.db`,`configPaths.database()`;原来插件用的是 NTQQ 的 `<uin>.v3.db`,登录后才有,只开官方机器人时没有)。
+- 插件数据跟实例走:两个实例启用同一个插件,数据互不相干。`<key>`:第三方插件用包名把 `/` 换成 `+`;内置条目用 `_builtin+<名字>`(冒号在 Windows 路径里非法,`_` 开头不会撞真实包名)。`dir('bot', bot)` 按平台和账号隔离，不需要登录；NTQQ 使用 `ntqq` 平台名，目录优先为 `bots/ntqq+<QQ号>/`，不存在时依次沿用 `bots/luckylillia+<QQ号>/`、更早的 `<key>/<QQ号>/`；旧 `luckylillia:<QQ号>` 入参指向同一套路径。旧数据不移动、不合并、不删除。旧 `dir('account')` 接口已删除；卸载插件不删数据。插件的结构化数据用 `ctx.database`(实例的 `database.db`,`configPaths.database()`;原来插件用的是 NTQQ 的 `<uin>.v3.db`,登录后才有,只开官方机器人时没有)。
 
 ## 4. 选实例与实例锁
 
@@ -81,8 +81,9 @@
 }
 ```
 
-- 条目的 `scope`(生效范围)、顶层的 `messageOrder` / `trusted` / `ui`(插件界面的显示和排序偏好)都由插件服务读写,含义见 [plugin-system.md](plugin-system.md)"插件包与条目"。
+- 条目的 `scope`(生效范围)、顶层的 `messageOrder` / `trusted` / `ui`(插件界面的显示和排序偏好)都由插件服务读写,NTQQ 平台统一为 `ntqq`；旧 scope 中的 `luckylillia` 平台名和 `luckylillia:` 前缀在读取、保存时规整，保留原过滤语义。`builtin:commands.config.owners` 同样兼容旧前缀；WebUI 逐行选择平台、填写用户 ID，存储仍是 `string[]`，指定平台为 `ntqq:12345` / `qq:openid`，全部平台为裸 ID。详细含义见 [plugin-system.md](plugin-system.md)"插件包与条目"。
 
+- **卸载保留配置**：卸载弹框默认勾选「保留配置」，通过 `POST /api/market/uninstall` 显式传入 `keepConfig`；接口省略时按 `false` 处理。保留时，当前 Bot 实例内这个包的全部条目从 `entries` 移入同一文件可选的 `retained: PluginEntry[]`，保存原 `id` / `name`、原始 `config`（包含 secret 原值，不使用接口掩码）和可选的规范化 `scope`，统一为 `disabled: true`。`retained` 不挂载、不出现在已安装列表，重启后仍保留；市场安装、本地安装或启动扫描再次发现同名包时恢复全部条目并移除对应归档，保持停用，启用需重新信任。卸载始终清除该包的信任、界面偏好与消息处理顺序；不保留时同时删除配置及已有归档。插件数据目录不受勾选状态影响，始终保留。
 - **只有一层**:生效值 = schema 默认值 + 条目的 `config`。落盘只存相对 schema 默认值的差异,差异由服务端算,`PUT` 收完整值。合并和差异沿用已实施的 schema 感知规则:只有 `object` 逐 key 递归,`dict` / `array` / `union` / 标量整体替换。
 - **开关一律是条目的 `disabled`**,内置插件也一样。`ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled` 不再存在,迁移时转成 `disabled`。
 - **校验**:schema + 插件声明的跨字段规则(`check`,例如"监听全部地址必须设 token")。保存时总是校验;启用时也校验,邮件通知除外(SMTP 没配好也能先打开,只是发不出去)。邮件的 `check` 拿得到条目是否启用:启用着才要求 SMTP / 发件人 / 收件人齐全,停用时可以存空配置(issue #690)。
@@ -105,6 +106,8 @@ NTQQ 的「自动登录」属于协议插件配置，存在实例 `plugins.json`
 指令自定义别名属于 `builtin:commands.config.aliases`，为 `{ owner, command, aliases: string[] }[]`，默认空数组；owner 是插件条目 id（宿主指令为空字符串），command 是注册原名。保存时合并同一指令的配置行，清理首尾空白、空项和不区分大小写的重复别名，拒绝包含换行或控制字符的别名。与其他指令设置共用 rev 和保存接口，`internal/update` 就地生效，不重启指令服务及依赖插件。
 
 ## 7. bot 设置(`settings.json`)
+
+- 媒体转换由可选插件 `lucky-lillia-plugin-ffmpeg` 提供，Bot 不内置、不自动安装。缺少时可直接处理的格式继续工作，必须转码的操作提示安装并启用插件。旧 `ffmpeg` 可执行文件路径只为旧配置和内置包保留兼容，不再控制转码；不需要迁移或清空它。详见 [native-ffmpeg.md](native-ffmpeg.md)。
 
 - 日志页设置 `logLevel`（`debug` / `info` / `warn` / `error`，默认 `info`）和 `log`（写入文件），分别单字段提交；输出级别运行时生效，影响后续 WebUI、控制台和文件日志。`LLBOT_LOG_LEVEL` 支持相同四个值；`--debug` 将级别锁为 `debug`，优先级更高，两者都通过 `envLocked` 告知页面，不覆盖文件里的原值。
 

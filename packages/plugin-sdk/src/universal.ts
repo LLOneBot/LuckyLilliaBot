@@ -144,7 +144,7 @@ export interface Bot {
   /** The account itself, as a Satori user. */
   readonly user?: NeutralResource
   /**
-   * The platform's own API, for what has no Satori method. The QQ account (`luckylillia`): the OneBot 11 actions
+   * The platform's own API, for what has no Satori method. The QQ account (`ntqq`): the OneBot 11 actions
    * with the go-cqhttp and LLOneBot extensions, camelCased (`set_group_card` is `setGroupCard`), one object of the
    * OneBot parameters, resolving to the action's `data` and rejecting with its error; a `message_id` may be a
    * `session.messageId`. The QQ official bot: its REST API.

@@ -283,6 +283,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@luckylillia/plugin-sdk@workspace:packages/plugin-sdk"
   dependencies:
+    "@types/node": "npm:^24.12.4"
+    esbuild: "npm:~0.28.0"
     typescript: "npm:^7.0.2"
   peerDependencies:
     "@cordisjs/plugin-database": ^4.2.0
@@ -514,15 +516,6 @@ __metadata:
   version: 1.0.9
   resolution: "@types/estree@npm:1.0.9"
   checksum: 10c0/3ad3286ca2988cd550dafb8f2ad599c8474868e954fa601a36655bdfefd8039f7c714b8c1c7f2ae219ffbd58bd4660e66fa7479a0120fc02d4777057d4865387
-  languageName: node
-  linkType: hard
-
-"@types/fluent-ffmpeg@npm:^2.1.28":
-  version: 2.1.28
-  resolution: "@types/fluent-ffmpeg@npm:2.1.28"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10c0/5c02c2f7f8db001fe9c57ad521a47624258bd5fc427576a47c299044bb2ec8b73864d436548da39fd84fea4de28b6b0d8a644a4343993cea52328f6bf1b7e791
   languageName: node
   linkType: hard
 
@@ -869,13 +862,6 @@ __metadata:
   version: 2.0.1
   resolution: "assertion-error@npm:2.0.1"
   checksum: 10c0/bbbcb117ac6480138f8c93cf7f535614282dea9dc828f540cdece85e3c665e8f78958b96afac52f29ff883c72638e6a87d469ecc9fe5bc902df03ed24a55dba8
-  languageName: node
-  linkType: hard
-
-"async@npm:^0.2.9":
-  version: 0.2.10
-  resolution: "async@npm:0.2.10"
-  checksum: 10c0/714d284dc6c3ae59f3e8b347083e32c7657ba4ffc4ff945eb152ad4fb08def27e768992fcd4d9fd3b411c6b42f1541862ac917446bf2a1acfa0f302d1001f7d2
   languageName: node
   linkType: hard
 
@@ -1262,16 +1248,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fluent-ffmpeg@npm:^2.1.3":
-  version: 2.1.3
-  resolution: "fluent-ffmpeg@npm:2.1.3"
-  dependencies:
-    async: "npm:^0.2.9"
-    which: "npm:^1.1.1"
-  checksum: 10c0/0397379ec3237c10b2389edeef26fdaf93f36d1b20b0f28f8945fe6d9121dcee9b0c615bf7d44edb7abd37233e0d24f0db39389668d3c86a1a2a0d59e3f4457b
-  languageName: node
-  linkType: hard
-
 "fs-extra@npm:^11.3.0, fs-extra@npm:^11.4.0":
   version: 11.4.0
   resolution: "fs-extra@npm:11.4.0"
@@ -1364,13 +1340,6 @@ __metadata:
   version: 1.1.4
   resolution: "is-what-type@npm:1.1.4"
   checksum: 10c0/2213ef99a7193d6edb3c1b2b1abfa01f5afece8d17bf0a18fe2b293d4ad3e335ea74880fb2e3b20cea12204dce3f563cc084bdeedcea045ae26922651a48bfaa
-  languageName: node
-  linkType: hard
-
-"isexe@npm:^2.0.0":
-  version: 2.0.0
-  resolution: "isexe@npm:2.0.0"
-  checksum: 10c0/228cfa503fadc2c31596ab06ed6aa82c9976eec2bfd83397e7eaf06d0ccf42cd1dfd6743bf9aeb01aebd4156d009994c5f76ea898d2832c1fe342da923ca457d
   languageName: node
   linkType: hard
 
@@ -1545,7 +1514,6 @@ __metadata:
     "@satorijs/element": "npm:^3.2.0"
     "@satorijs/protocol": "npm:^1.7.0"
     "@types/busboy": "npm:^1.5.4"
-    "@types/fluent-ffmpeg": "npm:^2.1.28"
     "@types/node": "npm:^24.12.4"
     "@types/nodemailer": "npm:^8.0.1"
     "@types/qrcode": "npm:^1.5.6"
@@ -1558,7 +1526,6 @@ __metadata:
     cosmokit: "npm:^1.8.1"
     fast-xml-parser: "npm:^5.11.1"
     file-type: "npm:^22.0.2"
-    fluent-ffmpeg: "npm:^2.1.3"
     get-port: "npm:^7.2.0"
     hono: "npm:^4.13.5"
     image-size: "npm:^2.0.2"
@@ -1569,7 +1536,6 @@ __metadata:
     schemastery: "npm:^3.18.0"
     semver: "npm:7.8.5"
     sift: "npm:^17.1.3"
-    silk-wasm: "npm:^3.7.1"
     ts-case-convert: "npm:^2.3.1"
     tsx: "npm:^4.23.13"
     typescript: "npm:^7.0.2"
@@ -1892,13 +1858,6 @@ __metadata:
   version: 2.0.0
   resolution: "siginfo@npm:2.0.0"
   checksum: 10c0/3def8f8e516fbb34cb6ae415b07ccc5d9c018d85b4b8611e3dc6f8be6d1899f693a4382913c9ed51a06babb5201639d76453ab297d1c54a456544acf5c892e34
-  languageName: node
-  linkType: hard
-
-"silk-wasm@npm:^3.7.1":
-  version: 3.7.1
-  resolution: "silk-wasm@npm:3.7.1"
-  checksum: 10c0/92087a7a2ef10068707f4dc3c8f0afdf5ccc08cb346735d31d9e0dbef9232d798cd2921651219db1257cc2da9b80222066cb46f6d0689d577a5de64521a33728
   languageName: node
   linkType: hard
 
@@ -2391,17 +2350,6 @@ __metadata:
   version: 2.0.1
   resolution: "which-module@npm:2.0.1"
   checksum: 10c0/087038e7992649eaffa6c7a4f3158d5b53b14cf5b6c1f0e043dccfacb1ba179d12f17545d5b85ebd94a42ce280a6fe65d0cbcab70f4fc6daad1dfae85e0e6a3e
-  languageName: node
-  linkType: hard
-
-"which@npm:^1.1.1":
-  version: 1.3.1
-  resolution: "which@npm:1.3.1"
-  dependencies:
-    isexe: "npm:^2.0.0"
-  bin:
-    which: ./bin/which
-  checksum: 10c0/e945a8b6bbf6821aaaef7f6e0c309d4b615ef35699576d5489b4261da9539f70393c6b2ce700ee4321c18f914ebe5644bc4631b15466ffbaad37d83151f6af59
   languageName: node
   linkType: hard
 

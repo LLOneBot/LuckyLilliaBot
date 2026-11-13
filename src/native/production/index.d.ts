@@ -109,7 +109,7 @@ export declare function getMacosTail(args: MacosEstablishArgs): Promise<number>
  * 初始化 native Client + 注册 send_packet / logger 回调.
  *
  * `send_packet({cmd, body}) => Promise<Buffer>`: relay 给 QQ 的函数.
- * `logger(level, message)`: 必传; SDK 报错时调, 401/403 fatal 后 SDK process::exit(1).
+ * `logger`: 必传；SDK 报错时调。401/硬 403 停用客户端，后续业务调用返回错误。
  *
  * **uin 来源责任在 caller**: SignProxy 不再二次校验 -- 调用方应只在拿到 ownership-backed
  * uin (session 持久化记录 / wtlogin.login body / PMHQ 读 QQ 进程内存) 时才传.
@@ -148,7 +148,7 @@ export interface LinuxTokenResult {
   token: string
   /** response field 3 的 TTL(秒); 没有 = 0。 */
   ttlSecs: number
-  /** 诊断 (攒样本定 TTL 语义, **不参与取 token**): ESK 内层明文 field 2 原值; 解不出=0。见 qq_sign_linux::token::EskInnerMeta。 */
+  /** 诊断 (攒样本定 TTL 语义, **不参与取 token**): ESK 内层明文 field 2 原值; 解不出=0。见 qq_protocol_linux::token::EskInnerMeta。 */
   eskInnerF2: number
   /** 诊断: ESK 内层 field 3 (相对 TTL 或绝对时间戳, 待定); 解不出=0。 */
   eskInnerF3: number
@@ -255,8 +255,8 @@ export interface PostEnvelopeArgs {
 }
 
 /**
- * 探活 (manager /v1/me/info 健康检查). None = OK; Some(reason) = 失败原因.
- * 401/403 不在这里返回 -- SDK 内部直接 logger error + exit.
+ * 在线复核 (GET /api/sign/info)。None = OK；Some(reason) = 失败原因。
+ * 401/硬 403 会锁定客户端失败状态。网络失败后仍可显式重试验证。
  */
 export declare function preflight(): Promise<string | null>
 
@@ -333,19 +333,6 @@ export interface SignResultJs {
   token: Buffer
   extra: Buffer
 }
-
-/**
- * Linux xwid 登录突发**批量签**: 一次 NAPI 调用里循环签 `count` 条, 一次性返回。
- *
- * 背景: sign-core 纯算法 ~450k 签/秒 (~2µs/签, bench 实测), 签名从不是瓶颈; 慢的是 Bot 逐条
- * requestSign 打 `count` 次 JS↔NAPI↔Rust 往返。这里把签名收进一次 Rust 循环 (count=2500 ≈ 5ms),
- * Bot 拿回 count 个 sign 后本地 buildServicePacket + conn.send (可 pace 仿真机 ~1000/s)。
- *
- * 走 **raw `qq_sign_linux::sign`** 而非 SDK: Linux 不需 session_id (见 needs_session_id), 且绕开
- * SDK 在 uin>0 时的 env-report piggy-back (逐条会触发 count 次上报)。ts 每条 +1ms 步进 -> sign 各异。
- * token 原样回填 (Linux sign 不产 token, 由 protocol_token 带来)。napi 名: signXwidBurst
- */
-export declare function signXwidBurst(args: SignRequestArgs, count: number): Array<SignResultJs>
 
 /**
  * 登录后开始循环发 Linux SsoReport 遥测 (Bot 主动调)。幂等: 已在跑则忽略。

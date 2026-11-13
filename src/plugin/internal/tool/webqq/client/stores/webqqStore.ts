@@ -7,9 +7,11 @@ import { GroupNotifyType, GroupNotifyStatus } from '../types/webqq'
 const STORAGE_NAME = 'webqq-storage'
 
 // 分区键必须显式持有, 不能每次现读 localStorage['current-uin']:
-// 那个值在 hydrate 时刻还是上一个账号的 (setCurrentUin 要等 /api/config 返回),
+// 那个值在账号确认前可能还是上一个账号的 (setCurrentUin 要等 /api/webqq/self 返回),
 // 会读到旧号数据、再把旧号数据回写进新号的桶. 由 hydrateWebQQStore 赋值.
 let activeUin = ''
+// Switching A -> B -> A must still reject work started during the first activation of A.
+let accountGeneration = 0
 
 // uin 未就位前一律空转 -- 宁可不持久化, 也不能读写到别的账号的桶
 const accountStorage = createJSONStorage(() => ({
@@ -165,15 +167,19 @@ const INITIAL_PERSISTED = {
   currentChat: null as ChatSession | null,
 }
 
+const INITIAL_TRANSIENT = {
+  contactsLoading: false,
+  contactsError: null as string | null,
+  groupAssistantMode: 'normal' as GroupAssistantMode,
+  notifications: [] as NotificationItem[],
+  notificationUnreadCount: 0,
+}
+
 export const useWebQQStore = create<WebQQState>()(
   persist(
     (set, get) => ({
       ...INITIAL_PERSISTED,
-      contactsLoading: false,
-      contactsError: null,
-      groupAssistantMode: 'normal',
-      notifications: [],
-      notificationUnreadCount: 0,
+      ...INITIAL_TRANSIENT,
 
       setFriendCategories: (categories) => set({ friendCategories: categories }),
       setGroups: (groups) => set({ groups }),
@@ -254,6 +260,7 @@ export const useWebQQStore = create<WebQQState>()(
 
       // forceRefresh: 首次进入聊天时传 true
       fetchGroupMembers: async (groupCode, forceRefresh = false) => {
+        const generation = accountGeneration
         const state = get()
 
         console.log('[Store] fetchGroupMembers called:', groupCode, 'forceRefresh:', forceRefresh)
@@ -276,14 +283,16 @@ export const useWebQQStore = create<WebQQState>()(
 
         const promise = (async () => {
           const members = await getGroupMembers(groupCode)
+          if (generation !== accountGeneration) return []
           console.log('[Store] API success, caching members')
           get().setCachedMembers(groupCode, members)
-          loadingMembersPromises.delete(groupCode)
           return members
         })().catch(err => {
+          if (generation !== accountGeneration) return []
           console.log('[Store] API error:', err.message)
-          loadingMembersPromises.delete(groupCode)
           throw err
+        }).finally(() => {
+          if (loadingMembersPromises.get(groupCode) === promise) loadingMembersPromises.delete(groupCode)
         })
 
         // 同步存入, 并发调用才能拿到同一个
@@ -345,12 +354,14 @@ export const useWebQQStore = create<WebQQState>()(
       })),
 
       loadGroupNotifications: async () => {
+        const generation = accountGeneration
         try {
           const [notifies, friendReqs, doubtReqs] = await Promise.all([
             getGroupNotifications().catch(() => []),
             getFriendRequests().catch(() => []),
             getDoubtBuddyRequests().catch(() => [])
           ])
+          if (generation !== accountGeneration) return
           const groupItems: NotificationItem[] = notifies.map(n => ({
             type: 'group-notify' as const,
             data: n,
@@ -376,6 +387,7 @@ export const useWebQQStore = create<WebQQState>()(
             .slice(0, 200)
           set({ notifications: merged })
         } catch (e) {
+          if (generation !== accountGeneration) return
           console.error('加载通知失败:', e)
         }
       },
@@ -408,6 +420,7 @@ export const useWebQQStore = create<WebQQState>()(
       },
 
       loadContacts: async () => {
+        const generation = accountGeneration
         const state = get()
 
         if (state.isContactsCacheValid()) {
@@ -424,6 +437,7 @@ export const useWebQQStore = create<WebQQState>()(
             getGroups(),
             getRecentChats()
           ])
+          if (generation !== accountGeneration) return
 
           const validRecentData = recentData.filter(item =>
             item.peerId && item.peerId !== '0' && item.peerId !== ''
@@ -485,6 +499,7 @@ export const useWebQQStore = create<WebQQState>()(
           })
           set({ unreadCounts: newUnread })
         } catch (e) {
+          if (generation !== accountGeneration) return
           set({
             contactsError: e.message || '加载联系人失败',
             contactsLoading: false
@@ -493,12 +508,14 @@ export const useWebQQStore = create<WebQQState>()(
       },
 
       refreshContacts: async () => {
+        const generation = accountGeneration
         try {
           const [categoriesData, groupsData, recentData] = await Promise.all([
             getFriends(),
             getGroups(),
             getRecentChats()
           ])
+          if (generation !== accountGeneration) return
 
           const validRecentData = recentData.filter(item =>
             item.peerId && item.peerId !== '0' && item.peerId !== ''
@@ -562,6 +579,7 @@ export const useWebQQStore = create<WebQQState>()(
           })
           set({ unreadCounts: newUnread })
         } catch (e) {
+          if (generation !== accountGeneration) return
           // 静默刷新失败不显示错误
           console.error('Failed to refresh contacts:', e)
         }
@@ -668,6 +686,7 @@ export const useWebQQStore = create<WebQQState>()(
       }),
 
       togglePinChat: async (chatType, peerId) => {
+        const generation = accountGeneration
         const state = get()
         const chat = state.recentChats.find(item => item.chatType === chatType && item.peerId === peerId)
         if (!chat) return
@@ -676,6 +695,7 @@ export const useWebQQStore = create<WebQQState>()(
 
         try {
           await setRecentChatTop(chatType, peerId, newPinnedState)
+          if (generation !== accountGeneration) return
 
           set((state) => {
             const chats = state.recentChats.map(item => {
@@ -692,6 +712,7 @@ export const useWebQQStore = create<WebQQState>()(
             return { recentChats: chats }
           })
         } catch (error) {
+          if (generation !== accountGeneration) return
           console.error('设置置顶失败:', error)
           throw error
         }
@@ -741,7 +762,7 @@ export const useWebQQStore = create<WebQQState>()(
       // 默认 merge 是 {...current, ...persisted}, 新号没有存档时旧号数据会活下来
       merge: (persisted, current) => {
         const { _uin, ...rest } = (persisted ?? {}) as Record<string, unknown>
-        return { ...current, ...INITIAL_PERSISTED, ...rest } as WebQQState
+        return { ...current, ...INITIAL_PERSISTED, ...rest, ...INITIAL_TRANSIENT } as WebQQState
       },
       onRehydrateStorage: () => (state) => {
         if (state && state.recentChats) {
@@ -767,6 +788,9 @@ export const useWebQQStore = create<WebQQState>()(
 export function hydrateWebQQStore(uin: string): void {
   if (!uin || uin === activeUin) return
   activeUin = uin
+  accountGeneration++
+  loadingMembersPromises.clear()
+  resetVisitedChats()
 
   const key = `${uin}-${STORAGE_NAME}`
   try {

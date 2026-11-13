@@ -1,24 +1,12 @@
-import type { WebUIContext } from '@luckylillia/plugin-sdk/webui'
+import type { PluginCatalogItem, PluginInstalledPackage, PluginUpdateInfo, WebUIContext } from '@luckylillia/plugin-sdk/webui'
+import { imageUrl, previewImages, type CatalogScreenshot } from '../images'
 
-export interface InstalledPackage {
-  name: string
-  title?: string
-  version: string
-  description?: string
-  managed: boolean
-  root: string
-  builtin?: string
-  activeVersion?: string
-  restartRequired?: boolean
-  error?: string
-}
+export type InstalledPackage = PluginInstalledPackage
+export type UpdateInfo = PluginUpdateInfo
 
-export interface UpdateInfo {
-  latest?: string
-  update?: string
-  blocked?: string
-  deprecated?: string
-  error?: string
+interface CatalogItem extends Omit<PluginCatalogItem, 'iconUrl' | 'screenshots' | 'load'> {
+  icon?: string
+  screenshots?: readonly CatalogScreenshot[]
 }
 
 const UPDATE_CHECK_INTERVAL = 10 * 60_000
@@ -27,9 +15,12 @@ const fingerprint = (packages: InstalledPackage[] | null) => JSON.stringify(
   packages?.map(pkg => [pkg.name, pkg.version, pkg.managed, pkg.activeVersion]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
 )
 
-/** Shared by the market view, its update count and plugin card actions. */
+/** The catalog bridge and local installation panel share one mutation and update state. */
 export class MarketStore {
   ctx?: WebUIContext
+  catalog: PluginCatalogItem[] | null = null
+  catalogError = ''
+  loadingCatalog = false
   installed: InstalledPackage[] | null = null
   installedError = ''
   loadingInstalled = false
@@ -41,6 +32,7 @@ export class MarketStore {
   version = 0
   private listeners = new Set<() => void>()
   private installedRequest = 0
+  private catalogRequest = 0
   private updateRequest = 0
   private stopWatching?: () => void
 
@@ -60,12 +52,43 @@ export class MarketStore {
     this.stopWatching?.()
     this.stopWatching = undefined
     this.ctx = undefined
+    this.catalogRequest++
+    this.catalog = null
+    this.catalogError = ''
+    this.loadingCatalog = false
     this.installedRequest++
     this.installed = null
     this.installedError = ''
     this.loadingInstalled = false
     this.busy.clear()
     this.invalidateUpdates()
+  }
+
+  async loadCatalog(force = false): Promise<void> {
+    if (!this.ctx || this.loadingCatalog || !force && (this.catalog !== null || this.catalogError)) return
+    const request = ++this.catalogRequest
+    this.loadingCatalog = true
+    this.catalogError = ''
+    this.emit()
+    try {
+      const items = await this.ctx.api<CatalogItem[]>('/api/market/catalog')
+      if (request !== this.catalogRequest) return
+      this.catalog = items.map(item => ({
+        name: item.name, title: item.title, version: item.version, description: item.description,
+        category: item.category, author: item.author, repository: item.repository, builtin: item.builtin,
+        iconUrl: imageUrl(item, item.icon), screenshots: previewImages(item),
+      }))
+    } catch (error) {
+      if (request === this.catalogRequest) {
+        this.catalog = null
+        this.catalogError = errorText(error)
+      }
+    } finally {
+      if (request === this.catalogRequest) {
+        this.loadingCatalog = false
+        this.emit()
+      }
+    }
   }
 
   emit = () => {

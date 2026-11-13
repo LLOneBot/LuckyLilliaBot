@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
-  matchesPluginVersion, normalizeCategory, normalizeService, parseAuthor, parsePluginDependencies, readPluginPackage,
+  matchesPluginVersion, normalizeCategory, normalizeService, parseAuthor, parsePluginDependencies, parseRepository, readPluginPackage,
   resolveMain, scanPluginRoots, sdkIncompatibility,
 } from '@/plugin/host/manifest'
 
@@ -24,7 +24,7 @@ function pkg(dir: string, json: Record<string, unknown>, files: string[] = ['ind
 
 describe('scanPluginRoots', () => {
   it('finds plugins, including scoped ones, and skips everything else', async () => {
-    pkg('plain', { name: 'plain', version: '2.0.0', type: 'module', llbot: { icon: 'timer' } })
+    pkg('plain', { name: 'plain', version: '2.0.0', type: 'module', repository: 'github:example/plain', llbot: { icon: 'timer' } })
     pkg('@scope/inner', { name: '@scope/inner', type: 'module', main: 'lib/main.js', llbot: {} }, ['lib/main.js'])
     pkg('not-a-plugin', { name: 'not-a-plugin' })
     pkg('node_modules/dep', { name: 'dep', llbot: {} })
@@ -35,7 +35,7 @@ describe('scanPluginRoots', () => {
     const { packages, errors } = await scanPluginRoots([root, path.join(root, 'does-not-exist')])
     const byName = Object.fromEntries(packages.map(p => [p.name, p]))
     expect(Object.keys(byName).sort()).toEqual(['@scope/inner', 'cjs', 'plain'])
-    expect(byName.plain).toMatchObject({ version: '2.0.0', manifest: { icon: 'timer' }, warnings: [] })
+    expect(byName.plain).toMatchObject({ version: '2.0.0', repository: 'https://github.com/example/plain', manifest: { icon: 'timer' }, warnings: [] })
     expect(byName['@scope/inner'].main).toBe(path.join(byName['@scope/inner'].root, 'lib', 'main.js'))
     expect(byName.cjs.warnings[0]).toMatch(/CommonJS/)
     expect(errors).toEqual([{ path: path.join(root, 'broken-entry'), error: 'entry missing.js does not exist' }])
@@ -135,16 +135,49 @@ describe('parseAuthor', () => {
   })
 })
 
+describe('parseRepository', () => {
+  it.each([
+    'https://github.com/example/plugin',
+    ' git+https://github.com/example/plugin.git ',
+    'github:example/plugin',
+    'git@github.com:example/plugin.git',
+    'git://github.com/example/plugin.git',
+    'git+ssh://git@github.com/example/plugin.git',
+    'ssh://git@github.com/example/plugin.git',
+    { type: 'git', url: 'git+https://github.com/example/plugin.git', directory: 'packages/plugin' },
+  ])('normalizes npm repository metadata into a browser URL: %j', value => {
+    expect(parseRepository(value)).toBe('https://github.com/example/plugin')
+  })
+
+  it('keeps non-GitHub HTTP(S) repositories and URL fragments', () => {
+    expect(parseRepository('https://git.example.org/team/plugin.git#readme'))
+      .toBe('https://git.example.org/team/plugin#readme')
+    expect(parseRepository({ url: 'http://git.example.org/team/plugin' }))
+      .toBe('http://git.example.org/team/plugin')
+  })
+
+  it.each([
+    undefined, null, 1, '', [], {}, { url: 7 }, { url: 'javascript:alert(1)' },
+    'javascript:alert(1)', 'data:text/html,example', 'file:///etc/passwd', '//example.org/repo',
+    '../repo', 'https://', 'https://token@example.org/repo', 'git+https://user:secret@example.org/repo.git',
+    'https://github.com\t.evil.example/repo', 'https://github.com\\evil.example/repo',
+  ])('drops malformed metadata and unsafe links: %j', value => {
+    expect(parseRepository(value)).toBeUndefined()
+  })
+})
+
 describe('readPluginPackage', () => {
   it('reads an image icon, the details and the screenshots', async () => {
     pkg('shown', {
       name: 'shown',
       type: 'module',
       author: { name: 'Alice' },
+      repository: { type: 'git', url: 'git+https://github.com/example/shown.git' },
       llbot: { icon: 'assets/icon.svg', details: 'docs/details.md', screenshots: ['assets/a.png', { src: './assets/b.webp', caption: ' 群里 ' }] },
     }, ['index.js', 'assets/icon.svg', 'docs/details.md', 'assets/a.png', 'assets/b.webp'])
     expect(await readPluginPackage(path.join(root, 'shown'))).toMatchObject({
       author: { name: 'Alice' },
+      repository: 'https://github.com/example/shown',
       iconFile: 'assets/icon.svg',
       detailsFile: 'docs/details.md',
       screenshots: [{ file: 'assets/a.png' }, { file: 'assets/b.webp', caption: '群里' }],

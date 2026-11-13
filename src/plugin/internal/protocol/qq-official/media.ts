@@ -3,7 +3,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Context } from 'cordis'
-import { getWavFileInfo, isSilk, isWav, encode } from 'silk-wasm'
+import { isSilk } from '@/common/utils/audioFormat'
 import { TEMP_DIR } from '@/common/globalVars'
 import { imageSize } from '@/common/image-size/lib'
 import { encodeSilk } from '@/common/utils/audio'
@@ -79,11 +79,7 @@ export async function loadMedia(src: string): Promise<MediaData> {
 
 async function toSilk(ctx: Context, data: Buffer): Promise<Buffer> {
   if (isSilk(data)) return data
-  const rates = [8000, 12000, 16000, 24000, 32000, 44100, 48000]
-  if (isWav(data) && rates.includes(getWavFileInfo(data).fmt.sampleRate)) {
-    return Buffer.from((await encode(data, 0)).data)
-  }
-  // Anything else goes through ffmpeg, which works on files
+  // Non-SILK audio is converted by the optional native media plugin.
   const input = path.join(TEMP_DIR, randomUUID())
   await writeFile(input, data)
   try {

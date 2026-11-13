@@ -30,7 +30,7 @@ ARG BUILD_PROXY=http://192.168.1.101:7890
 
 RUN set -eux; \
     export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY"; \
-    apk add --no-cache ffmpeg tzdata; \
+    apk add --no-cache tzdata; \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
     echo "Asia/Shanghai" > /etc/timezone
 

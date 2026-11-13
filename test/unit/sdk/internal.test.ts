@@ -11,13 +11,21 @@ describe('the SDK types of bot.internal', () => {
     expect(readFileSync(SDK_INTERNAL, 'utf8').split('\r\n').join('\n')).toBe(renderInternal())
   })
 
+  it('selects NTQQ actions using the ntqq platform identifier', () => {
+    const internal = { setGroupCard: vi.fn() }
+    const bot = { platform: 'ntqq', internal } as unknown as Bot
+    expect(internalOf(bot, 'ntqq')).toBe(internal)
+    expect(internalOf(bot, 'qq')).toBeUndefined()
+    expect(internalOf({ platform: 'luckylillia', internal } as unknown as Bot, 'ntqq')).toBeUndefined()
+  })
+
   it('exposes group and guild calls through the same qq bot without changing the group send/delete names', async () => {
     const request = vi.fn(async () => ({ ok: true }))
     const internal = officialInternal({ request } as unknown as QQOfficialApi)
     const bot = { platform: 'qq', internal } as unknown as Bot
     const qq = internalOf(bot, 'qq')!
     expect(qq).toBe(internal)
-    expect(internalOf(bot, 'luckylillia')).toBeUndefined()
+    expect(internalOf(bot, 'ntqq')).toBeUndefined()
 
     await qq.sendMessage('GROUP', { content: 'group' })
     await qq.sendGuildMessage('CHANNEL', { content: 'guild' })

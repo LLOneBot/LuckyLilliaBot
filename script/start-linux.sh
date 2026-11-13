@@ -180,7 +180,7 @@ log "检测到系统: $DISTRO"
 install_arch() {
     check_sudo
     log "检查 Arch 依赖..."
-    sudo pacman -S --needed --noconfirm base-devel git ffmpeg xorg-server-xvfb libvips imagemagick dbus xorg-xhost fcitx5-im wget || error "基础依赖安装失败"
+    sudo pacman -S --needed --noconfirm base-devel git xorg-server-xvfb libvips imagemagick dbus xorg-xhost fcitx5-im wget || error "基础依赖安装失败"
 
     if [ ! -f "/opt/QQ/qq" ] && confirm "未检测到 QQ，是否通过 AUR 安装?"; then
         if ! command -v yay &> /dev/null; then
@@ -214,7 +214,7 @@ install_debian() {
         sudo apt install -y "$DEB" x11-utils libgtk-3-0 libxcb-xinerama0 libgl1-mesa-dri libnotify4 libnss3 xdg-utils libsecret-1-0 libappindicator3-1 libgbm1 $LIB_SND fonts-noto-cjk libxss1 || error "依赖安装失败"
         rm -f "$DEB"
     fi
-    sudo apt-get install -y ffmpeg xvfb || error "工具安装失败"
+    sudo apt-get install -y xvfb || error "工具安装失败"
 }
 
 [ "$DISTRO" == "arch" ] && install_arch || install_debian

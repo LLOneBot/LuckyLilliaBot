@@ -37,7 +37,7 @@ export function apply(ctx) {
 writeFileSync(path.join(pluginRoot, 'omega', 'text.js'), `export const text = 'omega-v1'`)
 
 // TS plugin outside the repo, loaded through tsx
-cpSync(path.resolve('examples/plugins/hello'), path.join(pluginRoot, 'hello-copy'), { recursive: true })
+cpSync(path.resolve(import.meta.dirname, '../fixtures/plugins/hello'), path.join(pluginRoot, 'hello-copy'), { recursive: true })
 const helloPkg = path.join(pluginRoot, 'hello-copy', 'package.json')
 writeFileSync(helloPkg, readFileSync(helloPkg, 'utf8').replace('"luckylillia-plugin-hello"', '"hello-copy"'))
 

@@ -41,10 +41,12 @@ function run(owner: string, apply: WebUIPlugin, builtin: boolean): () => void {
 
 const loaded = new Map<string, { url: string; dispose: () => void }>()
 const loading = new Map<string, Promise<void>>()
-const bundled = new Map<string, () => void>()
+const bundled = new Map<string, { apply: WebUIPlugin; dispose: () => void }>()
+let builtinClients = BUILTIN_CLIENTS
 
 function restoreBuiltin(owner: string) {
-  if (BUILTIN_CLIENTS[owner] && !bundled.has(owner)) bundled.set(owner, run(owner, BUILTIN_CLIENTS[owner], true))
+  const apply = builtinClients[owner]
+  if (apply && !bundled.has(owner) && !loaded.has(owner)) bundled.set(owner, { apply, dispose: run(owner, apply, true) })
 }
 
 /** Third-party modules load from their package; builtins ship with the WebUI. */
@@ -65,10 +67,10 @@ export function ensureClient(owner: string, url: string): Promise<void> {
         if (typeof apply !== 'function') throw new Error('模块没有默认导出一个函数')
         // The previous version stays until the new one imported fine
         loaded.get(owner)?.dispose()
-        bundled.get(owner)?.()
+        bundled.get(owner)?.dispose()
         bundled.delete(owner)
-        loaded.set(owner, { url, dispose: run(owner, apply, !!BUILTIN_CLIENTS[owner]) })
-        if (useClientErrors.getState().errors[owner] && BUILTIN_CLIENTS[owner]) {
+        loaded.set(owner, { url, dispose: run(owner, apply, !!builtinClients[owner]) })
+        if (useClientErrors.getState().errors[owner] && builtinClients[owner]) {
           const error = useClientErrors.getState().errors[owner]
           loaded.get(owner)?.dispose()
           loaded.delete(owner)
@@ -111,14 +113,34 @@ export function syncClients(plugins: PluginStatus[]) {
 
 let builtinsStarted = false
 
+/** Reconcile the bundled modules after Vite updates its glob, preserving activated npm clients. */
+export function refreshBuiltinClients(clients: Record<string, WebUIPlugin>) {
+  builtinClients = clients
+  if (!builtinsStarted) return
+  for (const [owner, previous] of bundled) {
+    if (clients[owner] === previous.apply) continue
+    previous.dispose()
+    bundled.delete(owner)
+    clearFailuresOf(owner)
+    setError(owner)
+  }
+  for (const owner of Object.keys(clients)) restoreBuiltin(owner)
+}
+
 /**
  * Registers what builtin plugins add to the WebUI, before the first render: their pages are then known when
  * App reads the tab from the address. Registering calls nothing on the bot.
  */
 export function startBuiltinClients() {
-  if (builtinsStarted) return
   builtinsStarted = true
-  for (const owner of Object.keys(BUILTIN_CLIENTS)) restoreBuiltin(owner)
+  refreshBuiltinClients(builtinClients)
+}
+
+if (import.meta.hot) {
+  // React refresh updates components, but ctx.page/slot registrations also need their module's apply() again.
+  import.meta.hot.accept('./builtins', module => {
+    if (module) refreshBuiltinClients(module.BUILTIN_CLIENTS)
+  })
 }
 
 /** Tab ids of builtin plugins' pages. */

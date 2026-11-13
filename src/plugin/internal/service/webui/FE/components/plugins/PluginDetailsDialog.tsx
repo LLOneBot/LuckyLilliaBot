@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { Loader2, X } from 'lucide-react'
+import type { PluginDetailsSource } from '@luckylillia/plugin-sdk/webui'
+import { ChevronDown, Loader2, X } from 'lucide-react'
 import { Portal } from '../common'
 import { Lightbox, LightboxImage } from '../common/Lightbox'
 import { Markdown } from '../common/Markdown'
-import { PluginAuthor, PluginDetails, PluginStatus } from '../../types/plugins'
-import { getPluginDetails } from '../../utils/pluginApi'
-import { pluginDescription, pluginTitle } from './meta'
+import { PluginAuthor, PluginDetails } from '../../types/plugins'
 import PluginIcon from './PluginIcon'
 
 export const AuthorName: React.FC<{ author: PluginAuthor }> = ({ author }) => (
@@ -22,24 +21,30 @@ export const AuthorName: React.FC<{ author: PluginAuthor }> = ({ author }) => (
   </>
 )
 
-/** 详情 on a plugin's card: what its package says about itself, `llbot.screenshots` above `llbot.details`. */
-const PluginDetailsDialog: React.FC<{ plugin: PluginStatus; onClose(): void }> = ({ plugin, onClose }) => {
-  const [details, setDetails] = useState<PluginDetails | null>(null)
-  const [error, setError] = useState('')
+/** One details view for installed plugin cards and market previews. */
+const PluginDetailsDialog: React.FC<{ source: PluginDetailsSource; onClose(): void }> = ({ source, onClose }) => {
+  const [result, setResult] = useState<{ source: PluginDetailsSource; details?: PluginDetails; error?: string } | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const [viewing, setViewing] = useState<{ images: LightboxImage[]; index: number } | null>(null)
-  const description = pluginDescription(plugin)
-  const shots = details?.screenshots ?? []
+  const details = result?.source === source ? result.details : undefined
+  const error = result?.source === source ? result.error : undefined
+  const markdown = details?.markdown?.trim()
+  const shots = details?.screenshots ?? source.screenshots ?? []
 
   useEffect(() => {
     let alive = true
-    getPluginDetails(plugin.id).then(
-      loaded => alive && setDetails(loaded),
-      (e: unknown) => alive && setError(e instanceof Error ? e.message : String(e)),
+    setResult(null)
+    setViewing(null)
+    const load = source.load
+    if (!load) return
+    Promise.resolve().then(load).then(
+      details => alive && setResult({ source, details }),
+      (e: unknown) => alive && setResult({ source, error: e instanceof Error ? e.message : String(e) }),
     )
     return () => {
       alive = false
     }
-  }, [plugin.id])
+  }, [source, attempt])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -51,23 +56,28 @@ const PluginDetailsDialog: React.FC<{ plugin: PluginStatus; onClose(): void }> =
     <Portal>
       {/* A click outside does not close it: too easy to hit by accident */}
       <div className="fixed inset-0 scrim flex items-center justify-center p-4" style={{ zIndex: 9000 }}>
-        <div className="glass glass-thick r-window glass-pop w-full max-w-3xl max-h-[85vh] flex flex-col">
-          <div className="flex items-start gap-4 p-6 hairline-b">
-            <PluginIcon plugin={plugin} className="w-14 h-14 rounded-2xl" fill="gradient-primary-br text-white" size={28} />
+        <div role="dialog" aria-modal="true" aria-label={`${source.title} 的详情`} className="glass glass-thick r-window glass-pop w-full max-w-3xl max-h-[85vh] flex flex-col">
+          <div className="flex shrink-0 items-start gap-3 p-4 sm:gap-4 sm:p-6 hairline-b">
+            <PluginIcon plugin={{ iconUrl: source.iconUrl, manifest: { icon: source.icon } }} className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl" fill="gradient-primary-br text-white" size={28} />
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-theme break-words">{pluginTitle(plugin)}</h3>
-              <p className="text-xs text-theme-hint break-all">{plugin.name}{plugin.version ? ` · v${plugin.version}` : ''}</p>
-              {plugin.author && <p className="text-xs text-theme-secondary mt-1 break-words">作者 <AuthorName author={plugin.author} /></p>}
+              <h3 className="text-lg font-semibold text-theme break-words">{source.title}</h3>
+              <p className="text-xs text-theme-hint break-all">{source.name}{source.version ? ` · v${source.version}` : ''}</p>
+              {source.author && <p className="text-xs text-theme-secondary mt-1 break-words">作者 <AuthorName author={source.author} /></p>}
             </div>
             <button type="button" title="关闭" onClick={onClose} className="p-2 -m-2 text-theme-hint hover:text-theme transition-colors">
               <X size={22} />
             </button>
           </div>
 
-          <div className="p-6 overflow-y-auto flex-1 space-y-6">
-            {description && <p className="text-sm text-theme">{description}</p>}
-            {error && <p className="text-sm text-red-500">读取详情失败：{error}</p>}
-            {!details && !error && <div className="flex justify-center py-10"><Loader2 size={28} className="animate-spin text-pink-500" /></div>}
+          <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
+            {source.description && <p className="text-sm text-theme">{source.description}</p>}
+            {error && (
+              <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-red-500">
+                <span className="min-w-0 break-words">读取详情失败：{error}</span>
+                <button type="button" onClick={() => setAttempt(value => value + 1)} className="btn-glass">重试</button>
+              </div>
+            )}
+            {source.load && !details && !error && <div className="flex justify-center py-10"><Loader2 size={28} className="animate-spin text-pink-500" /></div>}
             {shots.length > 0 && (
               <div className={shots.length > 1 ? 'flex gap-3 overflow-x-auto pb-2 snap-x' : ''}>
                 {shots.map((shot, index) => (
@@ -90,12 +100,20 @@ const PluginDetailsDialog: React.FC<{ plugin: PluginStatus; onClose(): void }> =
                 ))}
               </div>
             )}
-            {details?.markdown && (
-              <Markdown
-                source={details.markdown}
-                base={details.base}
-                onImage={(url, alt) => setViewing({ images: [{ url, caption: alt || undefined }], index: 0 })}
-              />
+            {markdown && (
+              <details className="group border-t border-theme-divider pt-4">
+                <summary className="flex items-center gap-2 list-none cursor-pointer text-sm text-theme-secondary hover:text-theme [&::-webkit-details-marker]:hidden">
+                  <ChevronDown size={16} className="transition-transform group-open:rotate-180" />
+                  完整说明
+                </summary>
+                <Markdown
+                  source={markdown}
+                  omitTitle
+                  base={details?.base}
+                  className="mt-4"
+                  onImage={(url, alt) => setViewing({ images: [{ url, caption: alt || undefined }], index: 0 })}
+                />
+              </details>
             )}
           </div>
         </div>

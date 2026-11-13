@@ -312,6 +312,23 @@
     transform: scale(0.97);
   }
 
+  @media (width < 40rem) {
+    .btn-primary,
+    .btn-glass {
+      min-height: 2rem;
+      padding: 0.375rem 0.625rem;
+      font-size: 0.8125rem;
+      line-height: 1.25rem;
+    }
+
+    .btn-primary > svg,
+    .btn-glass > svg {
+      width: 0.875rem;
+      height: 0.875rem;
+      flex-shrink: 0;
+    }
+  }
+
   /*
    * Text fields. Recessed rather than raised: the inner shadow reads as a
    * well cut into the glass, which is how iOS 26 draws inputs.

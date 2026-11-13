@@ -150,7 +150,7 @@ describe('events', () => {
 
   it('removes a logged-out NT login with its old identity and adds it again after login', async () => {
     const previous = await (await request('login.get', 'llonebot', '123456', {})).json()
-    const oldBot = ctx.bots.get('luckylillia:123456')!
+    const oldBot = ctx.bots.get('ntqq:123456')!
     Object.assign(ctx.qqProtocol.selfInfo, { uin: '', uid: '', nick: '', online: false })
     await ntqq.dispose()
     expect(dispatched).toHaveLength(1)
@@ -162,7 +162,7 @@ describe('events', () => {
 
     Object.assign(ctx.qqProtocol.selfInfo, ACCOUNT)
     await ctx.plugin(NTQQUniversal)
-    expect(ctx.bots.get('luckylillia:123456')).not.toBe(oldBot)
+    expect(ctx.bots.get('ntqq:123456')).not.toBe(oldBot)
     expect(dispatched[1]).toMatchObject({ type: 'login-added', login: { user: { id: '123456' } } })
     expect(dispatched[1].login.sn).toBeGreaterThan(previous.sn)
   })
@@ -181,7 +181,7 @@ describe('events', () => {
 
 describe('API', () => {
   it('calls the bot named by the headers, under the name its clients know it by', async () => {
-    const forbidden = await request('guild.list', 'luckylillia', '123456', {})
+    const forbidden = await request('guild.list', 'ntqq', '123456', {})
     expect(forbidden.status).toBe(403)
     expect((await request('guild.member.role.set', 'llonebot', '123456', { guild_id: '987654', user_id: '555', role_id: '3' })).status).toBe(200)
     // Admin is role 3, the id members carry

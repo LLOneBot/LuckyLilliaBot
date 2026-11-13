@@ -101,6 +101,19 @@ function inspectBundle(root, { target = detectTarget(), allTargets = false } = {
     // the target schema marks it optional; every other platform must carry its sidecar.
     const sidecarValid = metadata.sidecar === null ? spec.sidecarOptional === true : metadata.sidecar === spec.sidecar
     const expectedFiles = metadata.sidecar ? ['LuckyLillia.NTQQ.node', spec.sidecar] : ['LuckyLillia.NTQQ.node']
+    if (metadata.sidecarProtection && (!metadata.sidecar || spec.platform !== 'linux')) fail('Invalid sidecar protection for ' + name)
+    for (const [field, protection] of [['runtime', metadata.protection], ['sidecarRuntime', metadata.sidecarProtection]]) {
+      const runtime = metadata[field]
+      if (runtime != null) {
+        if (spec.libc !== 'musl' || !/^liblucky_vmp_[a-f0-9]{32}[.]so$/.test(runtime)
+            || protection?.compatibility?.musl?.file !== runtime
+            || metadata.files?.[runtime] !== protection.compatibility.musl.sha256
+            || expectedFiles.includes(runtime)) {
+          fail('Invalid or unpaired VMProtect loader for ' + name)
+        }
+        expectedFiles.push(runtime)
+      } else if (protection?.compatibility?.musl) fail('Missing VMProtect loader for ' + name)
+    }
     if (metadata.schemaVersion !== 1 || metadata.package?.name !== NAME || metadata.package.version !== manifest.package.version
         || metadata.variant !== manifest.variant || metadata.target !== spec.triple || metadata.buildId !== item.buildId
         || !sidecarValid || metadata.addon !== 'LuckyLillia.NTQQ.node'
@@ -156,7 +169,7 @@ function copyTarget(bundle, cacheDir) {
       verifyCache(destination)
     }
   } finally {
-    // Only these three files can belong to this fresh staging directory. Avoid
+    // Only these verified files can belong to this fresh staging directory. Avoid
     // Node 24's Windows recursive rm path conversion issue on non-ASCII paths.
     for (const file of Object.keys(files)) {
       try { fs.unlinkSync(safePath(staging, file)) }
@@ -174,7 +187,13 @@ function cachedAddonName(metadata) {
 
 function loadNative(root, { cacheDir = path.join(tmpdir(), NAME) } = {}) {
   const bundle = inspectBundle(path.resolve(root))
-  const directory = copyTarget(bundle, cacheDir)
+  const requestedDirectory = copyTarget(bundle, cacheDir)
+  // musl initializes a DT_NEEDED library once per process. All copies of the
+  // same protected build must therefore use one ELF mapping, including across
+  // Workers and caller-selected cache directories. Still verify the requested
+  // cache before using the shared mapping, so damaged copies are never accepted.
+  const directory = bundle.metadata.runtime
+    ? copyTarget(bundle, path.join(tmpdir(), NAME, 'vmp-musl')) : requestedDirectory
   let native
   try { native = require(path.join(directory, cachedAddonName(bundle.metadata))) }
   catch (error) { fail(`Failed to load ${bundle.target} (${bundle.manifest.variant}): ${error.message}`) }

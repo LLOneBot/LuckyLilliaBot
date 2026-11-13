@@ -4,8 +4,9 @@ import path from 'node:path'
 import { Context } from 'cordis'
 import { compareVersions } from 'compare-versions'
 import { Context as HonoContext, Hono } from 'hono'
-import type { ReloadResult } from '../../../host'
-import { matchesPluginVersion, parsePluginDependencies, SDK_PACKAGE, sdkIncompatibility } from '../../../host/manifest'
+import type { PluginCategory } from '@luckylillia/plugin-sdk'
+import type { PluginStatus, ReloadResult } from '../../../host'
+import { matchesPluginVersion, parsePluginDependencies, PLUGIN_CATEGORIES, SDK_PACKAGE, sdkIncompatibility } from '../../../host/manifest'
 import { SHARED_SPECIFIERS } from '../../../host/resolve-hook'
 import { Catalog, type CatalogEntry, type CatalogSnapshot } from './catalog'
 import { ArchiveError, readLocalPackage } from './archive'
@@ -42,6 +43,7 @@ export interface UpdateInfo {
 }
 
 export interface InstallOutcome extends InstallResult {
+  title?: string
   previous?: string
   /** The package's entries; a first install has one, switched off */
   entries: string[]
@@ -74,6 +76,12 @@ export class MarketError extends Error {
 
 const PAGE_SIZE = 20
 
+/** Use the same declared title and locale preference as the plugin card. */
+function entryTitle(entry?: Pick<PluginStatus, 'title' | 'manifest'>): string | undefined {
+  const title = entry?.title ?? entry?.manifest.title
+  return typeof title === 'string' ? title.trim() || undefined : title?.zh ?? title?.['zh-CN'] ?? title?.en
+}
+
 export class Market {
   readonly installer: Installer
   private queue: Promise<unknown> = Promise.resolve()
@@ -84,9 +92,10 @@ export class Market {
   }
 
   installed(): InstalledPackage[] {
-    const titles = new Map(this.ctx.plugins.list().map(entry => [entry.name, entry.title]))
+    const titles = new Map(this.ctx.plugins.list().map(entry => [entry.name, entryTitle(entry)]))
     return [...this.ctx.plugins.packageList().map(pkg => ({
       name: pkg.name,
+      title: titles.get(pkg.name),
       version: pkg.version,
       description: pkg.description,
       managed: this.manages(pkg.name, pkg.root),
@@ -150,20 +159,37 @@ export class Market {
     return result
   }
 
-  async search(text: string, page: number, origin: PluginOrigin = 'all'): Promise<{ total: number; items: (CatalogEntry & { installed?: string; builtin?: string })[] }> {
+  async search(text: string, page: number, origin: PluginOrigin = 'all', category: PluginCategory | 'all' = 'all'): Promise<{
+    total: number
+    categories: Record<PluginCategory, number>
+    items: (CatalogEntry & { installed?: string; builtin?: string })[]
+  }> {
     const installed = new Map(this.installedPackages().map(pkg => [pkg.name, pkg.version]))
     const builtins = new Map(this.ctx.plugins.builtinPackageList().map(pkg => [pkg.name, pkg.entryName]))
     const terms = text.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean)
     const catalog = await this.catalog.load()
-    const items = [...catalog.values()].filter(item => {
+    const matching = [...catalog.values()].filter(item => {
       if (!matchesOrigin(builtins.has(item.name), origin)) return false
       const searchable = [item.name, item.title, item.description, item.author.name, item.repository].join(' ').toLocaleLowerCase()
       return terms.every(term => searchable.includes(term))
     })
+    // Count every category for the current text and origin, before category filtering or pagination.
+    const categories = Object.fromEntries(PLUGIN_CATEGORIES.map(key => [key, 0])) as Record<PluginCategory, number>
+    for (const item of matching) categories[item.category ?? 'other']++
+    const items = category === 'all' ? matching : matching.filter(item => (item.category ?? 'other') === category)
     const start = (Math.max(1, page) - 1) * PAGE_SIZE
-    return { total: items.length, items: items.slice(start, start + PAGE_SIZE).map(item => ({
+    return { total: items.length, categories, items: items.slice(start, start + PAGE_SIZE).map(item => ({
       ...item, installed: installed.get(item.name), ...builtins.has(item.name) ? { builtin: builtins.get(item.name) } : {},
     })) }
+  }
+
+  /** A single directory snapshot for client-side filtering alongside the host's installed entries. */
+  async catalogItems(): Promise<(CatalogEntry & { builtin?: string })[]> {
+    const catalog = await this.catalog.load()
+    const builtins = new Map(this.ctx.plugins.builtinPackageList().map(pkg => [pkg.name, pkg.entryName]))
+    return [...catalog.values()].map(item => ({
+      ...item, ...builtins.has(item.name) ? { builtin: builtins.get(item.name) } : {},
+    }))
   }
 
   /** Only the catalog's exact version is installable. One install or removal at a time. */
@@ -368,16 +394,17 @@ export class Market {
     if (builtin) {
       await this.ctx.plugins.approveBuiltinPackage(name, chosen.version)
       this.ctx.logger('market').info(`updated builtin ${name}@${chosen.version}; restart required`)
+      const entries = this.ctx.plugins.list().filter(entry => entry.name === builtin.entryName)
       return {
-        ...result, previous,
-        entries: this.ctx.plugins.list().filter(entry => entry.name === builtin.entryName).map(entry => entry.id),
+        ...result, previous, title: entryTitle(entries[0]),
+        entries: entries.map(entry => entry.id),
         reload: { status: 'restart-required', reason: '内置插件更新将在重启 Bot 后生效' },
       }
     }
     this.ctx.logger('market').info(`installed ${name}@${chosen.version}${previous ? ` (was ${previous})` : ''}`)
     await this.ctx.plugins.scan()
     const entries = this.ctx.plugins.list().filter(status => status.name === name)
-    const outcome: InstallOutcome = { ...result, previous, entries: entries.map(entry => entry.id) }
+    const outcome: InstallOutcome = { ...result, previous, title: entryTitle(entries[0]), entries: entries.map(entry => entry.id) }
     const running = entries.find(entry => !entry.disabled)
     if (previous && running) {
       outcome.reload = await this.ctx.plugins.reload(running.id).catch(e => ({ status: 'failed' as const, reason: (e as Error).message }))
@@ -385,16 +412,14 @@ export class Market {
     return outcome
   }
 
-  /** Deletes the package, its entries with their settings, and the trust and approvals the user gave it. */
-  uninstall(name: string): Promise<{ removed: string[] }> {
+  /** Removes the package and trust; entry configurations can be retained for a later installation. */
+  uninstall(name: string, options: { keepConfig?: boolean } = {}): Promise<{ removed: string[] }> {
     return this.serial(async () => {
       if (this.builtin(name)) throw new MarketError('内置插件不能卸载', 409)
       this.assertManageable(name)
       if (!this.ctx.plugins.packageList().some(pkg => pkg.name === name)) throw new MarketError(`${name} is not installed`, 404)
       await this.installer.uninstall(name)
-      const removed = this.ctx.plugins.list().filter(status => status.name === name).map(status => status.id)
-      for (const id of removed) await this.ctx.plugins.remove(id)
-      await this.ctx.plugins.forget(name)
+      const removed = await this.ctx.plugins.removePackage(name, options)
       await this.ctx.plugins.scan()
       this.ctx.logger('market').info(`uninstalled ${name}`)
       return { removed }
@@ -492,8 +517,11 @@ export function createMarketRoutes(ctx: Context, market: Market): Hono {
     const page = Math.max(1, Math.floor(Number(c.req.query('page') ?? 1)) || 1)
     const origin = c.req.query('origin') ?? 'all'
     if (origin !== 'all' && origin !== 'builtin' && origin !== 'third-party') throw new MarketError('origin must be all, builtin or third-party')
-    return market.search(c.req.query('q')?.trim() ?? '', page, origin)
+    const category = c.req.query('category') ?? 'all'
+    if (category !== 'all' && !PLUGIN_CATEGORIES.includes(category as PluginCategory)) throw new MarketError(`category must be all or one of ${PLUGIN_CATEGORIES.join(', ')}`)
+    return market.search(c.req.query('q')?.trim() ?? '', page, origin, category as PluginCategory | 'all')
   }))
+  router.get('/catalog', c => respond(c, () => market.catalogItems()))
   router.get('/installed', c => respond(c, () => market.installed()))
   router.get('/updates', c => respond(c, () => market.updates()))
   router.post('/install', c => respond(c, async () => {
@@ -507,7 +535,12 @@ export function createMarketRoutes(ctx: Context, market: Market): Hono {
     return market.update(name, version, currentVersion)
   }))
   router.post('/install-local', c => respond(c, () => withLocalUpload(c.req.raw, market.installer.root, (archive, filename) => market.installLocal(archive, filename))))
-  router.post('/uninstall', c => respond(c, async () => market.uninstall((await body(c)).name)))
+  router.post('/uninstall', c => respond(c, async () => {
+    const value = await c.req.json().catch(() => undefined) as Record<string, unknown> | undefined
+    if (typeof value?.name !== 'string' || !value.name) throw new MarketError('name is required')
+    if (value.keepConfig !== undefined && typeof value.keepConfig !== 'boolean') throw new MarketError('keepConfig must be a boolean')
+    return market.uninstall(value.name, { keepConfig: value.keepConfig as boolean | undefined })
+  }))
 
   return router
 }

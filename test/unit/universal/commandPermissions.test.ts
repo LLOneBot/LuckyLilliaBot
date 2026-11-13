@@ -42,6 +42,31 @@ describe('central command permissions', () => {
     expect(await bot.receive('login', { userId: 'allowed' })).toEqual(['ready'])
   })
 
+  it.each(['luckylillia', 'ntqq'])('keeps %s owners limited to the NTQQ user after the platform rename', async (platform) => {
+    app.ctx.command('restricted', '', { authority: 'owner' }).alias('secret').action(() => 'ready')
+    app.commands.owners = [`${platform}:12345`]
+    const ntqq = app.bot({ platform: 'ntqq' })
+    const official = app.bot({ platform: 'qq' })
+    const other = app.bot({ platform: 'luckylillia-other' })
+    expect(await ntqq.receive('secret', { userId: '12345' })).toEqual(['ready'])
+    expect(await ntqq.receive('restricted', { userId: '67890' })).toEqual(['你没有权限使用这个指令。'])
+    expect(await official.receive('restricted', { userId: '12345' })).toEqual(['你没有权限使用这个指令。'])
+    expect(await other.receive('restricted', { userId: '12345' })).toEqual(['你没有权限使用这个指令。'])
+    app.commands.owners = ['12345']
+    expect(await ntqq.receive('restricted', { userId: '12345' })).toEqual(['ready'])
+    expect(await official.receive('restricted', { userId: '12345' })).toEqual(['ready'])
+  })
+
+  it('normalizes owner selectors and drops empty editor rows without changing user ids', () => {
+    const config = CommandsSchema({ owners: [
+      ' luckylillia:12345 ', 'ntqq:12345', 'qq:openid', 'qq:qqguild:123', '12345',
+      'luckylillia-other:12345', '', '   ', 'ntqq:', 'qq:  ', 'luckylillia:',
+    ] })
+    expect(commandsSettings.normalize!(config).owners).toEqual([
+      'ntqq:12345', 'qq:openid', 'qq:qqguild:123', '12345', 'luckylillia-other:12345',
+    ])
+  })
+
   it('can relax a plugin default and restores it when the override is removed', async () => {
     app.ctx.command('restricted', '', { authority: 'owner', hidden: true }).action(() => 'ready')
     const bot = app.bot()

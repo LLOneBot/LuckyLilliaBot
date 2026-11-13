@@ -25,8 +25,9 @@ import { PageNotice, PageViewContext, SlotOutlet, useSlotMatches } from './views
 // The runtime side of `@luckylillia/plugin-sdk/webui`: what third-party modules get through the import map and
 // builtin ones through the alias in vite.config.ts. Keep its exports in step with sdkExports.ts.
 
-export { usePluginContext, useSlotMatches }
+export { usePluginContext, useSlotMatches, PluginIcon }
 export { Lightbox } from '../components/common/Lightbox'
+export { PluginMetaRow } from '../components/plugins/PluginMetaRow'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 

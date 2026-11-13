@@ -2,7 +2,7 @@ FROM node:24-alpine
 
 RUN set -eux; \
     sed -i 's|dl-cdn.alpinelinux.org|mirrors.ustc.edu.cn|g' /etc/apk/repositories; \
-    apk add --no-cache ffmpeg tzdata; \
+    apk add --no-cache tzdata; \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
     echo "Asia/Shanghai" > /etc/timezone
 

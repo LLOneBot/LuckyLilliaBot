@@ -3,6 +3,7 @@ import { AlertTriangle, Plus, Trash2 } from 'lucide-react'
 import {
   SchemaSettings, SelectInput, usePluginContext, usePlugins, type PluginConfigState, type PluginEntryStatus, type WebUIContext, type WebUIPlugin,
 } from '@luckylillia/plugin-sdk/webui'
+import { OwnerEditor } from './OwnerEditor'
 
 export const name = 'builtin:commands'
 
@@ -220,8 +221,18 @@ const CommandTable: React.FC<{ config: PluginConfigState<CommandsConfig> }> = ({
 }
 
 const CommandsSettings = () => (
-  <SchemaSettings fields={['prefixes', 'bare', 'owners']}>
-    {(config: PluginConfigState<CommandsConfig>) => <CommandTable config={config} />}
+  <SchemaSettings fields={['prefixes', 'bare']}>
+    {(config: PluginConfigState<CommandsConfig>) => (
+      <div className="space-y-6">
+        <OwnerEditor
+          value={config.value?.owners ?? []}
+          onChange={owners => config.value && config.setValue({ ...config.value, owners })}
+          disabled={config.saving || !config.value}
+          errors={config.errors}
+        />
+        <CommandTable config={config} />
+      </div>
+    )}
   </SchemaSettings>
 )
 

@@ -1,5 +1,4 @@
-import ffmpeg from 'fluent-ffmpeg'
-import fs from 'node:fs'
+import { getFFmpegAddon } from './ffmpeg'
 import { Context } from 'cordis'
 import path from 'node:path'
 import { TEMP_DIR } from '../globalVars'
@@ -12,75 +11,37 @@ const defaultVideoThumbB64 =
 export const defaultVideoThumb = Buffer.from(defaultVideoThumbB64, 'base64')
 
 export async function getVideoInfo(filePath: string) {
-  const size = fs.statSync(filePath).size
-  return new Promise<{
-    width: number
-    height: number
-    time: number
-    format: string
-    size: number
-    filePath: string
-  }>((resolve, reject) => {
-    ffmpeg(filePath).ffprobe((err, metadata) => {
-      if (err) {
-        reject(err)
-      } else {
-        const videoStream = metadata.streams.find((s) => s.codec_type === 'video')
-        resolve({
-          width: videoStream?.width!,
-          height: videoStream?.height!,
-          time: +videoStream?.duration!,
-          format: metadata.format.format_name!,
-          size,
-          filePath,
-        })
-      }
-    })
-  })
+  const metadata = await getFFmpegAddon().probe(filePath)
+  return {
+    width: metadata.width,
+    height: metadata.height,
+    time: metadata.duration,
+    format: metadata.format,
+    size: metadata.size,
+    filePath,
+  }
 }
 
-export function createThumb(
+export async function createThumb(
   ctx: Context,
   videoFilePath: string
 ) {
-  return new Promise<string>((resolve, reject) => {
-    const thumbFileName = `${randomUUID()}.png`
-    const thumbPath = path.join(TEMP_DIR, thumbFileName)
-    ctx.logger.info('开始生成视频缩略图', videoFilePath)
-    let completed = false
-
-    function useDefaultThumb() {
-      if (completed) return
-      completed = true
-      ctx.logger.info('获取视频封面失败，使用默认封面')
-      writeFile(thumbPath, defaultVideoThumb)
-        .then(() => resolve(thumbPath))
-        .catch((err) => reject(err))
-    }
-
-    const timeout = setTimeout(useDefaultThumb, 5000)
-    try {
-      const cmd = ffmpeg(videoFilePath)
-      cmd.on('error', (err) => {
-        clearTimeout(timeout)
-        ctx.logger.warn('FFmpeg 生成缩略图失败:', err?.message || err)
-        useDefaultThumb()
-      })
-      cmd.on('end', () => {
-        if (completed) return
-        completed = true
-        clearTimeout(timeout)
-        resolve(thumbPath)
-      })
-      cmd.screenshots({
-        timestamps: [0],
-        filename: thumbFileName,
-        folder: TEMP_DIR,
-      })
-    } catch (e) {
-      clearTimeout(timeout)
-      ctx.logger.warn('FFmpeg 调用异常:', e)
-      useDefaultThumb()
-    }
-  })
+  ctx.logger.info('开始生成视频缩略图', videoFilePath)
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  let thumbnail: Buffer | undefined
+  try {
+    thumbnail = await Promise.race([
+      getFFmpegAddon().thumbnail(videoFilePath, { time: 0 }),
+      new Promise<undefined>(resolve => { timeout = setTimeout(() => resolve(undefined), 5000) }),
+    ])
+  } catch (error) {
+    ctx.logger.warn('FFmpeg 生成缩略图失败:', error)
+  } finally {
+    clearTimeout(timeout)
+  }
+  if (!thumbnail) ctx.logger.info('获取视频封面失败，使用默认封面')
+  const thumbPath = path.join(TEMP_DIR, randomUUID() + (thumbnail ? '.png' : '.jpg'))
+  // The native job only returns bytes; a late completion cannot overwrite the fallback.
+  await writeFile(thumbPath, thumbnail ?? defaultVideoThumb)
+  return thumbPath
 }

@@ -82,7 +82,7 @@ const ScopeEditor: React.FC<ScopeEditorProps> = ({ value, onChange }) => {
   const bots = useBots(state => state.bots) ?? []
   const scope = value ?? {}
   const set = (patch: Partial<EntryScope>) => onChange({ ...scope, ...patch })
-  const platforms = [...new Set(['luckylillia', 'qq', ...bots.map(bot => bot.platform), ...scope.platforms ?? []])]
+  const platforms = [...new Set(['ntqq', 'qq', ...bots.map(bot => bot.platform), ...scope.platforms ?? []])]
   const accounts = [...new Set([...bots.map(bot => bot.sid), ...scope.bots ?? []])]
   const chip = (on: boolean) => `px-3 py-1 rounded-full text-xs transition-colors ${on ? 'gradient-primary text-white' : 'bg-theme-item text-theme-secondary hover:text-theme'}`
 

@@ -37,7 +37,10 @@ jobs:
           fi
 
       - name: Build
-        run: npx tsc -p packages/plugin-sdk
+        run: npm run build:sdk
+
+      - name: Test SDK
+        run: npx vitest run --config vitest.config.ts test/unit/sdk
 
       - name: Publish to npm
         working-directory: packages/plugin-sdk

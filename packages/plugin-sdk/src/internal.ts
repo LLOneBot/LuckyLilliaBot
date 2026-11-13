@@ -4,11 +4,11 @@ import type { Bot } from './universal.js'
 type Call = (...args: any[]) => Promise<any>
 
 /**
- * `bot.internal` of the QQ account (`luckylillia`): OneBot 11's actions with the go-cqhttp and LLOneBot extensions,
+ * `bot.internal` of the QQ account (`ntqq`): OneBot 11's actions with the go-cqhttp and LLOneBot extensions,
  * camelCased. Each takes one object of the action's parameters, as the OneBot documentation has them, and resolves
  * to the action's `data`; a `message_id` may be a `session.messageId`.
  */
-export interface LuckyLilliaInternal {
+export interface NTQQInternal {
   /** `batch_delete_group_member` */
   batchDeleteGroupMember(params?: Record<string, unknown>): Promise<any>
   /** `can_send_image` */
@@ -253,6 +253,9 @@ export interface LuckyLilliaInternal {
   voiceMsgToText(params?: Record<string, unknown>): Promise<any>
 }
 
+/** @deprecated Use NTQQInternal. The NTQQ platform is named `ntqq`. */
+export type LuckyLilliaInternal = NTQQInternal
+
 /**
  * `bot.internal` of the QQ official bot (`qq`): the open platform's group, C2C and guild endpoints. Path
  * parameters are raw Tencent IDs (without the neutral API's `qqguild:` prefix), in order; then the body, or the
@@ -423,13 +426,13 @@ export interface QQGuildInternal {
 }
 
 export interface PlatformInternals {
-  luckylillia: LuckyLilliaInternal
+  ntqq: NTQQInternal
   qq: QQInternal
 }
 
 /**
  * The bot's `internal` with the methods of its platform typed, when the bot is on that platform; undefined otherwise:
- * `internalOf(session.bot, 'luckylillia')?.setGroupCard({ group_id, user_id, card })`.
+ * `internalOf(session.bot, 'ntqq')?.setGroupCard({ group_id, user_id, card })`.
  */
 export function internalOf<P extends keyof PlatformInternals>(bot: Bot, platform: P): PlatformInternals[P] | undefined {
   return bot.platform === platform ? bot.internal as unknown as PlatformInternals[P] : undefined

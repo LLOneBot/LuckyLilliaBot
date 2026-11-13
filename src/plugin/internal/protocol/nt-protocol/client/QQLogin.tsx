@@ -27,7 +27,7 @@ interface QuickLoginResult {
 }
 
 interface GetLoginListResult {
-  /** false while the bridge's QQ is not up far enough to list its accounts */
+  /** false while the bridge's login service cannot supply the account list */
   ready?: boolean;
   LocalLoginInfoList: Account[];
 }
@@ -43,7 +43,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
   const showToast = ctx.toast;
   // Quick login only once QQ has returned a saved account.
   const [loginMode, setLoginMode] = useState<'loading' | 'quick' | 'qr'>('loading');
-  const [waitingQQ, setWaitingQQ] = useState(false);
+  const [waitingLoginService, setWaitingLoginService] = useState(false);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState('');
   const [listUnsupported, setListUnsupported] = useState(false);
@@ -105,12 +105,12 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
     setListLoading(true);
     setListError('');
     setListUnsupported(false);
-    setWaitingQQ(false);
+    setWaitingLoginService(false);
     try {
       const data = await readQuickLoginList(
         () => ctx.api<GetLoginListResult>('/api/quick-login-list'),
         controller.signal,
-        setWaitingQQ,
+        setWaitingLoginService,
       );
       if (!data || controller.signal.aborted) return;
       const quickLoginAccounts = (data?.LocalLoginInfoList ?? []).filter(item => item.isQuickLogin && !item.isUserLogin);
@@ -130,7 +130,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
     } finally {
       if (!controller.signal.aborted) {
         setListLoading(false);
-        setWaitingQQ(false);
+        setWaitingLoginService(false);
       }
     }
   }, [ctx]);
@@ -197,7 +197,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLogin }) => {
         <div className="flex flex-col items-center gap-4 py-10 text-sm text-theme-secondary">
           <div className="flex items-center gap-2">
             <Loader2 size={18} className="animate-spin text-pink-500" />
-            {waitingQQ ? '正在等待 QQ 启动完成...' : '正在读取可快速登录的账号...'}
+            {waitingLoginService ? '正在连接 QQ 登录服务...' : '正在读取可快速登录的账号...'}
           </div>
           <button onClick={() => setLoginMode('qr')} className="text-pink-500 hover:underline">扫码登录</button>
         </div>

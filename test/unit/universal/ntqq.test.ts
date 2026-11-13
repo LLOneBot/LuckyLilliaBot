@@ -99,7 +99,8 @@ describe('NTQQUniversal', () => {
   })
 
   it('registers the logged-in account as a bot', () => {
-    expect(ctx.bots.get('luckylillia:123456')).toMatchObject({ platform: 'luckylillia', selfId: '123456' })
+    expect(ctx.bots.get('ntqq:123456')).toMatchObject({ platform: 'ntqq', selfId: '123456', sid: 'ntqq:123456' })
+    expect(ctx.bots.get('luckylillia:123456')).toBeUndefined()
   })
 
   it('turns a group message into a session and replies through the NT send path', async () => {
@@ -113,7 +114,7 @@ describe('NTQQUniversal', () => {
 
     expect(sessions[0]).toMatchObject({
       type: 'message-created',
-      platform: 'luckylillia',
+      platform: 'ntqq',
       selfId: '123456',
       userId: '555',
       channelId: '987654',
@@ -123,6 +124,7 @@ describe('NTQQUniversal', () => {
       content: 'echo hi',
     })
     expect(sessions[0].elements.map(String)).toEqual(['echo hi'])
+    expect(sessions[0].event.login).toMatchObject({ platform: 'ntqq', user: { id: '123456' } })
 
     const [, peer, elements] = sendMessage.mock.calls[0]
     expect(peer).toEqual({ chatType: NT.ChatType.Group, peerUid: '987654' })
@@ -144,7 +146,7 @@ describe('NTQQUniversal', () => {
 
   it('does not send when bot/before-send cancels', async () => {
     ctx.on('bot/before-send', () => [])
-    const bot = ctx.bots.get('luckylillia:123456')!
+    const bot = ctx.bots.get('ntqq:123456')!
     expect(await bot.sendMessage('987654', 'hi')).toEqual([])
     expect(sendMessage).not.toHaveBeenCalled()
   })
@@ -152,14 +154,14 @@ describe('NTQQUniversal', () => {
 
 describe('NTQQBot capabilities', () => {
   it('reads and recalls a message by its id alone', async () => {
-    const bot = ctx.bots.get('luckylillia:123456')!
+    const bot = ctx.bots.get('ntqq:123456')!
     expect(await bot.getMessage!('987654', '2|987654|42')).toMatchObject({ id: '2|987654|42', content: 'echo hi' })
     await bot.deleteMessage!('987654', '2|987654|42')
     expect(recallMsg).toHaveBeenCalledWith({ chatType: NT.ChatType.Group, peerUid: '987654', msgSeq: 42 }, 42)
   })
 
   it('mutes and kicks group members by QQ number, and passes on why NTQQ refused', async () => {
-    const bot = ctx.bots.get('luckylillia:123456')!
+    const bot = ctx.bots.get('ntqq:123456')!
     await bot.muteGuildMember!('987654', '555', 60_000)
     expect(muteGroupMember).toHaveBeenCalledWith(987654, [{ uid: 'u_555', duration: 60 }])
     await expect(bot.kickGuildMember!('987654', '555')).rejects.toThrow('没有权限')
@@ -168,7 +170,7 @@ describe('NTQQBot capabilities', () => {
   })
 
   it('pages the message list by the id of the last message it gave', async () => {
-    const bot = ctx.bots.get('luckylillia:123456')!
+    const bot = ctx.bots.get('ntqq:123456')!
     const first = await bot.getMessageList!('987654')
     expect(getMsgsBySeqAndCount).toHaveBeenLastCalledWith({ chatType: NT.ChatType.Group, peerUid: '987654' }, 50, 50, true)
     expect(first.next).toBe('2|987654|39')
@@ -177,7 +179,7 @@ describe('NTQQBot capabilities', () => {
   })
 
   it('lists the roles by the ids members carry', async () => {
-    const bot = ctx.bots.get('luckylillia:123456')!
+    const bot = ctx.bots.get('ntqq:123456')!
     expect((await bot.getGuildRoleList!('987654')).data).toEqual([
       { id: '4', name: 'owner' },
       { id: '3', name: 'admin' },
@@ -219,7 +221,7 @@ describe('what the account sends of the cross-platform elements', () => {
   }
 
   it('says what it sends natively', () => {
-    expect(ctx.bots.get('luckylillia:123456')!.features).toEqual(['message.face', 'message.forward', 'message.proactive', 'guild.plain'])
+    expect(ctx.bots.get('ntqq:123456')!.features).toEqual(['message.face', 'message.forward', 'message.proactive', 'guild.plain'])
   })
 
   it('covers every case', () => {
@@ -228,18 +230,32 @@ describe('what the account sends of the cross-platform elements', () => {
 
   for (const [name, content] of Object.entries(crossPlatform(PNG))) {
     it(name, async () => {
-      await ctx.bots.get('luckylillia:123456')!.sendMessage('987654', content)
+      await ctx.bots.get('ntqq:123456')!.sendMessage('987654', content)
       expect(sent()).toEqual(expected[name])
     })
   }
 
   it('sends a file and a card as messages of their own', async () => {
-    const bot = ctx.bots.get('luckylillia:123456')!
-    await bot.sendMessage('987654', [h.text('看'), h.file(TXT, { title: 'notes.txt' }), h('luckylillia:ark', { data: '{"app":"x"}' })])
+    const bot = ctx.bots.get('ntqq:123456')!
+    await bot.sendMessage('987654', [h.text('看'), h.file(TXT, { title: 'notes.txt' }), h('ntqq:ark', { data: '{"app":"x"}' })])
     expect(sent().map(message => message.types)).toEqual([[NT.ElementType.Text], [NT.ElementType.File], [NT.ElementType.Ark]])
     const [, [, , [file]], [, , [ark]]] = sendMessage.mock.calls
     expect(file.fileElement).toMatchObject({ fileName: 'notes.txt', fileSize: 5 })
     expect(ark.arkElement.bytesData).toBe('{"app":"x"}')
+  })
+
+  it('decodes and sends market faces under the ntqq element namespace', async () => {
+    const sessions: Session[] = []
+    ctx.on('bot/message', (session) => { sessions.push(session) })
+    await ctx.parallel('nt/message-created', { message: rawMessage({
+      elements: [{ marketFaceElement: { emojiPackageId: 12, emojiId: 'ab1234', key: 'face-key', faceName: '[表情]', imageWidth: 200, imageHeight: 200 } }],
+    }) })
+    await vi.waitFor(() => expect(sessions).toHaveLength(1))
+    const [face] = sessions[0].elements
+    expect(face.type).toBe('ntqq:market-face')
+    await ctx.bots.get('ntqq:123456')!.sendMessage('987654', [face])
+    const [, , [sentFace]] = sendMessage.mock.calls[0]
+    expect(sentFace.marketFaceElement).toMatchObject({ emojiPackageId: 12, emojiId: 'ab1234', key: 'face-key', faceName: '[表情]' })
   })
 })
 
@@ -270,21 +286,21 @@ describe('what plugins read of a message from an official bot', () => {
       [{ type: 'link', href: 'https://e.com' }, '官网'],
       [{ type: 'action', id: '3', data: 'vote' }, '投票'],
     ])
-    expect(ark.type).toBe('luckylillia:ark')
+    expect(ark.type).toBe('ntqq:ark')
     expect(ark.children.join('')).toBe('[分享]标题')
   })
 })
 
 describe('bot.internal: the OneBot actions', () => {
   it('has every one of them camelCased, but those about a OneBot connection', () => {
-    const { internal } = ctx.bots.get('luckylillia:123456')!
+    const { internal } = ctx.bots.get('ntqq:123456')!
     expect(Object.keys(internal!)).toEqual(expect.arrayContaining(['setGroupCard', 'sendLike', 'sendGroupNotice', 'getGroupHonorInfo', 'uploadGroupFile']))
     expect(internal!.handleQuickOperation).toBeUndefined()
     expect(internal!.getEvent).toBeUndefined()
   })
 
   it('takes the OneBot parameters, resolving to the data and rejecting with the error', async () => {
-    const { internal } = ctx.bots.get('luckylillia:123456')!
+    const { internal } = ctx.bots.get('ntqq:123456')!
     expect(await internal!.setGroupCard({ group_id: '987654', user_id: '555', card: '新名片' })).toBeNull()
     expect(setGroupMemberCard).toHaveBeenCalledExactlyOnceWith(987654, 'u_555', '新名片')
     setGroupMemberCard.mockResolvedValueOnce({ errorCode: 1, errorMsg: '没有权限' })
@@ -292,7 +308,7 @@ describe('bot.internal: the OneBot actions', () => {
   })
 
   it('takes a session.messageId where OneBot wants its message id', async () => {
-    await ctx.bots.get('luckylillia:123456')!.internal!.deleteMsg({ message_id: '2|987654|42' })
+    await ctx.bots.get('ntqq:123456')!.internal!.deleteMsg({ message_id: '2|987654|42' })
     expect(recallMsg).toHaveBeenCalledWith({ chatType: NT.ChatType.Group, peerUid: '987654' }, 42)
   })
 })

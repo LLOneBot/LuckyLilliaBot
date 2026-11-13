@@ -6,12 +6,98 @@
   },
   "variant": "production",
   "target": "x86_64-unknown-linux-gnu",
-  "buildId": "d7aaaf1f-2cb4-48ac-b6c6-6aaad4cbac42",
+  "buildId": "1343857c-3f4f-4cb5-8176-b2c559e1bd67",
   "profile": "release",
+  "protection": {
+    "kind": "vmprotect",
+    "mode": "ultra",
+    "options": 333568,
+    "regions": [
+      "auth_client_operation",
+      "auth_commit_binding",
+      "auth_confirm_info",
+      "auth_confirm_operation",
+      "auth_confirmation_lifetime",
+      "auth_credentials_generation",
+      "auth_http_status",
+      "auth_lifecycle_check",
+      "auth_operation_grant",
+      "auth_report_interval",
+      "auth_tls_verify",
+      "make_challenge",
+      "native_auth_client",
+      "native_operation_integrity",
+      "native_runtime_integrity",
+      "native_startup_integrity",
+      "write_runtime_config"
+    ],
+    "instructions": {
+      "auth_client_operation": 195,
+      "auth_commit_binding": 63,
+      "auth_confirm_info": 1734,
+      "auth_confirm_operation": 333,
+      "auth_confirmation_lifetime": 23,
+      "auth_credentials_generation": 60,
+      "auth_http_status": 81,
+      "auth_lifecycle_check": 184,
+      "auth_operation_grant": 93,
+      "auth_report_interval": 149,
+      "auth_tls_verify": 2174,
+      "make_challenge": 141,
+      "native_auth_client": 359,
+      "native_operation_integrity": 207,
+      "native_runtime_integrity": 194,
+      "native_startup_integrity": 136,
+      "write_runtime_config": 521
+    },
+    "exportsPreserved": true,
+    "sdkImportsRemoved": true,
+    "sourceSha256": "806a90e65c0544e2fa057bcf5b044a6be555a0a412d40e47ae6e23e89a38852c",
+    "profileSha256": "2f65aabc78c54974b88c4abf826a41b1430dd1e1a5480c8a26e9678110910218",
+    "toolVersion": "VMProtect Ultimate v 3.10.3 (build 2535) Copyright 2003-2025 VMProtect Software",
+    "target": "x86_64-unknown-linux-gnu",
+    "binaryFormat": "elf",
+    "nodeTarget": "linux-x64-glibc",
+    "nodeVersion": "24.18.0",
+    "nodeLoadChecked": true
+  },
   "addon": "LuckyLillia.NTQQ.node",
   "sidecar": "libpmhq.so",
+  "sidecarProtection": {
+    "kind": "vmprotect",
+    "component": "sidecar",
+    "mode": "ultra",
+    "options": 333568,
+    "regions": [
+      "sidecar_build_proof",
+      "sidecar_decrypt_anchors",
+      "sidecar_image_integrity"
+    ],
+    "instructions": {
+      "sidecar_build_proof": 278,
+      "sidecar_decrypt_anchors": 202,
+      "sidecar_image_integrity": 33
+    },
+    "exportsPreserved": true,
+    "sdkImportsRemoved": true,
+    "sourceSha256": "fde8f8495d81036433d56c04dfe285c9b1fda3dff175ed8b6482c4dae3c7fcc1",
+    "profileSha256": "cc1861ac4424b63e2dd23ab6bac9c77bbc5a6e08aae32932422bc8961ac4ed3c",
+    "toolVersion": "VMProtect Ultimate v 3.10.3 (build 2535) Copyright 2003-2025 VMProtect Software",
+    "target": "x86_64-unknown-linux-gnu",
+    "binaryFormat": "elf",
+    "loadTarget": "linux-x64-glibc",
+    "loadChecked": true,
+    "checks": [
+      "dlopen",
+      "management exports",
+      "constructor",
+      "image integrity",
+      "missing proof rejected",
+      "invalid proof rejected"
+    ]
+  },
   "files": {
-    "LuckyLillia.NTQQ.node": "dae094e7584c3694ed927a29bbb703c6c3d1819a567dfabb05fac3baeb1200b1",
-    "libpmhq.so": "4f185730009b97b1ed9a04c4d4bee3f9cfc232aa74c18b35d6bce3880fc543ad"
+    "LuckyLillia.NTQQ.node": "c462c50dec554699e3f62375b162a67a167b6952daa58946f9147ca88d3fe929",
+    "libpmhq.so": "4138a5d47529f4b3075e86a89a5d8f89a6332225162d090f63fbe9a57f082ab4"
   }
 }

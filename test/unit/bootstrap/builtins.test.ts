@@ -161,7 +161,7 @@ describe('builtin plugins', () => {
     // above; nothing else runs before the first login
     const shell = [
       'builtin:webui', 'builtin:dashboard', 'builtin:logs', 'builtin:satori', 'builtin:commands', 'builtin:database', 'builtin:market',
-      'builtin:proxy',
+      'builtin:proxy', 'builtin:message-order',
     ]
     await vi.waitFor(() => expect(shell.map(name => states()[name])).toEqual(shell.map(() => 'active')))
     const off = { 'builtin:email-notification': 'disposed', 'builtin:qq-official': 'disposed', 'builtin:nt-protocol': 'disposed' }

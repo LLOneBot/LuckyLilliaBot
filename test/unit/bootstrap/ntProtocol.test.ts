@@ -142,7 +142,7 @@ describe('builtin:nt-protocol', () => {
     try {
       await vi.waitFor(() => expect(has(ctx, 'qqProtocol')).toBe(true))
       await login(ctx)
-      await vi.waitFor(() => expect(ctx.bots.get('luckylillia:10001') !== undefined).toBe(true))
+      await vi.waitFor(() => expect(ctx.bots.get('ntqq:10001') !== undefined).toBe(true))
       // ctx.get() returns a fresh tracked proxy; compare the provider implementations.
       const store = ctx.reflect._getImpl('store')
       const friends = ctx.reflect._getImpl('ntFriendApi')
@@ -154,8 +154,8 @@ describe('builtin:nt-protocol', () => {
       expect(ctx.bots.size).toBe(1)
 
       await login(ctx, '10002')
-      await vi.waitFor(() => expect(ctx.bots.get('luckylillia:10002') !== undefined).toBe(true))
-      expect(ctx.bots.get('luckylillia:10001')).toBeUndefined()
+      await vi.waitFor(() => expect(ctx.bots.get('ntqq:10002') !== undefined).toBe(true))
+      expect(ctx.bots.get('ntqq:10001')).toBeUndefined()
       expect(ctx.reflect._getImpl('store') === store).toBe(false)
       expect(ctx.reflect._getImpl('ntFriendApi') === friends).toBe(false)
       expect(ctx.reflect._getImpl('ntGroupApi') === groups).toBe(false)
@@ -168,7 +168,7 @@ describe('builtin:nt-protocol', () => {
       for (const name of AFTER_LOGIN) expect(has(ctx, name), name).toBe(false)
       for (const name of BEFORE_LOGIN) expect(has(ctx, name), name).toBe(true)
       await login(ctx, '10002')
-      await vi.waitFor(() => expect(ctx.bots.get('luckylillia:10002') !== undefined).toBe(true))
+      await vi.waitFor(() => expect(ctx.bots.get('ntqq:10002') !== undefined).toBe(true))
     } finally {
       await entry.dispose()
       await universal.dispose()

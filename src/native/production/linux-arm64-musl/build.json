@@ -6,12 +6,138 @@
   },
   "variant": "production",
   "target": "aarch64-unknown-linux-musl",
-  "buildId": "339bd61e-4bc0-4660-adc6-3c98fc0291e0",
+  "buildId": "5392303c-4cc6-435b-ae3e-346b9d089648",
   "profile": "release",
+  "protection": {
+    "kind": "vmprotect",
+    "mode": "ultra",
+    "options": 333568,
+    "regions": [
+      "auth_client_operation",
+      "auth_commit_binding",
+      "auth_confirm_info",
+      "auth_confirm_operation",
+      "auth_confirmation_lifetime",
+      "auth_credentials_generation",
+      "auth_http_status",
+      "auth_lifecycle_check",
+      "auth_operation_grant",
+      "auth_report_interval",
+      "auth_tls_verify",
+      "make_challenge",
+      "native_auth_client",
+      "native_operation_integrity",
+      "native_runtime_integrity",
+      "native_startup_integrity",
+      "write_runtime_config"
+    ],
+    "instructions": {
+      "auth_client_operation": 207,
+      "auth_commit_binding": 100,
+      "auth_confirm_info": 1544,
+      "auth_confirm_operation": 338,
+      "auth_confirmation_lifetime": 31,
+      "auth_credentials_generation": 73,
+      "auth_http_status": 79,
+      "auth_lifecycle_check": 203,
+      "auth_operation_grant": 93,
+      "auth_report_interval": 142,
+      "auth_tls_verify": 2051,
+      "make_challenge": 156,
+      "native_auth_client": 357,
+      "native_operation_integrity": 229,
+      "native_runtime_integrity": 193,
+      "native_startup_integrity": 128,
+      "write_runtime_config": 476
+    },
+    "exportsPreserved": true,
+    "sdkImportsRemoved": true,
+    "compatibility": {
+      "arm64": {
+        "kind": "rust-pthread",
+        "abi": 1,
+        "rustVersion": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "targetSpecSha256": "78c1b4742d650eba2d1b19661ea6b64443b1df718b32f70858878c270fa35ec4",
+        "functionPrefixes": 5579,
+        "narrowedTables": 1726
+      },
+      "musl": {
+        "kind": "bss-loader",
+        "abi": 1,
+        "file": "liblucky_vmp_daa1167e442a4fad92852b7aed3a1144.so",
+        "sha256": "04f7298cd81fe650139facbbed2c86cbb838162426cc636ad83e87b068bd6eb4",
+        "sourceSha256": "cdf24cb30ac539807e5d2395467f949af57efc027e5dc04832eb88f4cc0185c3",
+        "legacyInitFini": true
+      }
+    },
+    "sourceSha256": "62cc6b44aaa6fcda45921c4bc73388b3d49ebafb74fb1b44cb433c6167f70f50",
+    "profileSha256": "2f65aabc78c54974b88c4abf826a41b1430dd1e1a5480c8a26e9678110910218",
+    "toolVersion": "VMProtect Ultimate v 3.10.3 (build 2535) Copyright 2003-2025 VMProtect Software",
+    "target": "aarch64-unknown-linux-musl",
+    "binaryFormat": "elf",
+    "nodeTarget": "linux-arm64-musl",
+    "nodeVersion": "22.23.4",
+    "nodeLoadChecked": true
+  },
   "addon": "LuckyLillia.NTQQ.node",
   "sidecar": "libpmhq.so",
+  "runtime": "liblucky_vmp_daa1167e442a4fad92852b7aed3a1144.so",
+  "sidecarProtection": {
+    "kind": "vmprotect",
+    "component": "sidecar",
+    "mode": "ultra",
+    "options": 333568,
+    "regions": [
+      "sidecar_build_proof",
+      "sidecar_decrypt_anchors",
+      "sidecar_image_integrity"
+    ],
+    "instructions": {
+      "sidecar_build_proof": 242,
+      "sidecar_decrypt_anchors": 201,
+      "sidecar_image_integrity": 51
+    },
+    "exportsPreserved": true,
+    "sdkImportsRemoved": true,
+    "compatibility": {
+      "arm64": {
+        "kind": "rust-pthread",
+        "abi": 1,
+        "rustVersion": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "targetSpecSha256": "78c1b4742d650eba2d1b19661ea6b64443b1df718b32f70858878c270fa35ec4",
+        "functionPrefixes": 891,
+        "narrowedTables": 135
+      },
+      "musl": {
+        "kind": "bss-loader",
+        "abi": 1,
+        "file": "liblucky_vmp_792e6acaf641433c8f0b4a9157258b47.so",
+        "sha256": "c261104a5e6a519f3fa846322203d99abdc181e01bf8fd93ea114420eb391a9d",
+        "sourceSha256": "cdf24cb30ac539807e5d2395467f949af57efc027e5dc04832eb88f4cc0185c3",
+        "legacyInitFini": true
+      }
+    },
+    "sourceSha256": "b22a6cd7d4c4d547f4149a3bf39568ba983980c00e6fe29157071f308957f52b",
+    "profileSha256": "cc1861ac4424b63e2dd23ab6bac9c77bbc5a6e08aae32932422bc8961ac4ed3c",
+    "toolVersion": "VMProtect Ultimate v 3.10.3 (build 2535) Copyright 2003-2025 VMProtect Software",
+    "target": "aarch64-unknown-linux-musl",
+    "binaryFormat": "elf",
+    "loadTarget": "linux-arm64-musl",
+    "loadChecked": true,
+    "checks": [
+      "dlopen",
+      "management exports",
+      "constructor",
+      "image integrity",
+      "missing proof rejected",
+      "invalid proof rejected"
+    ]
+  },
+  "sidecarRuntime": "liblucky_vmp_792e6acaf641433c8f0b4a9157258b47.so",
   "files": {
-    "LuckyLillia.NTQQ.node": "f0ee03da3d3461aa030170740639f20a1730acff6ba863f82dd8d881b419848b",
-    "libpmhq.so": "f5332f957b0eed08f00010ce9a0bd944c59591f1dfe07f2e5d5c06b0441062f8"
+    "LuckyLillia.NTQQ.node": "2f1e2b5f2839b8e31fbed9846142cd3d9237506945e68f1416683919ad067d69",
+    "libpmhq.so": "8431b3238f01a4ce03604044a94cdddd6e4c7148ab09d9d7838ff88d3ce5b845",
+    "liblucky_vmp_daa1167e442a4fad92852b7aed3a1144.so": "04f7298cd81fe650139facbbed2c86cbb838162426cc636ad83e87b068bd6eb4",
+    "liblucky_vmp_792e6acaf641433c8f0b4a9157258b47.so": "c261104a5e6a519f3fa846322203d99abdc181e01bf8fd93ea114420eb391a9d"
   }
 }

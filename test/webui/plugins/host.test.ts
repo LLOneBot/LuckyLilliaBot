@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { WebUIContext } from '@luckylillia/plugin-sdk/webui'
-import { ensureClient, hasExternalClient, startBuiltinClients, syncClients, useClientErrors } from '@/plugin/internal/service/webui/FE/plugin-host/host'
+import { ensureClient, hasExternalClient, refreshBuiltinClients, startBuiltinClients, syncClients, useClientErrors } from '@/plugin/internal/service/webui/FE/plugin-host/host'
+import { BUILTIN_CLIENTS } from '@/plugin/internal/service/webui/FE/plugin-host/builtins'
 import { useRegistry } from '@/plugin/internal/service/webui/FE/plugin-host/registry'
 import { createWebUIContext } from '@/plugin/internal/service/webui/FE/plugin-host/context'
 import type { PluginStatus } from '@/plugin/internal/service/webui/FE/types/plugins'
@@ -36,7 +37,10 @@ const externalPlugin = (name: string, disabled = false): PluginStatus => ({
   service: { required: [], optional: [], implements: [] },
 })
 
-afterEach(() => syncClients([]))
+afterEach(() => {
+  refreshBuiltinClients(BUILTIN_CLIENTS)
+  syncClients([])
+})
 
 describe('plugin client host', () => {
   it('automatically loads an enabled package and removes its contributions when it disappears', async () => {
@@ -87,6 +91,47 @@ describe('plugin client host', () => {
     syncClients([{ ...plugin, webui: undefined }])
     expect(owned(plugin.name)).toHaveLength(1)
     expect(owned(plugin.name)[0]).toMatchObject({ kind: 'page', key: 'fine' })
+  })
+
+  it('registers newly discovered builtin settings pages and replaces or removes their registrations', () => {
+    startBuiltinClients()
+    const firstCleanup = vi.fn()
+    const secondCleanup = vi.fn()
+    const Component = () => null
+    const first = (ctx: WebUIContext) => {
+      ctx.page({ id: 'late', title: 'New settings', settings: true, component: Component })
+      ctx.slot('plugins.toolbar', { id: 'action', component: Component })
+      return firstCleanup
+    }
+    refreshBuiltinClients({ ...BUILTIN_CLIENTS, 'builtin:late': first })
+    expect(owned('builtin:late')).toHaveLength(2)
+    expect(owned('builtin:late')[0]).toMatchObject({ kind: 'page', key: 'late', settings: true })
+    startBuiltinClients()
+    expect(owned('builtin:late')).toHaveLength(2)
+    expect(firstCleanup).not.toHaveBeenCalled()
+
+    refreshBuiltinClients({ ...BUILTIN_CLIENTS, 'builtin:late': ctx => {
+      ctx.page({ id: 'late-v2', title: 'Updated settings', settings: true, component: Component })
+      return secondCleanup
+    } })
+    expect(firstCleanup).toHaveBeenCalledOnce()
+    expect(owned('builtin:late')).toEqual([expect.objectContaining({ key: 'late-v2', settings: true })])
+    refreshBuiltinClients(BUILTIN_CLIENTS)
+    expect(secondCleanup).toHaveBeenCalledOnce()
+    expect(owned('builtin:late')).toEqual([])
+  })
+
+  it('keeps an activated npm client during a bundled refresh and uses the new fallback afterwards', async () => {
+    startBuiltinClients()
+    const plugin = { ...externalPlugin('builtin:fine'), builtin: true }
+    await ensureClient(plugin.name, plugin.webui!)
+    refreshBuiltinClients({ ...BUILTIN_CLIENTS, 'builtin:fine': ctx => {
+      ctx.page({ id: 'refreshed', title: 'Refreshed', settings: true, component: () => null })
+    } })
+    expect(owned(plugin.name).map(c => c.kind)).toEqual(['page', 'config'])
+    expect(owned(plugin.name)[0]).toMatchObject({ key: 'home' })
+    syncClients([{ ...plugin, webui: undefined }])
+    expect(owned(plugin.name)).toEqual([expect.objectContaining({ key: 'refreshed', settings: true })])
   })
 
   it('uses the activated builtin settings client even while the protocol or plugin is disabled', async () => {

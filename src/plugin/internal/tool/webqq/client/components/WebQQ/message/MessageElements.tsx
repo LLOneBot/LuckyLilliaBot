@@ -5,7 +5,7 @@ import { Slot, type WebQQElement } from '@luckylillia/plugin-sdk/webui'
 import type { MessageElement, RawMessage } from '../../../types/webqq'
 import { webui } from '../../../context'
 import { slotMessage } from '../../../utils/slotMessage'
-import { translatePttToText, getAudioProxyUrl, getForwardMessages, getPrivateFileUrl, getSelfUid, getUserAvatar } from '../../../utils/webqqApi'
+import { translatePttToText, getAudioBlob, getForwardMessages, getPrivateFileUrl, getSelfUid, getUserAvatar } from '../../../utils/webqqApi'
 import type { ForwardMessageItem, ForwardMessageSegment } from '../../../utils/webqqApi'
 import { useImageRkeyStore } from '../../../stores/imageRkeyStore'
 import { showToast } from '../common'
@@ -385,6 +385,20 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioUrlRef = useRef<string | null>(null)
+  const audioRequestRef = useRef<AbortController | null>(null)
+
+  useEffect(() => () => {
+    audioRequestRef.current?.abort()
+    if (audioRef.current) {
+      audioRef.current.onended = null
+      audioRef.current.onerror = null
+      audioRef.current.onloadeddata = null
+      audioRef.current.pause()
+      audioRef.current.src = ''
+    }
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+  }, [])
 
   const ptt = element.pttElement!
   const duration = ptt.duration || 0
@@ -399,7 +413,7 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
   const width = Math.min(maxWidth, Math.max(minWidth, minWidth + duration * 3))
 
   const handlePlay = async () => {
-    if (!message || !ptt.fileUuid || isLoading) return
+    if (!message || (!ptt.fileUuid && !ptt.filePath) || isLoading) return
 
     if (isPlaying && audioRef.current) {
       audioRef.current.pause()
@@ -408,45 +422,64 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
     }
 
     if (audioRef.current && audioRef.current.readyState >= 2) {
-      audioRef.current.play()
-      setIsPlaying(true)
+      try {
+        await audioRef.current.play()
+        if (audioRequestRef.current?.signal.aborted) return
+        setIsPlaying(true)
+      } catch {
+        if (audioRequestRef.current?.signal.aborted) return
+        setIsPlaying(false)
+        showToast('语音播放失败，请再次点击播放', 'error')
+      }
       return
     }
 
     setIsLoading(true)
+    const request = new AbortController()
+    audioRequestRef.current = request
     try {
       const isGroup = message.chatType === 2
-      console.log('pttElement:', ptt)
-      const url = getAudioProxyUrl(ptt.fileUuid, isGroup, ptt.filePath)
-      console.log('音频代理URL:', url)
+      const blob = await getAudioBlob(ptt.fileUuid || '', isGroup, ptt.filePath, request.signal)
+      if (request.signal.aborted) return
+      if (audioRef.current) {
+        audioRef.current.onended = null
+        audioRef.current.onerror = null
+        audioRef.current.onloadeddata = null
+        audioRef.current.pause()
+        audioRef.current.src = ''
+      }
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+      const url = URL.createObjectURL(blob)
+      audioUrlRef.current = url
 
       const audio = new Audio()
       audioRef.current = audio
 
       audio.onended = () => setIsPlaying(false)
-      audio.onerror = (e) => {
-        // 诊断用
-        fetch(url).then(r => r.text()).then(text => {
-          console.error('音频加载错误，响应内容:', text.substring(0, 200))
-        }).catch(() => {})
-        console.error('音频加载错误:', e, audio.error, 'URL:', url)
+      audio.onerror = () => {
         setIsPlaying(false)
         setIsLoading(false)
+        showToast('语音无法播放，请重试', 'error')
       }
 
       audio.onloadeddata = async () => {
         setIsLoading(false)
         try {
           await audio.play()
+          if (request.signal.aborted) return
           setIsPlaying(true)
-        } catch (e) {
-          console.error('播放失败:', e)
+        } catch {
+          if (request.signal.aborted) return
+          setIsPlaying(false)
+          showToast('语音播放失败，请再次点击播放', 'error')
         }
       }
 
       audio.src = url
     } catch (e) {
-      console.error('获取语音URL失败:', e)
+      if (request.signal.aborted) return
+      showToast(e instanceof Error ? e.message : '获取语音失败，请重试', 'error')
+      setIsPlaying(false)
       setIsLoading(false)
     }
   }

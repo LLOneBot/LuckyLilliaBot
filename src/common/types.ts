@@ -176,6 +176,7 @@ export interface Config {
   // onlyLocalhost: boolean
   log?: boolean
   logLevel?: 'error' | 'warn' | 'info' | 'debug' // 最低输出级别，--debug 优先
+  /** @deprecated Retained for old settings; conversion uses the optional FFmpeg plugin. */
   ffmpeg?: string
   /** Makes OneBot music cards: song parameters in, a signed card out, as ss.xingzhige.com does. */
   musicCardSignUrl?: string

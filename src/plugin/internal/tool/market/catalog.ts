@@ -1,5 +1,7 @@
 import { promisify } from 'node:util'
 import { gunzip } from 'node:zlib'
+import type { PluginCategory } from '@luckylillia/plugin-sdk'
+import { PLUGIN_CATEGORIES } from '../../../host/manifest'
 import { isExactVersion, isPackageName, RegistryError, type PackageVersion, type RegistryClient } from './registry'
 import { readTar } from './tar'
 import { isImageSource, isScreenshot, type CatalogScreenshot } from './images'
@@ -8,6 +10,8 @@ export const MARKET_PACKAGE = '@luckylillia/market'
 
 export interface CatalogEntry {
   name: string
+  /** Registration category; older catalogs may omit it. */
+  category?: PluginCategory
   title: string
   description: string
   author: { name: string; url?: string }
@@ -53,7 +57,7 @@ function repository(value: unknown): value is string {
     && !/(?:\/\.\.?|\.git)$/.test(value)
 }
 
-/** Read only the two JSON assets. No package code is imported or written to disk. */
+/** Read only the catalog JSON. No package code is imported or written to disk. */
 function parseArchive(tar: Buffer): CatalogSnapshot {
   if (tar.length < 1024 || tar.length % 512 !== 0 || !tar.subarray(-1024).every(byte => byte === 0)) {
     fail('目录包 tar 文件不完整')
@@ -67,7 +71,7 @@ function parseArchive(tar: Buffer): CatalogSnapshot {
       || (path !== 'package' && !path.startsWith('package/'))) fail('目录包包含无效文件路径')
     if (paths.has(path)) fail(`目录包重复文件：${path}`)
     paths.add(path)
-    if (!['package/plugins.json', 'package/versions.json'].includes(path)) continue
+    if (path !== 'package/plugins.json') continue
     if (entry.type !== 'file') fail(`${path} 必须是普通文件`)
     if (entry.data.length > MAX_JSON) fail(`${path} 超过允许的大小`)
     files.set(path, entry.data)
@@ -81,18 +85,18 @@ function parseArchive(tar: Buffer): CatalogSnapshot {
       fail(`${path} 不是有效的 UTF-8 JSON`)
     }
   }
-  return parseCatalog(json('package/plugins.json'), json('package/versions.json'))
+  return parseCatalog(json('package/plugins.json'))
 }
 
-function parseCatalog(plugins: unknown, versions: unknown): CatalogSnapshot {
+function parseCatalog(plugins: unknown): CatalogSnapshot {
   if (!Array.isArray(plugins) || plugins.length > MAX_PLUGINS) fail('plugins.json 必须是大小合理的插件数组')
-  if (!object(versions)) fail('versions.json 必须是包名到精确版本号的对象')
   const entries = new Map<string, CatalogEntry>()
   for (const plugin of plugins) {
-    if (!object(plugin) || !only(plugin, ['name', 'title', 'description', 'author', 'repository', 'icon', 'screenshots', 'examples'])) fail('插件条目包含无效字段')
+    if (!object(plugin) || !only(plugin, ['name', 'version', 'category', 'title', 'description', 'author', 'repository', 'icon', 'screenshots', 'examples'])) fail('插件条目包含无效字段')
     if (!isPackageName(plugin.name)) fail('插件条目的 npm 包名无效')
     const name = plugin.name
     if (entries.has(name)) fail(`插件重复登记：${name}`)
+    if (Object.hasOwn(plugin, 'category') && !PLUGIN_CATEGORIES.includes(plugin.category as PluginCategory)) fail(`${name} 的插件分类无效`)
     if (!text(plugin.title, 200) || !text(plugin.description, 2000)) fail(`${name} 的名称或简介无效`)
     if (!object(plugin.author) || !only(plugin.author, ['name', 'url']) || !text(plugin.author.name, 200)) fail(`${name} 的作者信息无效`)
     if (Object.hasOwn(plugin.author, 'url') && !webUrl(plugin.author.url)) fail(`${name} 的作者链接必须是 HTTP(S) 地址`)
@@ -108,16 +112,17 @@ function parseCatalog(plugins: unknown, versions: unknown): CatalogSnapshot {
       if (!Array.isArray(plugin.examples) || !plugin.examples.every(source => webUrl(source) && isImageSource(source))) fail(`${name} 的示例图片必须是 HTTP(S) 地址数组`)
       screenshots ??= plugin.examples
     }
-    if (!Object.hasOwn(versions, name) || !isExactVersion(versions[name])) fail(`${name} 缺少有效的精确版本号`)
+    const version = plugin.version
+    if (!isExactVersion(version)) fail(`${name} 缺少有效的精确版本号`)
     entries.set(name, Object.freeze({
       name, title: plugin.title, description: plugin.description, repository: plugin.repository,
+      ...(plugin.category === undefined ? {} : { category: plugin.category as PluginCategory }),
       author: Object.freeze({ name: plugin.author.name, ...(plugin.author.url ? { url: plugin.author.url as string } : {}) }),
       ...(plugin.icon ? { icon: plugin.icon as string } : {}),
       ...(screenshots?.length ? { screenshots: Object.freeze(screenshots.map(item => typeof item === 'string' ? item : Object.freeze({ ...item }))) } : {}),
-      version: versions[name] as string,
+      version,
     }))
   }
-  if (Object.keys(versions).some(name => !entries.has(name))) fail('versions.json 包含未登记的插件')
   return entries
 }
 

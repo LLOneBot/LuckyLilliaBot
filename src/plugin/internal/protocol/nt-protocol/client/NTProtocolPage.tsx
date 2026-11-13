@@ -24,7 +24,7 @@ interface LoginInfo {
 }
 
 const POLL_INTERVAL = 3000
-// While the bridge's QQ comes up
+// While the bridge starts QQ or waits for its login identity
 const QUICK_POLL_INTERVAL = 1000
 
 /** Settings page of builtin:nt-protocol, where the scanned account logs in and out. */
@@ -81,7 +81,8 @@ const NTProtocolPage: React.FC = () => {
         }
       }
       running = false
-      const comingUp = bridge && (bridge.session === 'starting' || (bridge.session === 'running' && !bridge.qqRunning))
+      const comingUp = bridge && (bridge.session === 'starting' || (bridge.session === 'running' &&
+        (!bridge.qqRunning || (login.status === 'fulfilled' && !login.value.online))))
       timer = setTimeout(poll, comingUp ? QUICK_POLL_INTERVAL : POLL_INTERVAL)
     }
     pollNow.current = () => void poll()
@@ -247,6 +248,9 @@ const NTProtocolPage: React.FC = () => {
   } else if (bridge && !bridge.qqRunning) {
     // The session runs and the token is in: QQ itself is on its way
     body = waiting('正在启动 QQ...')
+  } else if (bridge?.loggedIn) {
+    // Native health may observe login before the protocol's next identity poll. Do not offer another login.
+    body = waiting('QQ 已登录，正在同步账号状态...')
   } else {
     body = (
       <div className="py-4">

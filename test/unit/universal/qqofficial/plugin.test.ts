@@ -8,7 +8,7 @@ import type { Session } from '@luckylillia/plugin-sdk'
 import BotsService from '@/universal/bots'
 import * as QQOfficial from '@/plugin/internal/protocol/qq-official'
 import type { QQOfficialStats } from '@/plugin/internal/protocol/qq-official/stats'
-import * as Echo from '../../../../examples/plugins/echo/src/index'
+import * as Echo from '../../../fixtures/plugins/echo/src/index'
 
 interface Call {
   method: string
@@ -229,7 +229,7 @@ describe('QQOfficial', () => {
     ])
   })
 
-  it('runs the echo example plugin on a group @ message', async () => {
+  it('runs the echo fixture plugin on a group @ message', async () => {
     await ctx.plugin(Echo, { prefix: 'echo ' })
     groupAt('M9', ' echo hi')
     await vi.waitFor(() => expect(messages()).toHaveLength(1))

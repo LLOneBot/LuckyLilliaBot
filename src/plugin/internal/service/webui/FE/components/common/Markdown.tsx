@@ -319,6 +319,8 @@ function renderBlocks(blocks: Block[], context: Context): React.ReactNode[] {
 }
 
 interface MarkdownOptions {
+  /** The surrounding dialog already displays the title; omit only a leading level-one document heading. */
+  omitTitle?: boolean
   /** What relative image paths resolve against, ending in a slash; without it they are not loaded */
   base?: string
   /** Makes images open larger when clicked */
@@ -326,8 +328,9 @@ interface MarkdownOptions {
   className?: string
 }
 
-export function renderMarkdown(source: string, { base, onImage, className = '' }: MarkdownOptions = {}): React.ReactElement {
+export function renderMarkdown(source: string, { base, onImage, className = '', omitTitle = false }: MarkdownOptions = {}): React.ReactElement {
   const blocks = parseBlocks(source.replace(/\r\n?/g, '\n').split('\n'))
+  if (omitTitle && blocks[0]?.type === 'heading' && blocks[0].level === 1) blocks.shift()
   return <div className={`text-sm leading-relaxed text-theme-secondary break-words ${className}`}>{renderBlocks(blocks, { base, onImage })}</div>
 }
 

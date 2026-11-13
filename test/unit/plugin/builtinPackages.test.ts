@@ -30,6 +30,7 @@ async function writePackage(version = '1.1.0', source = '') {
   const target = path.join(root, npmName)
   await mkdir(path.join(target, 'client'), { recursive: true })
   await writeFile(path.join(target, 'package.json'), JSON.stringify({ name: npmName, version, type: 'module',
+    repository: { type: 'git', url: 'git+https://github.com/example/builtin.git' },
     main: 'index.js', llbot: { builtin: { entry: entryName, abi: 1 }, webui: 'client/index.js' } }))
   await writeFile(path.join(target, 'index.js'), source ||
     'export const builtin = { name: "builtin:example", title: "Updated example", core: false, manifest: {}, plugin: { apply() {} } }')
@@ -51,6 +52,7 @@ describe('official builtin npm packages', () => {
     expect(plugins.packageList()).toEqual([])
     expect(plugins.list()).toHaveLength(1)
     expect(plugins.list()[0]).toMatchObject({ name: entryName, version: '1.0.0', packageName: npmName, core: true })
+    expect(plugins.list()[0].repository).toBeUndefined()
     expect(plugins.builtinPackageList()[0]).toMatchObject({ version: '1.0.0', activeVersion: '1.0.0', restartRequired: false })
   })
 
@@ -66,6 +68,7 @@ describe('official builtin npm packages', () => {
     plugins = await boot()
     expect(plugins.list()).toHaveLength(1)
     expect(plugins.list()[0]).toMatchObject({ id, name: entryName, version: '1.1.0', core: true, title: 'Updated example' })
+    expect(plugins.list()[0].repository).toBe('https://github.com/example/builtin')
     expect(plugins.builtinPackageList()[0].restartRequired).toBe(false)
     await expect(plugins.disable(id)).rejects.toThrow('core')
     const asset = plugins.webuiAsset(npmName.replace('/', '+'), 'index.js')

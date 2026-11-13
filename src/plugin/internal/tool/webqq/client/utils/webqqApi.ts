@@ -1,5 +1,6 @@
 import { apiFetch } from './api'
 import { webui } from '../context'
+import type { WebQQAccount } from '../account'
 import type {
   FriendCategory,
   GroupItem,
@@ -48,15 +49,13 @@ export async function getImageRkey(): Promise<{ private_rkey: string; group_rkey
   return response.data!
 }
 
-/** The logged-in account, which getSelfUid() / getSelfUin() then give. */
-export async function getLoginInfo(): Promise<{ online: boolean; uid: string; uin: string; nick: string }> {
-  const response = await apiFetch<{ online: boolean; uid: string; uin: string; nick: string }>('/api/webqq/self')
+/** Read only: the page commits the identity after checking that its request is still current. */
+export async function getLoginInfo(signal?: AbortSignal): Promise<WebQQAccount> {
+  const response = await apiFetch<WebQQAccount>('/api/webqq/self', { signal })
   if (!response.success) {
     throw new Error(response.message || '获取登录信息失败')
   }
-  const data = response.data!
-  setSelfInfo(data.uid, data.uin)
-  return data
+  return response.data!
 }
 
 export async function getFriends(): Promise<FriendCategory[]> {
@@ -511,12 +510,31 @@ export async function addFavEmojiFromUrl(url: string): Promise<{ result: number;
   return response.data!
 }
 
-export function getAudioProxyUrl(fileUuid: string, isGroup: boolean, filePath?: string): string {
+function audioProxyPath(fileUuid: string, isGroup: boolean, filePath?: string): string {
   let url = `/api/webqq/audio-proxy?fileUuid=${encodeURIComponent(fileUuid)}&isGroup=${isGroup}`
   if (filePath) {
     url += `&filePath=${encodeURIComponent(filePath)}`
   }
-  return webui().authUrl(url)
+  return url
+}
+
+export function getAudioProxyUrl(fileUuid: string, isGroup: boolean, filePath?: string): string {
+  return webui().authUrl(audioProxyPath(fileUuid, isGroup, filePath))
+}
+
+export async function getAudioBlob(fileUuid: string, isGroup: boolean, filePath?: string, signal?: AbortSignal): Promise<Blob> {
+  const response = await webui().fetch(audioProxyPath(fileUuid, isGroup, filePath), { signal })
+  if (!response.ok) {
+    let message = '获取语音失败，请重试'
+    try {
+      const body = await response.json()
+      if (typeof body.message === 'string' && body.message) message = body.message
+    } catch {
+      // 非 JSON 错误页仍然给出可见的播放提示。
+    }
+    throw new Error(message)
+  }
+  return response.blob()
 }
 
 // 群主退群就是解散

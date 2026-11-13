@@ -13,7 +13,7 @@ export type PluginCategory = 'protocol' | 'adapter' | 'chat' | 'tool' | 'service
 export interface LLBotManifest {
   /** Its name in the WebUI, e.g. `关键词回复`; the package name without `luckylillia-plugin-` otherwise. Like `description`. */
   title?: string | Record<string, string>
-  /** Plain text, or a map keyed by locale such as `zh` / `en`. */
+  /** A description string, e.g. `自动回复消息`; also accepts a map keyed by locale such as `zh` / `en`. */
   description?: string | Record<string, string>
   /** Where the WebUI plugin page lists it; any other value counts as `other`. */
   category?: PluginCategory

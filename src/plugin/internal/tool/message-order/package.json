@@ -1,0 +1,40 @@
+{
+  "name": "@luckylillia/plugin-message-order",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Arrange the order in which plugins process incoming messages",
+  "main": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "author": {
+    "name": "LLOneBot",
+    "url": "https://github.com/LLOneBot"
+  },
+  "license": "GPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLillia.Bot.git",
+    "directory": "src/plugin/internal/tool/message-order"
+  },
+  "engines": {
+    "node": ">=22.15"
+  },
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "category": "tool",
+    "icon": "messages-square",
+    "description": {
+      "zh": "调整消息经过各插件的先后顺序",
+      "en": "Arrange the order in which plugins process incoming messages"
+    },
+    "title": "消息处理顺序",
+    "builtin": {
+      "entry": "builtin:message-order",
+      "abi": 1
+    },
+    "webui": "./lib/client/index.js"
+  }
+}

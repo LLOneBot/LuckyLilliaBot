@@ -53,6 +53,7 @@ export function createPluginRoutes(ctx: Context): Hono {
   }))
 
   router.post('/scan', c => respond(c, () => ctx.plugins.scan()))
+  router.get('/directories', c => respond(c, () => ({ roots: ctx.plugins.config.roots.map(root => path.resolve(root)) })))
 
   router.get('/ui', c => respond(c, () => ctx.plugins.uiPrefs()))
   router.patch('/ui', async (c) => {

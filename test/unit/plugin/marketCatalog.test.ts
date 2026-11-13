@@ -24,16 +24,16 @@ function tar(files: File[]): Buffer {
   return Buffer.concat([...blocks, Buffer.alloc(1024)])
 }
 
-const plugin = {
+const pluginWithoutVersion = {
   name: '@author/example', title: '示例插件', description: '目录中的简介',
   author: { name: '示例作者', url: 'https://example.com/author' }, repository: 'https://github.com/author/example',
 }
+const plugin = { ...pluginWithoutVersion, version: '1.2.3' }
 
-function files(plugins: unknown = [plugin], versions: unknown = { [plugin.name]: '1.2.3' }): File[] {
+function files(plugins: unknown = [plugin]): File[] {
   return [
     { path: 'package/package.json', text: JSON.stringify({ name: MARKET_PACKAGE, scripts: { install: 'never execute' } }) },
     { path: 'package/plugins.json', text: JSON.stringify(plugins) },
-    { path: 'package/versions.json', text: JSON.stringify(versions) },
   ]
 }
 
@@ -60,17 +60,51 @@ function fixture(initial = files(), name = MARKET_PACKAGE) {
 }
 
 describe('npm directory catalog', () => {
-  it('joins display metadata to approved exact versions without loading plugin packages', async () => {
+  it('reads display metadata and approved exact versions from plugins.json alone', async () => {
     const { registry, catalog } = fixture()
-    expect([...await catalog.load()]).toEqual([[plugin.name, { ...plugin, version: '1.2.3' }]])
+    expect([...await catalog.load()]).toEqual([[plugin.name, plugin]])
     expect(registry.packument.mock.calls).toEqual([[MARKET_PACKAGE]])
     expect(registry.tarball).toHaveBeenCalledTimes(1)
   })
 
   it('accepts an empty catalog and a configured catalog package', async () => {
-    const { registry, catalog } = fixture(files([], {}), '@company/catalog')
+    const { registry, catalog } = fixture(files([]), '@company/catalog')
     expect((await catalog.load()).size).toBe(0)
     expect(registry.packument).toHaveBeenCalledWith('@company/catalog')
+  })
+
+  it('rejects old split catalogs that store versions only in versions.json', async () => {
+    const entries = [
+      ...files([pluginWithoutVersion]),
+      { path: 'package/versions.json', text: JSON.stringify({ [plugin.name]: plugin.version }) },
+    ]
+    await expect(fixture(entries).catalog.load()).rejects.toThrow('精确版本号')
+  })
+
+  it.each(['protocol', 'adapter', 'chat', 'tool', 'service', 'other'])('preserves the registration category supported by the Bot: %s', async category => {
+    const entry = { ...plugin, category }
+    expect([...await fixture(files([entry])).catalog.load()]).toEqual([[plugin.name, entry]])
+  })
+
+  it.each([null, '', 'unknown', 'chat ', 'Service', 1, {}, []])('rejects an invalid registration category: %j', async category => {
+    await expect(fixture(files([{ ...plugin, category }])).catalog.load()).rejects.toThrow('插件分类')
+  })
+
+  it.each([
+    JSON.stringify({ [plugin.name]: '9.0.0', unlisted: '1.0.0' }),
+    '{',
+  ])('uses inline versions without parsing or consulting an old sidecar: %s', async text => {
+    const entries = [...files(), { path: 'package/versions.json', text }]
+    expect([...await fixture(entries).catalog.load()]).toEqual([[plugin.name, plugin]])
+  })
+
+  it.each([undefined, null, '^1.0.0'])('requires every inline version even when versions.json provides a valid pin: %j', async version => {
+    const invalid = { ...plugin, name: '@author/invalid-version', version }
+    const entries = [
+      ...files([plugin, invalid]),
+      { path: 'package/versions.json', text: JSON.stringify({ [plugin.name]: plugin.version, [invalid.name]: '2.0.0' }) },
+    ]
+    await expect(fixture(entries).catalog.load()).rejects.toThrow('精确版本号')
   })
 
   it('accepts legacy example URLs without downloading them and returns a frozen screenshot list', async () => {
@@ -155,7 +189,7 @@ describe('npm directory catalog', () => {
     expect(await catalog.load()).toBe(a)
     expect(registry.packument).toHaveBeenCalledTimes(2)
     expect(registry.tarball).toHaveBeenCalledTimes(1)
-    publish(files([plugin], { [plugin.name]: '2.0.0' }), '1.0.1')
+    publish(files([{ ...plugin, version: '2.0.0' }]), '1.0.1')
     expect((await catalog.load()).get(plugin.name)?.version).toBe('2.0.0')
     expect(registry.tarball).toHaveBeenCalledTimes(2)
   })
@@ -163,7 +197,7 @@ describe('npm directory catalog', () => {
   it('invalidates the cache when a registry changes integrity for the same catalog version', async () => {
     const { catalog, publish, registry } = fixture()
     await catalog.load()
-    publish(files([plugin], { [plugin.name]: '1.3.0' }))
+    publish(files([{ ...plugin, version: '1.3.0' }]))
     expect((await catalog.load()).get(plugin.name)?.version).toBe('1.3.0')
     expect(registry.tarball).toHaveBeenCalledTimes(2)
   })
@@ -173,10 +207,10 @@ describe('npm directory catalog', () => {
     await catalog.load()
     registry.packument.mockRejectedValueOnce(new Error('registry unavailable'))
     await expect(catalog.load()).rejects.toThrow('registry unavailable')
-    publish(files([plugin], {}), '1.0.1')
+    publish(files([pluginWithoutVersion]), '1.0.1')
     await expect(catalog.load()).rejects.toThrow('精确版本号')
     await expect(catalog.load()).rejects.toThrow('精确版本号')
-    publish(files([plugin], { [plugin.name]: '1.3.0' }), '1.0.2')
+    publish(files([{ ...plugin, version: '1.3.0' }]), '1.0.2')
     expect((await catalog.load()).get(plugin.name)?.version).toBe('1.3.0')
   })
 
@@ -203,43 +237,41 @@ describe('npm directory catalog', () => {
   })
 
   it.each([
-    ['not an array', {}, {}, '插件数组'],
-    ['not a version map', [], [], '精确版本号的对象'],
-    ['duplicate plugin', [plugin, plugin], { [plugin.name]: '1.0.0' }, '重复登记'],
-    ['missing version', [plugin], {}, '精确版本号'],
-    ['extra version', [], { extra: '1.0.0' }, '未登记'],
-    ['invalid package name', [{ ...plugin, name: '../example' }], {}, 'npm 包名'],
-    ['unknown property', [{ ...plugin, email: 'private@example.com' }], {}, '无效字段'],
-    ['blank title', [{ ...plugin, title: ' ' }], {}, '名称或简介'],
-    ['control character', [{ ...plugin, description: 'line\nbreak' }], {}, '名称或简介'],
-    ['missing author', [{ ...plugin, author: undefined }], {}, '作者信息'],
-    ['author email field', [{ ...plugin, author: { name: 'Author', email: 'a@example.com' } }], {}, '作者信息'],
-    ['unsafe author URL', [{ ...plugin, author: { name: 'Author', url: 'javascript:alert(1)' } }], {}, '作者链接'],
-    ['author credentials URL', [{ ...plugin, author: { name: 'Author', url: 'https://user:password@example.com' } }], {}, '作者链接'],
-    ['unsafe repository', [{ ...plugin, repository: 'https://example.com/author/example' }], {}, '仓库链接'],
-    ['repository file path', [{ ...plugin, repository: 'https://github.com/author/example/tree/main' }], {}, '仓库链接'],
-    ['repository git suffix', [{ ...plugin, repository: 'https://github.com/author/example.git' }], {}, '仓库链接'],
-    ['repository trailing newline', [{ ...plugin, repository: 'https://github.com/author/example\n' }], {}, '仓库链接'],
-  ])('rejects inconsistent catalog data: %s', async (_, plugins, versions, reason) => {
-    await expect(fixture(files(plugins, versions)).catalog.load()).rejects.toThrow(reason)
+    ['not an array', {}, '插件数组'],
+    ['duplicate plugin', [plugin, plugin], '重复登记'],
+    ['missing version', [pluginWithoutVersion], '精确版本号'],
+    ['invalid package name', [{ ...plugin, name: '../example' }], 'npm 包名'],
+    ['unknown property', [{ ...plugin, email: 'private@example.com' }], '无效字段'],
+    ['blank title', [{ ...plugin, title: ' ' }], '名称或简介'],
+    ['control character', [{ ...plugin, description: 'line\nbreak' }], '名称或简介'],
+    ['missing author', [{ ...plugin, author: undefined }], '作者信息'],
+    ['author email field', [{ ...plugin, author: { name: 'Author', email: 'a@example.com' } }], '作者信息'],
+    ['unsafe author URL', [{ ...plugin, author: { name: 'Author', url: 'javascript:alert(1)' } }], '作者链接'],
+    ['author credentials URL', [{ ...plugin, author: { name: 'Author', url: 'https://user:password@example.com' } }], '作者链接'],
+    ['unsafe repository', [{ ...plugin, repository: 'https://example.com/author/example' }], '仓库链接'],
+    ['repository file path', [{ ...plugin, repository: 'https://github.com/author/example/tree/main' }], '仓库链接'],
+    ['repository git suffix', [{ ...plugin, repository: 'https://github.com/author/example.git' }], '仓库链接'],
+    ['repository trailing newline', [{ ...plugin, repository: 'https://github.com/author/example\n' }], '仓库链接'],
+  ])('rejects inconsistent catalog data: %s', async (_, plugins, reason) => {
+    await expect(fixture(files(plugins)).catalog.load()).rejects.toThrow(reason)
   })
 
-  it.each(['latest', '^1.0.0', '1.0', 'v1.0.0', '01.0.0', '1.0.0-01', '1.0.0\n'])('rejects non-exact SemVer pins: %s', async version => {
-    await expect(fixture(files([plugin], { [plugin.name]: version })).catalog.load()).rejects.toThrow('精确版本号')
+  it.each([null, 1, false, {}, [], 'latest', '^1.0.0', '1.0', 'v1.0.0', '01.0.0', '1.0.0-01', '1.0.0\n'])('rejects non-exact SemVer pins: %j', async version => {
+    await expect(fixture(files([{ ...plugin, version }])).catalog.load()).rejects.toThrow('精确版本号')
   })
 
   it('accepts exact prerelease and build metadata versions', async () => {
     const version = '1.0.0-beta.1+build.7'
-    expect((await fixture(files([plugin], { [plugin.name]: version })).catalog.load()).get(plugin.name)?.version).toBe(version)
+    expect((await fixture(files([{ ...plugin, version }])).catalog.load()).get(plugin.name)?.version).toBe(version)
   })
 
   it.each([
-    ['missing JSON', files().filter(file => !file.path.endsWith('versions.json')), '缺少'],
+    ['missing JSON', files().filter(file => !file.path.endsWith('plugins.json')), '缺少'],
     ['duplicate JSON', [...files(), files()[1]], '重复文件'],
-    ['invalid JSON', [{ ...files()[1], text: '{' }, files()[2]], 'JSON'],
-    ['invalid UTF-8', [{ ...files()[1], bytes: Buffer.from([0xff]) }, files()[2]], 'UTF-8'],
-    ['directory instead of JSON', [{ ...files()[1], type: '5' }, files()[2]], '普通文件'],
-    ['symlink instead of JSON', [{ ...files()[1], type: '2', text: '' }, files()[2]], '缺少'],
+    ['invalid JSON', [{ ...files()[1], text: '{' }], 'JSON'],
+    ['invalid UTF-8', [{ ...files()[1], bytes: Buffer.from([0xff]) }], 'UTF-8'],
+    ['directory instead of JSON', [{ ...files()[1], type: '5' }], '普通文件'],
+    ['symlink instead of JSON', [{ ...files()[1], type: '2', text: '' }], '缺少'],
     ['unsafe archive path', [...files(), { path: 'package/../plugins.json' }], '无效文件路径'],
   ])('rejects invalid catalog archives: %s', async (_, entries, reason) => {
     await expect(fixture(entries).catalog.load()).rejects.toThrow(reason)
@@ -253,7 +285,7 @@ describe('npm directory catalog', () => {
       { path: 'PaxHeader', type: 'x', text: `${length}${record}` },
       { path: '././@LongLink', type: 'L', text: `${path}\0` },
     ]) {
-      const entries = [prefix, { ...files()[1], path: 'short' }, files()[2]]
+      const entries = [prefix, { ...files()[1], path: 'short' }]
       expect((await fixture(entries).catalog.load()).has(plugin.name)).toBe(true)
     }
   })
@@ -278,7 +310,7 @@ describe('npm directory catalog', () => {
     await expect(state.catalog.load()).rejects.toThrow('下载超过')
     state.publish([], '1.0.1', gzipSync(Buffer.alloc(16 * 1024 * 1024 + 1)))
     await expect(state.catalog.load()).rejects.toThrow('解压后超过')
-    state.publish([{ path: 'package/plugins.json', bytes: Buffer.alloc(4 * 1024 * 1024 + 1) }, files()[2]], '1.0.2')
+    state.publish([{ path: 'package/plugins.json', bytes: Buffer.alloc(4 * 1024 * 1024 + 1) }], '1.0.2')
     await expect(state.catalog.load()).rejects.toThrow('plugins.json 超过')
     state.publish([...files(), ...Array.from({ length: 1024 }, (_, i) => ({ path: `package/file-${i}` }))], '1.0.3')
     await expect(state.catalog.load()).rejects.toThrow('文件数超过')

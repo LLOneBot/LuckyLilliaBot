@@ -64,8 +64,6 @@ jobs:
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* bin/llbot/
           wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O bin/llbot/node.exe
-          wget https://github.com/LLOneBot/exe/releases/latest/download/ffmpeg.exe -O bin/llbot/ffmpeg.exe
-          wget https://github.com/LLOneBot/exe/releases/latest/download/ffprobe.exe -O bin/llbot/ffprobe.exe
           cp ../script/start-native.cmd ./start.cmd
           zip -r ../LuckyLillia-CLI-win-x64.zip ./*
 

@@ -2,12 +2,12 @@ import path from 'node:path'
 import { ActionName } from '../types'
 import { decodeSilk } from '@/common/utils/audio'
 import { BaseAction, Schema } from '../BaseAction'
-import { stat, writeFile } from 'node:fs/promises'
+import { stat, unlink, writeFile } from 'node:fs/promises'
 import { TEMP_DIR } from '@/common/globalVars'
 import { randomUUID } from 'node:crypto'
 import { ChatType } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
-import { isSilk } from 'silk-wasm'
-import ffmpeg from 'fluent-ffmpeg'
+import { isSilk, isWav } from '@/common/utils/audioFormat'
+import { getFFmpegAddon } from '@/common/utils/ffmpeg'
 
 interface Payload {
   file: string
@@ -21,16 +21,6 @@ interface Response {
   file_name: string
   /** The original voice (silk / amr), for a client that cannot read the bot's files */
   url: string
-}
-
-function ffmpegConvert(inputPath: string, outputPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .output(outputPath)
-      .on('end', () => resolve())
-      .on('error', err => reject(err))
-      .run()
-  })
 }
 
 export default class GetRecord extends BaseAction<Payload, Response> {
@@ -60,7 +50,12 @@ export default class GetRecord extends BaseAction<Payload, Response> {
     if (isSilk(audioBytes)) {
       const silkPath = `${tmpBase}.silk`
       await writeFile(silkPath, audioBytes)
-      const decoded = await decodeSilk(this.ctx, silkPath, payload.out_format)
+      let decoded: string
+      try {
+        decoded = await decodeSilk(this.ctx, silkPath, payload.out_format)
+      } finally {
+        await unlink(silkPath).catch(() => {})
+      }
       return {
         file: decoded,
         file_name: path.basename(decoded),
@@ -68,12 +63,26 @@ export default class GetRecord extends BaseAction<Payload, Response> {
         url,
       }
     }
+    // An already matching format can be returned without the optional conversion plugin.
+    if ((payload.out_format === 'amr' && audioBytes.subarray(0, 5).toString('ascii') === '#!AMR') ||
+        (payload.out_format === 'wav' && isWav(audioBytes))) {
+      await writeFile(outPath, audioBytes)
+      return { file: outPath, file_name: path.basename(outPath), file_size: audioBytes.length.toString(), url }
+    }
+    const ffmpeg = getFFmpegAddon()
     // 非 silk（QQ 群语音常见是 amr），直接走 ffmpeg 转码
     const head = audioBytes.subarray(0, 4).toString('ascii')
     const ext = head.startsWith('#!AM') ? 'amr' : 'audio'
-    const inPath = `${tmpBase}.${ext}`
+    const inPath = `${tmpBase}.input.${ext}`
     await writeFile(inPath, audioBytes)
-    await ffmpegConvert(inPath, outPath)
+    try {
+      await ffmpeg.transcodeAudio(inPath, outPath, { format: payload.out_format })
+    } catch (error) {
+      await unlink(outPath).catch(() => {})
+      throw error
+    } finally {
+      await unlink(inPath).catch(() => {})
+    }
     return {
       file: outPath,
       file_name: path.basename(outPath),

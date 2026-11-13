@@ -2,7 +2,8 @@ import React, { useEffect, useId, useState } from 'react'
 import { CheckCircle2, Circle, XCircle } from 'lucide-react'
 import { showToast } from '../common'
 import { DependencyReport, PackageDependencyInfo, PluginStatus } from '../../types/plugins'
-import { getPluginDependencies, setPluginEnabled, TrustRequiredError } from '../../utils/pluginApi'
+import { getPluginDependencies, TrustRequiredError } from '../../utils/pluginApi'
+import { usePluginList } from '../../plugin-host/pluginList'
 import { pluginTitle } from './meta'
 import TrustDialog from './TrustDialog'
 
@@ -65,7 +66,7 @@ const DependencyList: React.FC<DependencyListProps> = ({ plugin, plugins }) => {
     }
     setEnabling(id)
     try {
-      const status = await setPluginEnabled(id, true, trust)
+      const status = await usePluginList.getState().setEnabled(id, true, trust)
       if (status.state === 'failed') showToast(`启用后运行出错：${status.error ?? '未知错误'}`, 'error')
     } catch (e) {
       if (e instanceof TrustRequiredError && !trust) setTrusting(other)

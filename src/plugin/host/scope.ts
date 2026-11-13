@@ -1,4 +1,5 @@
 import type { Place } from '../../universal/bots'
+import { normalizePlatform, normalizePlatformId } from '../../common/platform'
 
 /** A list of ids that either lets through only its members or all but them. */
 export interface IdFilter {
@@ -12,7 +13,7 @@ export interface IdFilter {
  * `bot/before-send` does not see messages to it. Fields left out let everything through.
  */
 export interface EntryScope {
-  /** Only these platforms: `luckylillia` (the QQ account), `qq` (including official guilds) */
+  /** Only these platforms: `ntqq` (the QQ account), `qq` (including official guilds) */
   platforms?: string[]
   /** Only these bots, as `platform:selfId` */
   bots?: string[]
@@ -23,13 +24,13 @@ export interface EntryScope {
   direct?: boolean
 }
 
-const strings = (value: unknown): string[] =>
-  Array.isArray(value) ? [...new Set(value.filter((item): item is string => typeof item === 'string').map(item => item.trim()).filter(Boolean))] : []
+const strings = (value: unknown, normalize: (value: string) => string): string[] =>
+  Array.isArray(value) ? [...new Set(value.filter((item): item is string => typeof item === 'string').map(item => normalize(item.trim())).filter(Boolean))] : []
 
 function normalizeFilter(value: unknown): IdFilter | undefined {
   if (!value || typeof value !== 'object') return
   const { mode, ids } = value as Record<string, unknown>
-  const list = strings(ids)
+  const list = strings(ids, normalizePlatformId)
   if ((mode !== 'allow' && mode !== 'deny') || (mode === 'deny' && !list.length)) return
   return { mode, ids: list }
 }
@@ -39,9 +40,9 @@ export function normalizeScope(value: unknown): EntryScope | undefined {
   if (!value || typeof value !== 'object') return
   const input = value as Record<string, unknown>
   const scope: EntryScope = {}
-  const platforms = strings(input.platforms)
+  const platforms = strings(input.platforms, normalizePlatform)
   if (platforms.length) scope.platforms = platforms
-  const bots = strings(input.bots)
+  const bots = strings(input.bots, normalizePlatformId)
   if (bots.length) scope.bots = bots
   const guilds = normalizeFilter(input.guilds)
   if (guilds) scope.guilds = guilds
@@ -52,7 +53,9 @@ export function normalizeScope(value: unknown): EntryScope | undefined {
 }
 
 function listed(filter: IdFilter, platform: string, ...ids: (string | undefined)[]) {
-  return ids.some(id => id !== undefined && (filter.ids.includes(id) || filter.ids.includes(`${platform}:${id}`)))
+  return ids.some(id => id !== undefined && filter.ids.some(value =>
+    value === id || normalizePlatformId(value) === `${platform}:${id}`,
+  ))
 }
 
 const passes = (filter: IdFilter, found: boolean) => filter.mode === 'allow' ? found : !found
@@ -63,13 +66,14 @@ const passes = (filter: IdFilter, found: boolean) => filter.mode === 'allow' ? f
  */
 export function acceptsScope(scope: EntryScope | undefined, place: Place): boolean {
   if (!scope) return true
-  if (scope.platforms && !scope.platforms.includes(place.platform)) return false
-  if (scope.bots && !scope.bots.includes(`${place.platform}:${place.selfId}`)) return false
+  const platform = normalizePlatform(place.platform)
+  if (scope.platforms && !scope.platforms.some(value => normalizePlatform(value) === platform)) return false
+  if (scope.bots && !scope.bots.some(value => normalizePlatformId(value) === `${platform}:${place.selfId}`)) return false
   if (place.isDirect) {
     if (scope.direct === false) return false
   } else if (scope.guilds && (place.guildId || place.channelId)) {
-    if (!passes(scope.guilds, listed(scope.guilds, place.platform, place.guildId, place.channelId))) return false
+    if (!passes(scope.guilds, listed(scope.guilds, platform, place.guildId, place.channelId))) return false
   }
-  if (scope.users && place.userId && !passes(scope.users, listed(scope.users, place.platform, place.userId))) return false
+  if (scope.users && place.userId && !passes(scope.users, listed(scope.users, platform, place.userId))) return false
   return true
 }

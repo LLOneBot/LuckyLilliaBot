@@ -3,7 +3,7 @@ import { PluginStatus } from '../../types/plugins'
 import { pluginIcon } from './meta'
 
 interface PluginIconProps {
-  plugin: PluginStatus
+  plugin: Pick<PluginStatus, 'iconUrl' | 'manifest'>
   /** Size and corners of the tile */
   className: string
   /** Fill and color of the tile behind a lucide icon; an image gets a quiet fill instead */

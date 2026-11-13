@@ -22,7 +22,7 @@ function waitForRetry(signal: AbortSignal): Promise<void> {
 export async function readQuickLoginList<T extends { ready?: boolean }>(
   request: () => Promise<T>,
   signal: AbortSignal,
-  onWaiting: (waitingForQQ: boolean) => void,
+  onWaiting: (waitingForLoginService: boolean) => void,
 ): Promise<T | undefined> {
   let lastError: unknown
   for (let attempt = 0; attempt < MAX_ATTEMPTS && !signal.aborted; attempt++) {

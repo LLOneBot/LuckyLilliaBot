@@ -95,6 +95,43 @@ describe('PluginService', () => {
     expect(plugins.list()).toHaveLength(1)
   })
 
+  it.each(['scan', 'restart'])('restores retained entries when a local package returns through %s', async mode => {
+    let plugins = await boot()
+    const first = byName('alpha')
+    await plugins.updateConfig(first.id, { n: 7 })
+    await plugins.setScope(first.id, { platforms: ['qq'] })
+    const second = await plugins.add('alpha', { n: 9 })
+    const original = JSON.parse(readFileSync(file, 'utf8')).entries.map((entry: object) => ({ ...entry, disabled: true }))
+    rmSync(path.join(pluginRoot, 'alpha'), { recursive: true })
+    expect(await plugins.removePackage('alpha', { keepConfig: true })).toEqual([first.id, second.id])
+    await plugins.scan()
+    expect(plugins.list()).toEqual([])
+    expect(JSON.parse(readFileSync(file, 'utf8')).retained).toEqual(original)
+    await service!.dispose()
+    plugins = await boot()
+    expect(plugins.list()).toEqual([])
+    writePlugin(pluginRoot, 'alpha', {
+      'index.js': `
+        import Schema from 'schemastery'
+        export const Config = Schema.object({ n: Schema.natural().default(1) })
+        export function apply() { globalThis.__pluginTest.push('restored') }
+      `,
+    })
+    globalThis.__pluginTest = []
+    if (mode === 'scan') await plugins.scan()
+    else {
+      await service!.dispose()
+      plugins = await boot()
+    }
+    expect(plugins.list().map(entry => ({ id: entry.id, disabled: entry.disabled })))
+      .toEqual([{ id: first.id, disabled: true }, { id: second.id, disabled: true }])
+    expect(JSON.parse(readFileSync(file, 'utf8')).entries).toEqual(original)
+    expect(JSON.parse(readFileSync(file, 'utf8')).retained).toBeUndefined()
+    expect((await plugins.describe(first.id)).effective).toEqual({ n: 7 })
+    expect((await plugins.describe(second.id)).effective).toEqual({ n: 9 })
+    expect(globalThis.__pluginTest).toEqual([])
+  })
+
   it('enables, reconfigures and disables an entry', async () => {
     const plugins = await boot()
     const { id } = byName('alpha')
@@ -870,18 +907,21 @@ describe('PluginService details', () => {
     showcase('@scope/shown', {
       version: '2.1.0',
       author: 'Alice <a@b.c> (https://alice.dev)',
+      repository: { type: 'git', url: 'git+https://github.com/example/shown.git' },
       llbot: { icon: 'assets/icon.png', details: 'docs/details.md', screenshots: ['assets/a.png', { src: 'assets/b.gif', caption: '群里' }] },
     }, { 'assets/icon.png': '', 'docs/details.md': '# 介绍', 'assets/a.png': '', 'assets/b.gif': '' })
     showcase('plain', { llbot: { icon: 'timer' } }, {})
     const plugins = await boot()
     expect(byName('@scope/shown')).toMatchObject({
       author: { name: 'Alice', email: 'a@b.c', url: 'https://alice.dev' },
+      repository: 'https://github.com/example/shown',
       iconUrl: '/plugin-assets/@scope+shown/2.1.0/assets/icon.png',
       hasDetails: true,
     })
     expect(byName('plain')).not.toHaveProperty('iconUrl')
     expect(byName('plain')).not.toHaveProperty('hasDetails')
     expect(byName('plain')).not.toHaveProperty('author')
+    expect(byName('plain')).not.toHaveProperty('repository')
 
     const id = byName('@scope/shown').id
     expect(await plugins.details(id)).toEqual({
@@ -911,6 +951,24 @@ describe('PluginService details', () => {
     expect(await plugins.scan()).toEqual({ added: [], changed: [], removed: [] })
     expect(changes).toEqual([undefined])
     expect(byName('edited')).toMatchObject({ manifest: { title: '新名字' }, iconUrl: '/plugin-assets/edited/1.0.0/a.png' })
+  })
+
+  it('publishes repository-only edits without importing or reloading the plugin', async () => {
+    showcase('repository', { repository: 'github:example/old' }, {})
+    const plugins = await boot()
+    const { id } = byName('repository')
+    const changed = vi.fn()
+    ctx.on('plugins/changed', changed)
+    showcase('repository', { repository: { url: 'git+https://github.com/example/new.git' } }, {})
+    expect(await plugins.scan()).toEqual({ added: [], changed: [], removed: [] })
+    expect(changed).toHaveBeenCalledOnce()
+    expect(plugins.get(id)).toMatchObject({ repository: 'https://github.com/example/new', reloadCount: 0 })
+
+    showcase('repository', { repository: 'javascript:alert(1)' }, {})
+    await plugins.scan()
+    expect(changed).toHaveBeenCalledTimes(2)
+    expect(plugins.get(id)).not.toHaveProperty('repository')
+    expect(globalThis.__pluginTest).toEqual([])
   })
 
   it('serves only the images inside a package', async () => {

@@ -46,7 +46,7 @@ export function apply(ctx) {
 
 这个示例直接使用 JavaScript，无需编译。SDK 由宿主提供，插件目录无需执行 `npm install`。若使用源码运行 Bot，环境准备见[准备仓库与 SDK](#准备仓库与-sdk)。
 
-1. 启动 Bot，在 WebUI「插件」中点击「重新扫描」。
+1. 启动 Bot，在 WebUI「插件」的「本地安装」中，点击真实插件目录旁的「扫描」。
 2. 找到「Ping 示例」，完成信任确认并启用。
 3. 用另一个账号向已连接的 Bot 发送 `ping`，应收到 `pong`。官方机器人群聊中发送 `@机器人 ping`。
 
@@ -108,7 +108,7 @@ export function apply(ctx) {
 
 ### 准备仓库与 SDK
 
-当前 `@luckylillia/plugin-sdk` 尚未发布到 npm，推荐在 Bot 仓库中开发。需要 Node.js 22.15 或以上，以及安装好的仓库依赖。仓库使用 Yarn 4 和 `node_modules`；新检出的仓库可先执行：
+`@luckylillia/plugin-sdk` 已发布到 npm，可以在[独立目录中开发](#在仓库外开发)。下面介绍使用 Bot 源码联调的方式：需要 Node.js 22.15 或以上，以及安装好的仓库依赖。仓库使用 Yarn 4 和 `node_modules`；新检出的仓库可先执行：
 
 ```sh
 # Bot 仓库根目录；需要本机已安装 Corepack
@@ -130,7 +130,7 @@ npm run build
 
 默认包名为 `luckylillia-plugin-my-plugin`。脚手架支持 `--name`、`--description`、`--author`，未指定作者时使用 Git 的 user.name。
 
-在已安装根依赖的 Bot 仓库内，**不要再为模板执行 `npm install`**：它会尝试从 npm 下载尚未发布的 SDK。模板直接向上使用仓库的 `node_modules`；脚手架末尾的安装提示适用于 SDK 发布以后。
+在已安装根依赖的 Bot 仓库内，模板可以直接向上使用仓库的 `node_modules`，无需重复执行 `npm install`。在独立目录中开发时，按脚手架提示安装依赖即可。
 
 `data/plugins/` 是默认扫描目录，Bot 的开发监视器也已排除它，修改插件不会因此重启整个 Bot。`data/` 不进入仓库 Git；插件需要独立版本管理时可作为自己的项目管理。
 
@@ -200,7 +200,7 @@ npm run dev
 npm run dev -- --plugin-hmr
 ```
 
-在 WebUI「插件」中点击「重新扫描」，启用新插件并完成信任确认。卡片齿轮可编辑配置、设置生效范围。用已连接的 Bot 发消息验证，错误查看插件卡片和日志页。前端模块随插件启用自动加载，详见[界面加载](#界面加载)。
+在 WebUI「插件」的「本地安装」中，点击真实插件目录旁的「扫描」，然后在「已安装」中启用新插件并完成信任确认。卡片齿轮可编辑配置、设置生效范围。用已连接的 Bot 发消息验证，错误查看插件卡片和日志页。前端模块随插件启用自动加载，详见[界面加载](#界面加载)。
 
 ## 插件基础
 
@@ -285,9 +285,9 @@ Bot 表示一个平台上的一个机器人身份，`ctx.bots` 是可迭代的�
 
 | 字段 | 含义 | 示例 |
 |---|---|---|
-| `platform` | 平台名称 | `luckylillia`、`qq` |
+| `platform` | 平台名称 | `ntqq`、`qq` |
 | `selfId` | 平台上的机器人 ID | 普通 QQ 号、官方 AppID |
-| `sid` | `platform:selfId`，集合唯一键 | `luckylillia:12345`、`qq:100001` |
+| `sid` | `platform:selfId`，集合唯一键 | `ntqq:12345`、`qq:100001` |
 | `user` | Bot 自身用户资料，可缺省 | `name`、`avatar` |
 | `status` | 当前状态 | `Status.ONLINE` |
 | `features` | 原生能力列表 | `message.markdown` |
@@ -429,7 +429,7 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 
 #### 生效范围和处理顺序
 
-用户在 **「插件」→「消息处理」** 用上下箭头排序，点击 **「保存顺序」** 后立即生效，无需重启。插件 1 在插件 2 前面，且插件 1 调用了 `next`，插件 2 才能收到。
+用户打开独立的 **「消息处理顺序」** 设置页（`#message-order`，由内置插件 `builtin:message-order` 提供），用上下箭头排序，点击 **「保存顺序」** 后立即生效，无需重启。插件 1 在插件 2 前面，且插件 1 调用了 `next`，插件 2 才能收到。
 
 显式排序的插件优先，未排序监听器按注册先后排在后面。`ctx.on(..., { prepend: true })` 只调整未排序部分，不能覆盖用户排序。列表显示实际注册消息监听器的插件。
 
@@ -485,7 +485,7 @@ action 返回的字符串或元素会发送到触发会话；也可自行 send �
 
 #### 权限、冷却和菜单
 
-- authority 声明插件的默认权限，省略时为 everyone；admin 允许群主、管理员和主人；owner 只允许「指令」设置中的主人。主人写成平台:用户ID 时限定平台，裸 ID 匹配所有平台。
+- authority 声明插件的默认权限，省略时为 everyone；admin 允许群主、管理员和主人；owner 只允许「指令」设置中的主人。在「指令」页的主人列表中，每行选择平台并填写用户 ID，可以添加、删除。NTQQ 填 QQ 号，QQ 官方机器人填用户 openid；选「全部平台」时匹配所有平台上的该 ID。配置仍存为 `owners: string[]`，如 `ntqq:12345`、`qq:用户openid`，裸 ID 表示全部平台；已有 `luckylillia:` 前缀会按 `ntqq:` 处理。
 - 用户可在「指令」页的“谁能用”中覆盖每条指令的权限，保存后立即生效，选择“默认”恢复插件声明。权限按插件条目和指令原名保存，原名及所有别名共用，同名的其他插件指令不受影响。`ctx.commands.list()` 的 `authority` 是生效权限，`defaultAuthority` 是插件默认权限。
 - cooldown 单位毫秒，当前按“指令名 + 平台 + 用户 ID”记录，同一用户跨群调用同名指令也共享冷却，并非每频道或每 Bot 独立。
 - hidden: true 不同步到平台菜单，不禁用指令，也不从指令管理页隐藏。
@@ -560,7 +560,7 @@ global 表示当前 Bot 实例内该插件的共享目录，不是整台机器�
 
 `dir('bot', sid)` 接受未注册的 `sid`，因此它是身份分区，不是登录检查。官方机器人的群聊、单聊和频道共用同一 `qq:<AppID>` 目录；插件需要按会话分区时使用带命名空间的 `channelId`。
 
-**旧 NT 插件数据兼容：** 若 `bots/luckylillia+<QQ号>/` 尚不存在，而原来的 `<包键>/<QQ号>/` 已存在，按 Bot 取目录时会沿用旧目录，不移动或覆盖文件。新旧目录同时存在时优先新目录，旧目录原样保留。插件始终以返回路径为准，不自行拼路径。
+**旧 NT 插件数据兼容：** 优先使用 `bots/ntqq+<QQ号>/`，不存在时依次沿用 `bots/luckylillia+<QQ号>/`、更早的 `<包键>/<QQ号>/`。旧 `luckylillia:<QQ号>` 入参也归一到这套路径。不会移动、合并或删除原文件，多个目录同时存在时仍按上述顺序选择。插件始终以返回路径为准，不自行拼路径。
 
 `ctx.baseUrl` 指向共享目录的 file URL，供按 URL 解析相对路径的生态插件使用。应在 `apply` 或构造阶段读取：服务方法中的 Context 可能是调用方；`ctx.storage` 按定义代码的插件定位，不会误用调用方的数据目录。
 
@@ -726,7 +726,7 @@ ctx.on('bot/fallback', (bot, channelId, element) => {
 
 #### 账号与资源 ID
 
-NTQQ 的 `platform` 为 `luckylillia`，提供普通 QQ 身份；官方机器人的 `platform` 为 `qq`，每个 AppID 只提供 `qq:<AppID>` 一个 Bot，统一承载群聊、单聊和频道。频道资源 ID 带 `qqguild:` 前缀，与群聊的数据空间隔离；它不是单独的 Bot 或平台。中立层允许同平台不同 `selfId`；可配置的账号数量由具体消息源插件决定。
+NTQQ 的 `platform` 为 `ntqq`，提供普通 QQ 身份；官方机器人的 `platform` 为 `qq`，每个 AppID 只提供 `qq:<AppID>` 一个 Bot，统一承载群聊、单聊和频道。频道资源 ID 带 `qqguild:` 前缀，与群聊的数据空间隔离；它不是单独的 Bot 或平台。中立层允许同平台不同 `selfId`；可配置的账号数量由具体消息源插件决定。
 
 官方机器人的 ID 约定如下，Bot 方法和会话使用同一套 ID：
 
@@ -748,7 +748,7 @@ OneBot、Milky、Satori 是对外传输协议，多开一个连接不等于多�
 - 官方群通常投递 @ Bot 的消息；全量群消息需要相应权限和订阅条件。匹配指令统一用 `stripped.content`，不假设原始内容以指令文本开头。
 - 当前被动回复记账采用群消息 5 分钟 5 条、单聊 60 分钟 4 条，实际以平台响应为准。流式另有处理。没有可用被动目标时可能转主动发送，主动发送受每用户或群每月 4 条等限制和授权约束。`message.proactive` 不代表无限额度。
 - send/reply 优先带回触发事件的 `referrer`；延时任务仍可能超过有效期，应处理失败。
-- qq:ark24、qq:markdown、qq:rawmarkdown 等是平台专有元素；NT 商城表情和原始卡片是 luckylillia:market-face、luckylillia:ark。其它平台通常仅保留其子内容，不保证原样转发。
+- qq:ark24、qq:markdown、qq:rawmarkdown 等是平台专有元素；NT 商城表情和原始卡片是 ntqq:market-face、ntqq:ark。其它平台通常仅保留其子内容，不保证原样转发。
 - 收到的 QQ 表情可转换为 face，NT 收到官方 markdown/按钮也会解为扩展元素，原始 ark 保留平台前缀。
 
 具体事件、权限、媒体、菜单和格式见 [QQ 官方机器人](official-qq-bot.md)。
@@ -787,7 +787,7 @@ if (session.guildId && session.userId && session.bot.muteGuildMember) {
 ```ts
 import { internalOf } from '@luckylillia/plugin-sdk'
 
-const internal = internalOf(session.bot, 'luckylillia')
+const internal = internalOf(session.bot, 'ntqq')
 if (internal && session.guildId && session.userId) {
   await internal.setGroupCard({
     group_id: session.guildId,
@@ -894,6 +894,10 @@ export default class Greetings extends Service {
 清单声明 `"implements": ["greetings"]`，可用 `"labels": { "greetings": "问候服务" }` 提供面向用户的名称。消费者导入对应类型后 `inject` greetings，调用 `ctx`.greetings.greet('小明')。
 
 同一服务域不能注册同名服务。两个启用条目提供同名服务时，WebUI 提示冲突，后注册者可能失败。服务需要多实例时，应设计服务域或自己的实例 API，不能仅复制同名提供者。
+
+### 可选媒体转换
+
+安装并启用 `lucky-lillia-plugin-ffmpeg` 后可以使用 `ctx.ffmpeg`：`probe()` 读取媒体信息、`decodeAudio()` / `encodeAudio()` / `transcodeAudio()` 转换音频、`thumbnail()` 生成 PNG 封面。SDK 导出对应的 `FFmpegAPI`、`FFmpegAudioFormat` 和 `FFmpegMediaInfo` 类型。Bot 不内置这个插件；只有媒体功能需要时，用局部 `ctx.inject(['ffmpeg'], ...)` 挂载这部分，并在不可用时给用户安装提示或使用自己的 fallback。插件全部功能都依赖转换时才放入顶层 `inject` 和必需依赖。完整行为与工程布局见 [native-ffmpeg.md](native-ffmpeg.md)。
 
 ### 使用外部 AI 服务
 
@@ -1129,8 +1133,10 @@ export default function apply(ctx) {
 
 | 插槽 | 基数 | 组件收到的 props | 选项及外框 |
 |---|---|---|---|
-| `plugins.toolbar` | `list` | 无 | 「重新扫描」旁的按钮 |
-| `plugins.views` | `list` | 无 | 必需 `title`、可选 `badge` 组件，在插件页新增标签 |
+| `plugins.toolbar` | `list` | 无 | 统一插件页筛选栏的附加工具按钮 |
+| `plugins.views` | `list` | `PluginsViewProps`：`{ configAction, showDetails }` | 必需 `title`，以紧凑工具按钮打开独立视图，可返回统一列表 |
+| `plugins.catalog` | `list` | `PluginCatalogProps`：`{ loadCatalog, onChange }` | 提供目录数据和包操作，组件不绘制界面 |
+| `plugins.install` | `list` | `{ onInstalled }` | 宿主本地安装弹框内的上传控件 |
 | `plugins.card.actions` | `list` | `{ plugin }` | 每张卡片的附加按钮，组件自行筛选目标 |
 | `dashboard.cards` | `list` | 无 | `title`、`icon`、`size`；Dashboard 绘制卡片和标题 |
 | `dashboard.header` | `single` | 无 | 替换 Dashboard 标题 |
@@ -1139,6 +1145,16 @@ export default function apply(ctx) {
 | `webqq.message.bubble` | `chain` | `{ message, next }` | 包装整个消息气泡 |
 
 Dashboard 的 `size` 可为 `normal`、`wide`、`full`，约占三分之一、三分之二或整行；同行剩余空间按比例分配。卡片和标题由 Dashboard 绘制，贡献组件只画内部内容。插件管理页只开放追加位置，没有替换管理功能的入口。
+
+`plugins.catalog` 为统一插件列表提供数据，组件返回 `null`。`loadCatalog` 仅在用户浏览「未安装」或「全部插件」时为真；提供者应按需获取目录，在 effect 中调用 `onChange(state)` 发布 `PluginCatalogState`，卸载时调用 `onChange(null)`。快照包含目录 `items`、已安装包 `installed`、更新信息 `updates`、各自的加载/错误状态、`busy`，以及 `retry()`、`refresh()`、`install(name, version)`、`update(name)`、`uninstall(name, options?: { keepConfig?: boolean })`；三个包操作返回 `Promise<boolean>`。宿主卸载弹框默认勾选「保留配置」，确认时显式传入 `keepConfig`；省略该选项按 `false` 处理。`PluginCatalogItem` 继承详情元数据，另含精确 `version`、可选 `category`、`repository` 和内置条目名 `builtin`。宿主负责合并本地条目、包与目录、去除重复包、筛选、分页、卡片和详情；默认已安装列表不等待目录网络。
+
+`plugins.install` 的组件始终显示在「本地安装」弹框的真实目录与扫描按钮下方，不再使用上传/扫描标签切换。成功后调用 `onInstalled()`，由宿主刷新列表、清空全部筛选并回到「已安装」。实际目录由宿主接口读取，扫描也由宿主提供；市场停用时仍可查看目录和扫描。
+
+`plugins.views` 的 `configAction(id)` 接收插件条目 ID，返回 `{ open(): void; label: string }` 或 `undefined`。可以从 `usePlugins()` 取得条目，使用返回的 `label` 绘制按钮，点击时调用 `open()`，由宿主打开与插件列表齿轮相同的配置弹框或设置页；没有动作时隐藏按钮。同包多实例应先让用户选择条目 ID，不能把 npm 包名当作 ID。`PluginsViewProps` 类型从 `@luckylillia/plugin-sdk/webui` 导入。
+
+`showDetails(source)` 打开与插件列表 Info 相同的详情弹框，也可展示未安装的包。`source` 使用 SDK 的 `PluginDetailsSource`：必填 `name`、`title`，可选 `version`、`description`、`author`、`icon`、`iconUrl`、`screenshots` 和异步 `load()`。`title` 和作者等信息固定在弹框顶部，不随正文滚动；其下始终先显示 `description` 简介，再显示截图。简介立即展示，不等待详情加载。不提供 `load()` 时直接复用已有元数据，未安装卡片使用目录中的内容，不显示加载动画。需要另行读取详情时，`load()` 返回 `PluginDetailsContent`：`{ markdown?, base, screenshots }`，其中 `base` 是 Markdown 相对图片路径的 URL 基准目录，带结尾斜杠；无 Markdown 时可用空字符串。宿主负责异步加载状态、失败提示与重试，以及图片放大；非空 Markdown 保留在截图之后默认折叠的「完整说明」中，用户点击展开，不替换简介。若 Markdown 的第一个内容块是一级标题，详情中省略该块，避免重复显示主标题；后续标题和其他内容保留。
+
+`PluginMetaRow` 从 `@luckylillia/plugin-sdk/webui` 导入，可复用宿主卡片的元数据行。必填 `title`，可选 `category`、`author: { name, url? }`、`packageName`、`repository`、`className`；分类使用 `llbot.category` 的分类值，缺省显示「其他」，省略包名或仓库地址则隐藏对应链接。通过 `children` 添加紧跟包/仓库链接的内容，例如 Info 按钮；链接与附加内容组成不拆行的一组。组件只展示传入的数据，不发起请求。
 
 #### 贡献的标识、顺序与错误处理
 
@@ -1310,17 +1326,17 @@ npx tsx watch --exclude "./data/**" --exclude "/path/to/plugins/**" src/main/mai
 
 #### 在仓库外开发
 
-在仓库外开发时，先将 SDK 开发依赖指向本地已构建的 SDK，再安装：
+可以直接使用 npm 上的 SDK 和脚手架，无需克隆 Bot 仓库：
 
 ```sh
-node <Bot仓库>/packages/plugin-sdk/bin/luckylillia-plugin.mjs create my-plugin
+npx -p @luckylillia/plugin-sdk luckylillia-plugin create my-plugin
 cd my-plugin
-npm pkg set "devDependencies.@luckylillia/plugin-sdk=file:<Bot仓库>/packages/plugin-sdk"
 npm install
+npm run build
 npm test
 ```
 
-将 `<Bot仓库>` 替换为实际路径，含空格时给参数加引号。保留 `peerDependencies` 中的 SDK 兼容版本；file 路径仅用于本地开发依赖。
+需要联调尚未发布的 SDK 源码时，先在 Bot 仓库运行 `npm run build:sdk`，再将插件的 `devDependencies.@luckylillia/plugin-sdk` 改为 `file:<Bot仓库>/packages/plugin-sdk` 并重新安装依赖。将 `<Bot仓库>` 替换为实际路径，含空格时给参数加引号。保留 `peerDependencies` 中的 SDK 兼容版本；file 路径仅用于本地开发依赖。
 
 ### 测试
 
@@ -1459,7 +1475,7 @@ my-plugin/
   "peerDependencies": { "@luckylillia/plugin-sdk": "^1.0.0" },
   "llbot": {
     "title": { "zh": "问候示例", "en": "Greeting example" },
-    "description": { "zh": "演示配置、指令和跨平台消息" },
+    "description": "演示配置、指令和跨平台消息",
     "category": "chat",
     "icon": "assets/icon.png",
     "details": "docs/details.md",
@@ -1481,7 +1497,7 @@ my-plugin/
 
 #### 分类
 
-`llbot.category` 决定插件在 WebUI 中的分类：
+`llbot.category` 决定安装后的插件在 WebUI「插件列表」中的分类：
 
 | 值 | WebUI 分类 | 用途 |
 |---|---|---|
@@ -1494,23 +1510,31 @@ my-plugin/
 
 分类按表中顺序显示。未知值记录警告并归入「其他」，插件仍可加载。
 
+市场使用登记时选择并保存在目录中的 `category`，分类值和顺序与上表一致。统一插件列表支持分类筛选，卡片显示分类标签；旧目录未填写分类时归入「其他」。目录中的未知分类会使目录校验失败，建议登记选择与包内 `llbot.category` 保持一致。
+
 #### 名字、作者、图标和详情
 
 ##### 名字与作者
 
-`llbot.title` 是卡片、配置弹窗和详情中显示的名字，支持字符串或语言映射，WebUI 使用中文。未设置时取去掉插件前缀的包名。`llbot.description` 同样支持多语言。
+`llbot.title` 是卡片、配置弹窗和详情中显示的名字，支持字符串或语言映射，WebUI 使用中文。未设置时取去掉插件前缀的包名。
 
-包顶层的 `author` 支持 npm 的字符串 `名字 <邮箱> (https://主页)`，也支持对象 `{ name, email, url }`。作者显示在版本号后和详情中，仅为 HTTP(S) URL 生成链接。
+`llbot.description` 可以直接填写字符串，例如 `"description": "自动回复消息"`，脚手架默认使用这种写法。需要多语言时，也支持 `{ "zh": "自动回复消息", "en": "Auto-reply to messages" }`。未填写时使用包顶层的 `description`。
+
+包顶层的 `author` 支持 npm 的字符串 `名字 <邮箱> (https://主页)`，也支持对象 `{ name, email, url }`。作者显示在卡片元数据行和详情中，仅为 HTTP(S) URL 生成链接。
+
+插件页使用「已安装」（默认）/「未安装」/「全部插件」切换统一列表，所有项共用同一种卡片及元数据行，依次显示分类、作者、npm 和仓库链接。已安装插件的仓库地址来自包顶层 `repository`，规范化为 HTTP(S) 网页地址；无法转换时隐藏链接。未安装项使用目录中的元数据，打开详情不另行请求市场。Info 紧挨 GitHub/仓库图标，与包链接成组，手机换行不拆开；操作行依次排列设置、重载和卸载按钮；同包多个实例分别显示卡片，配置直接对应各自条目。Info 始终提供，未安装或没有配置入口时隐藏齿轮。
 
 ##### 图标与详情素材
 
 | 字段 | 支持的内容 | 显示方式 |
 |---|---|---|
 | `llbot.icon` | 支持的 lucide 图标名，或包内 `.png`、`.jpg`、`.jpeg`、`.gif`、`.webp`、`.svg` 图片 | 建议图片为正方形、至少 96px；裁切填满圆角方块，插件未运行时变灰 |
-| `llbot.details` | 包内 Markdown 路径 | 与 `screenshots` 任一存在时增加「详情」入口 |
-| `llbot.screenshots` | 路径或 `{ src, caption }` 组成的数组 | 详情中先显示说明和演示图片，再显示 Markdown；图片可放大查看 |
+| `llbot.details` | 包内 Markdown 路径 | 在详情的「完整说明」中展示，默认折叠；Info 入口不依赖此字段 |
+| `llbot.screenshots` | 路径或 `{ src, caption }` 组成的数组 | 在简介之后显示演示图片及其说明；图片可放大查看，Markdown 位于其后的「完整说明」中，默认折叠 |
 
 详情 Markdown 支持标题、段落、列表、表格、代码、引用和图片，保留段落内换行，不执行 HTML。链接支持 HTTP(S) 和 `mailto`；图片支持相对 Markdown 的包内路径及 HTTP(S) URL。
+
+统一插件卡片始终提供 Info，使用同一个详情弹框。未声明 `llbot.details` 和 `llbot.screenshots` 时，列表直接展示已有元数据，不发详情请求。主标题使用 `llbot.title`（未安装项使用目录的 `title`），与作者等信息固定在弹框顶部，不随正文滚动；其下依次显示 `description` 简介、截图。简介立即展示，不等待详情加载。插件列表读取已安装包中 `llbot.details` 指定的 Markdown（如 README），非空正文放在截图之后默认折叠的「完整说明」中，用户点击展开。若 Markdown 的第一个内容块是一级标题，详情中省略该块，避免在正文中重复显示主标题；后续标题、二级及以下标题和其他内容保留，源文件不变。本地详情读取失败时可重试。未安装项直接展示已有目录数据中的简介和截图，不额外请求详情或远端 README。点击演示图片或 Markdown 图片均可放大查看。
 
 素材必须已经存在于包中，路径不能越界。文件缺失或类型错误会记录警告并忽略该项。发布时将素材目录加入 `files`。安装前的市场展示还有独立字段，见[市场图标和预览图](#市场图标和预览图)。
 
@@ -1524,7 +1548,7 @@ my-plugin/
 bell              book            book-open       bot         brain       calendar    clock
 cloud             code            cpu             database    dice-5      file-text   gamepad-2
 gift              globe           hand            heart       image       info        languages
-layout-dashboard  mail            message-square  milk        music       network     puzzle
+layout-dashboard  mail            message-square  messages-square  milk    music       network     puzzle
 radio             repeat          scroll-text     search      send        settings    shield-ban
 sliders           smartphone      smile           sparkles    star        store       terminal
 timer             trophy          users           wrench      zap
@@ -1577,10 +1601,12 @@ npm pack --dry-run
 默认市场从 npm 包 `@luckylillia/market` 读取目录。要让插件出现在 Bot 的市场中：
 
 1. 完成[产物检查](#检查发布产物)，将插件发布到 npm。
-2. 到 [LuckyLillia.Market](https://github.com/LLOneBot/LuckyLillia.Market) 创建「注册插件」Issue，提交 npm 包名。登记检查会从发布包读取 `llbot`、标题、简介、作者和公开 GitHub 仓库地址。
+2. 到 [LuckyLillia.Market](https://github.com/LuckyLilliaDev/LuckyLillia.Market) 创建「注册插件」Issue，提交 npm 包名并选择插件分类。分类选项与上文 `llbot.category` 的六个值一致；目录按登记选择保存 `category`，自动更新版本时保留，建议与包内声明保持一致。登记检查会从发布包读取 `llbot`、标题、简介、作者和公开 GitHub 仓库地址。
 3. 检查通过后生成登记 PR。维护者合并并发布目录包后，用户才能在 Bot 市场中搜索到插件。
 
-目录的 `plugins.json` 保存展示信息，`versions.json` 保存通过检查的精确版本。更新插件时也要推进目录版本；只发布新的 npm 版本不会让 Bot 提示更新。
+目录的 `plugins.json` 统一保存展示信息和通过检查的精确版本，每个插件条目的 `version` 必须是完整版本号，不能填写 `latest` 或版本范围。Bot 不再读取旧的 `versions.json`。更新插件时也要推进目录版本；只发布新的 npm 版本不会让 Bot 提示更新。
+
+用户在统一插件列表中组合安装状态、来源、关键词和分类筛选。分类标签显示当前筛选结果的各类数量，分类行的「全部」显示总数；修改搜索或筛选回到第一页，每页最多 12 项。分类筛选只影响浏览，不改变安装版本或依赖检查。
 
 #### 市场图标和预览图
 
@@ -1590,7 +1616,9 @@ npm pack --dry-run
 
 使用包内图片时，目录只保存路径，不包含图片文件。Bot 按插件包名和目录的精确版本拼接 jsDelivr 地址，并对文件名各段编码，因此图片必须包含在对应 npm 版本的发布产物中。
 
-没有图片时可以省略字段，也可填写 `icon: ""`、`screenshots: []`。图标缺省或加载失败时显示默认图标；预览图在打开预览后加载并保留说明。旧目录的 `examples` URL 数组仍兼容。
+没有图片时可以省略字段，也可填写 `icon: ""`、`screenshots: []`。图标缺省或加载失败时显示默认图标；旧目录的 `examples` URL 数组仍兼容。
+
+未安装卡片的 Info 入口始终可用，没有截图也可查看介绍。弹框直接展示已加载目录中的元数据、简介和截图，打开时不再请求详情或 npm 清单，也不下载远端 README。图片仍按目录中记录的地址正常加载；包内图片使用目录指定的精确 npm 版本生成 jsDelivr URL，点击可放大查看。
 
 #### 市场兼容性
 
@@ -1630,27 +1658,29 @@ npm pack --dry-run
 
 只有目录版本高于已装版本且兼容时，市场才提供更新；本地开发链接不由市场更新。更新会替换整个插件包，并重载已启用的条目。
 
-「插件市场」的已安装列表可手动「检查更新」，也可仅查看可更新的插件；页面打开期间每 10 分钟检查，切回页面时补查过期结果。只有点击「更新到」才安装。更新请求同时锁定当前版本和目标版本，如果另一窗口已更新或目录版本已变化，会提示刷新后重试，避免覆盖或降级。
+「插件」统一筛选栏可手动「检查更新」，也可勾选「只看可更新」；页面打开期间每 10 分钟检查，切回页面时补查过期结果。只有点击卡片上的「更新」才安装。更新请求同时锁定当前版本和目标版本，如果另一窗口已更新或目录版本已变化，会提示刷新后重试，避免覆盖或降级。
 
-市场提供「全部 / 内置插件 / 第三方插件」来源标签，市场目录与已安装列表共用筛选，可继续按名称搜索或只看可更新的插件。来源按宿主登记的官方内置包名判断，与作者自行填写的分类无关。
+统一筛选栏依次排列安装、来源、状态和分类四行，使用相同的紧凑点击标签，左侧行名对齐。来源可选「全部 / 内置插件 / 第三方插件」，状态可选「全部 / 已启用 / 未启用 / 需要处理」；搜索框在整个筛选区底部，旁边是「只看可更新」。未安装模式隐藏状态行和更新筛选。进入页面默认显示已安装条目，无需等待目录网络；浏览未安装或全部插件时才加载完整市场目录，随后在本地统一筛选和分页。内置身份按宿主登记的官方包映射判断，与作者填写的分类无关。
+
+已安装且有配置入口的条目直接在统一卡片中打开设置。停用的第三方插件也能配置，无需先启用；同包多个实例分别保留各自卡片，齿轮打开对应条目的配置。尚未安装或没有本地条目的包不显示设置入口。
 
 Bot 随附的官方内置插件也有独立的 npm 包名和版本，参与同一套检查更新。它们更新后需要重启 Bot，界面显示已下载版本及当前运行版本；原有条目和配置保留，不能卸载或用本地压缩包覆盖。普通插件不应使用内置包的保留名称或声明 `llbot.builtin`。
 
-插件从目录移除后，已安装的包会保留；检查更新时说明无法从市场更新。卸载会删除条目、配置、信任和界面布局偏好，但保留数据目录。
+插件从目录移除后，已安装的包会保留，卡片不再显示不在市场目录中的常规提示；兼容性问题、请求失败和更新未加载等实际错误仍保留。点击卸载会打开独立确认弹框，默认勾选「保留配置」；确认后删除插件文件并从已安装列表移除全部条目。保留时，重新安装会恢复各条目的配置和生效范围，全部保持停用，启用需重新信任；取消勾选则删除配置。两种选择都会清除信任、消息处理顺序和界面布局偏好，保留插件数据目录；取消弹框不发卸载请求。
 
 #### 从本地压缩包安装
 
-在 WebUI 的「插件市场」点击「从本地安装」，选择电脑上的 ZIP、`.tgz` 或 `.tar.gz`。先构建插件，再用 `npm pack` 生成 npm 包（文件位于 `package/` 下），或把 `package.json`、构建产物和素材直接压成 ZIP；ZIP 顶层就是 `package.json`，不要再套一层文件夹。包内需有有效的 `name`、完整 `version`、`llbot` 和入口文件。
+在 WebUI「插件」筛选栏右侧点击「本地安装」，直接在目录下方的上传区域选择或拖入电脑上的 ZIP、`.tgz` 或 `.tar.gz`，不需要切换标签。先构建插件，再用 `npm pack` 生成 npm 包（文件位于 `package/` 下），或把 `package.json`、构建产物和素材直接压成 ZIP；ZIP 顶层就是 `package.json`，不要再套一层文件夹。包内需有有效的 `name`、完整 `version`、`llbot` 和入口文件。
 
-确认风险提示后才上传安装。本地包不受市场收录和目录版本限制，但仍检查 SDK 兼容性并按上述规则处理依赖；缺少的插件依赖只能从市场目录补装。没有待补装的插件依赖时，不需要访问市场目录。支持随包提供 `bundleDependencies`，不执行安装脚本。
+选择或拖入文件后，在同一弹框勾选信任确认，再点击「安装插件」上传；无需打开第二层确认框。本地包不受市场收录和目录版本限制，但仍检查 SDK 兼容性并按上述规则处理依赖；缺少的插件依赖只能从市场目录补装。没有待补装的插件依赖时，不需要访问市场目录。支持随包提供 `bundleDependencies`，不执行安装脚本。
 
-同名包会替换市场管理目录里的旧版本，已启用的条目会尝试重载；开发目录和链接不被覆盖。新装插件默认停用，仍需在「插件列表」里信任并启用。上传和解压都流式写入磁盘，不设固定的文件大小、解压总量或条目数上限；请确保 Bot 所在磁盘有足够空间容纳压缩包和解压后的文件。
+同名包会替换市场管理目录里的旧版本，已启用的条目会尝试重载；开发目录和链接不被覆盖。新装插件默认停用，仍需在「已安装」中信任并启用。上传和解压都流式写入磁盘，不设固定的文件大小、解压总量或条目数上限；请确保 Bot 所在磁盘有足够空间容纳压缩包和解压后的文件。
 
-#### 手动安装与脚手架发布后的用法
+#### 手动安装与脚手架
 
-手动安装时，将完整插件包放进 `data/plugins/`，允许一层 npm scope 目录。包中需要清单、构建产物和运行时依赖，不能只复制入口源码。重新扫描后启用。
+手动安装时，将完整插件包放进 Bot 的插件目录（默认 `data/plugins/`，以「本地安装」弹框显示的实际绝对路径为准），允许一层 npm scope 目录。包中需要清单、构建产物和运行时依赖，不能只复制入口源码。点击目录旁的「扫描」，成功后清空全部筛选并返回「已安装」，再启用新插件；目录查询和扫描均不依赖市场插件。
 
-**当前 SDK 尚未发布，创建插件仍使用[开发流程](#开发流程)中的本地方式。** SDK 发布后，才可在任意目录使用下面的命令：
+SDK 已发布，可在任意独立目录使用下面的命令创建插件：
 
 ```sh
 npx -p @luckylillia/plugin-sdk luckylillia-plugin create my-plugin
@@ -1684,10 +1714,9 @@ npm test
 ## 示例与参考
 
 - [SDK 导出](../packages/plugin-sdk/src/index.ts)、[消息类型](../packages/plugin-sdk/src/universal.ts)、[指令](../packages/plugin-sdk/src/commands.ts)、[WebUI](../packages/plugin-sdk/src/webui.ts)、[测试类型](../packages/plugin-sdk/src/testing.ts)
-- [echo](../examples/plugins/echo/src/index.ts)：最小中间件；[hello](../examples/plugins/hello/src/index.ts)：定时器与重载
-- [keyword-reply](../examples/plugins/keyword-reply/src/index.ts)：规则表格、配置联合、数据库、对外 webhook
-- [blocklist](../examples/plugins/blocklist/src/index.ts)：消费消息和 prepend
-- [custom-config](../examples/plugins/custom-config/webui/index.js)：配置编辑器；[webui-demo](../examples/plugins/webui-demo/webui/index.js)：页面、字段与多种插槽
+- [最小可运行插件](#最小可运行插件)、[带配置和指令的示例](#带配置和指令的示例)：完整源码与开发流程
+- [WebUI 扩展](#扩展-webui)：自定义配置界面、页面、字段与插槽
+- [echo 测试夹具](../test/fixtures/plugins/echo/src/index.ts)、[hello 测试夹具](../test/fixtures/plugins/hello/src/index.ts)：消息中间件、定时器与热重载验证
 - [AI 插件文档](ai-plugins.md)：共享 AI 服务和消费者
 
 加载、作用域、路由等宿主细节见 [插件系统](plugin-system.md)。普通插件通过 SDK 使用能力，不直接导入 Bot 仓库内部实现。

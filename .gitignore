@@ -10,6 +10,7 @@ package-lock.json
 node_modules
 dist
 out
+/output/
 data
 *.tsbuildinfo
 
@@ -35,4 +36,4 @@ test/fixtures/pmhq-flash/
 
 # plugin SDK build output
 packages/*/lib/
-examples/plugins/*/lib/
+test/fixtures/plugins/*/lib/

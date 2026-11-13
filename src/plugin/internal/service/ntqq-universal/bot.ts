@@ -15,7 +15,7 @@ import type { NormalizeHost, SatoriEvent } from '../../../../universal/types'
  */
 export class NTQQBot implements Bot, NormalizeHost {
   // Satori clients see `llonebot`, the name from before: the Satori adapter renames it on the way out
-  readonly platform = 'luckylillia'
+  readonly platform = 'ntqq'
   readonly selfId: string
   readonly sid: string
   // An account cannot send markdown or buttons; link cards it could, signed, but nothing builds them yet

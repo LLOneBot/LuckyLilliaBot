@@ -116,8 +116,10 @@ export const useRegistry = create<RegistryState>((set, get) => ({
 // The shell's and the plugin page's, here so that they exist before any plugin registers into them. The plugin page
 // only takes additions: it is how the user keeps plugins in check
 const SHELL_SLOTS: Omit<SlotDeclaration, 'kind' | 'owner'>[] = [
-  { name: 'plugins.toolbar', title: '插件页按钮', description: '插件页顶部「重新扫描」旁边的按钮', cardinality: 'list' },
-  { name: 'plugins.views', title: '插件页视图', description: '插件页「插件列表」旁边多出来的一页，比如插件市场', cardinality: 'list' },
+  { name: 'plugins.toolbar', title: '插件页按钮', description: '插件页筛选栏中的操作按钮', cardinality: 'list' },
+  { name: 'plugins.views', title: '插件页视图', description: '插件页的扩展视图入口', cardinality: 'list' },
+  { name: 'plugins.catalog', title: '插件目录', description: '统一插件列表的目录数据和安装操作', cardinality: 'list' },
+  { name: 'plugins.install', title: '本地安装', description: '本地安装弹框中的上传入口', cardinality: 'list' },
   { name: 'plugins.card.actions', title: '插件卡片按钮', description: '插件页每张卡片上的按钮，排在卡片自己的前面', cardinality: 'list' },
 ]
 for (const slot of SHELL_SLOTS) useRegistry.getState().add({ kind: 'declaration', owner: WEBUI, ...slot })

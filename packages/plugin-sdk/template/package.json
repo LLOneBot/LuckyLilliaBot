@@ -30,9 +30,7 @@
     "vitest": "^4.1.11"
   },
   "llbot": {
-    "description": {
-      "zh": "{{description}}"
-    },
+    "description": "{{description}}",
     "category": "chat",
     "icon": "puzzle",
     "service": {

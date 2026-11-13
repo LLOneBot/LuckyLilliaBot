@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "tsx watch --exclude \"./data/**\" --exclude \"./examples/**\" --exclude \"../LuckyLillia.Plugins/**\" src/main/main.ts",
+    "dev": "tsx watch --exclude \"./data/**\" --exclude \"../LuckyLillia.Plugins/**\" src/main/main.ts",
     "build": "npm run build:sdk && npm run build:builtins && vite build",
     "build:builtins": "node scripts/sync-builtin-manifests.mjs --check && node scripts/build-builtins.mjs",
     "build:sdk": "tsc -p packages/plugin-sdk && node packages/plugin-sdk/scripts/build-testing.mjs",
@@ -42,7 +42,6 @@
     "cosmokit": "^1.8.1",
     "fast-xml-parser": "^5.11.1",
     "file-type": "^22.0.2",
-    "fluent-ffmpeg": "^2.1.3",
     "get-port": "^7.2.0",
     "hono": "^4.13.5",
     "image-size": "^2.0.2",
@@ -52,7 +51,6 @@
     "schemastery": "^3.18.0",
     "semver": "7.8.5",
     "sift": "^17.1.3",
-    "silk-wasm": "^3.7.1",
     "undici": "^7.18.2",
     "ws": "^8.21.3",
     "yauzl": "^3.4.0",
@@ -60,7 +58,6 @@
   },
   "devDependencies": {
     "@types/busboy": "^1.5.4",
-    "@types/fluent-ffmpeg": "^2.1.28",
     "@types/node": "^24.12.4",
     "@types/nodemailer": "^8.0.1",
     "@types/qrcode": "^1.5.6",

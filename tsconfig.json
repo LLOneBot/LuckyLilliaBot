@@ -23,13 +23,13 @@
   },
   "include": [
     "src",
-    "examples",
+    "test/fixtures/plugins",
     "scripts",
     "test/*.ts"
   ],
   "exclude": [
     "src/plugin/internal/service/webui/FE",
     "src/**/client",
-    "examples/plugins/*/lib"
+    "test/fixtures/plugins/*/lib"
   ]
 }

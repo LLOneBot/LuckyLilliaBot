@@ -1,0 +1,9 @@
+{
+  "referenceDecoder": "Unmodified silk/test/Decoder.c and generic C SDK 1.0.9.6 from kn007/silk-v3-decoder@507be6bca8ce1fb977a061481f1d79e8c610e309, -Fs_API 24000 -quiet",
+  "framingAdaptation": "Remove Tencent prefix byte 0x02 and append terminal length -1. Encoded packet payloads and lengths are unchanged.",
+  "originalMetadata": "reference-silk.json",
+  "file": "reference.silk",
+  "encodedSha256": "64acf8da8e0ebaabee12f5232b45c91fa15c4cafe845a90d5653473b42659a93",
+  "decodedPcmSha256": "8861873a6740de05fb8ac56cac4bba3b51497e4ecc1112d33398732c6a08327c",
+  "decodedPcmBytes": 48000
+}

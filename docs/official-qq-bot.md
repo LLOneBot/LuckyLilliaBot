@@ -1,12 +1,12 @@
 # 官方 QQ bot 适配器
 
-> QQ 开放平台（q.qq.com）的官方机器人：用 AppID + AppSecret 登录，不走纯协议或官方 QQ 客户端桥接，作为**中立层的第二个消息源**接入，现有插件（echo、keyword-reply）不用改就能在它上面跑。
+> QQ 开放平台（q.qq.com）的官方机器人：用 AppID + AppSecret 登录，不走纯协议或官方 QQ 客户端桥接，作为**中立层的第二个消息源**接入，使用中立层的消息插件可直接在它上面运行。
 >
 > 已实施：内置插件 `builtin:qq-official`，代码在 `src/plugin/internal/protocol/qq-official/`。群聊、单聊（C2C）、频道都做了，每个 AppID 统一注册一个 `qq` Bot，只走 WebSocket。功能对齐 `koishi-plugin-adapter-qq-crack` 1.0.32（官方 Koishi adapter 的魔改版，仍走官方 appid + secret，没有破解鉴权），webhook 除外。读 crack 源码：`npm pack koishi-plugin-adapter-qq-crack@<版本>` 解到临时目录（`D:\code\github.com\koishi-plugin-adapter-qq-crack` 的克隆停在 1.0.18，太旧）；频道消息的解析以上游 `@satorijs/adapter-qq` 的 `decodeMessage` 为准。
 
 ## 1. 定位
 
-官方 bot 每个 AppID 只实现一个 `Bot`，经 `ctx.bots.register()` / `dispatch()` / `beforeSend()` 接入中立层，和扫码账号（NT，`platform='luckylillia'`）互相独立：
+官方 bot 每个 AppID 只实现一个 `Bot`，经 `ctx.bots.register()` / `dispatch()` / `beforeSend()` 接入中立层，和扫码账号（NTQQ，`platform='ntqq'`）互相独立：
 
 - `qq`（`QQOfficialBot`，sid `qq:<AppID>`）：统一承载群聊、单聊、频道和机器人自身的事件。`ctx.bots`、`session.bot`、WebUI 账号卡片、Satori login 都只有这一个身份（owner 2026-11-05）。
 - 频道 REST 和发送逻辑封装在内部 `QQGuildClient`，不注册到 `ctx.bots`。中立层暴露的频道、子频道、用户、消息 ID 加 `qqguild:` 前缀；频道私信的 channelId 为 `private:qqguild:<DMG>_<DMC>`。群聊 / C2C ID 保持原样（单聊为 `private:<openid>`），方法按 ID 路由到对应接口。`qqguild:` 是资源命名空间，不是第二个平台。
@@ -139,7 +139,7 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 - **富媒体上传**（`/v2/groups|users/{id}/files`，返回的 `file_info` 原样填进 `media`）：
   - http(s) URL 交给平台去下载 `{ file_type, url, srv_send_msg: false }`；平台下载失败（850026）时改为自己下载后传字节
   - 其余（`data:` / `base64://` / `file://` / 本地路径）读成字节：≤ 5 MB 用 `file_data`（base64），更大的走分片：`upload_prepare`（md5 / sha1 / 前 10002432 字节的 md5）→ 逐块 PUT 到预签名 URL → `upload_part_finish`（40093001 在 `retry_timeout` 内重试）→ 带 `upload_id` 调 `/files`。crack 对所有本地文件都走分片
-  - `file_type`：1 图片（png / jpg）、2 视频（mp4）、3 语音（只收 silk：wav 直接用 silk-wasm 编，其它格式经 ffmpeg）、4 文件
+  - `file_type`：1 图片（png / jpg）、2 视频（mp4）、3 语音（只收 SILK：已有 SILK 直接上传，WAV 等其他格式由可选的 lucky-lillia-plugin-ffmpeg 原生转码；未安装或启用时返回安装提示）、4 文件
   - 群的文件只能发群，用户的只能发用户
 - **引用**：`message_reference.message_id` 要的是 `REFIDX_...` 索引，不是消息 id。收到的消息从 `message_scene.ext` 的 `msg_idx=` 取，自己发的从返回的 `ext_info.ref_idx` 取，记在 `PassiveReplies.refs`（2000 条、1 小时）
 - `deleteMessage`：`DELETE /v2/groups/{gid}/messages/{id}`、`/v2/users/{openid}/messages/{id}`
@@ -220,11 +220,11 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 - 单测 `test/unit/universal/qqofficial/`：
   - `decode` / `passive` / `elements` 纯函数；`internal` 路径参数和 query；`users` 落盘和查询接口；`menu` 菜单和面板的同步、写入间隔、配额错误、跟随指令；`api` 的 endpoint、沙箱、query、multipart
   - `gateway` 用本地 `ws` 服务器测 identify、心跳、resume、invalid session、致命关闭码、僵死重连、`gatewayUrl`、换域名
-  - `plugin` / `features` 用假的 REST（`vi.stubGlobal('fetch')`）+ 本地网关：收消息、被动回复、去重重试、退回主动、媒体上传和回退、按钮回应、凭证错误让条目失败、`examples/plugins/echo`；markdown 和按钮（转义、换行、按钮组、平台字段）、ark 和各种平台载荷、markdown 里的 @、`data:` 图片拆分、`<passive>`、流式、`retryWhen`、审核等待、群成员和入群申请、禁言、群信息和成员、踢人、接收开关和 internal 事件、单 Bot 注册、频道 ID 隔离 / @ 消息 / 私信 / markdown / 图片 / 去重 / 表态和频道成员事件、没有按钮的互动、手动回应、菜单同步
+  - `plugin` / `features` 用假的 REST（`vi.stubGlobal('fetch')`）+ 本地网关：收消息、被动回复、去重重试、退回主动、媒体上传和回退、按钮回应、凭证错误让条目失败、`test/fixtures/plugins/echo`；markdown 和按钮（转义、换行、按钮组、平台字段）、ark 和各种平台载荷、markdown 里的 @、`data:` 图片拆分、`<passive>`、流式、`retryWhen`、审核等待、群成员和入群申请、禁言、群信息和成员、踢人、接收开关和 internal 事件、单 Bot 注册、频道 ID 隔离 / @ 消息 / 私信 / markdown / 图片 / 去重 / 表态和频道成员事件、没有按钮的互动、手动回应、菜单同步
   - `test/unit/bootstrap/builtins.test.ts` 验证没填凭证也能打开（条目 `failed`）、开着时只填一半存不进去、存好凭证后条目起来
   - 中立层扩展元素的共用用例（`test/unit/universal/crossPlatform.ts`）在 `features.test.ts` 里断言发成什么；频道的 `<emoji:id>` 收发、卡片缺字段时的降级也在那里
   - `features` 的统一身份回归：群聊和频道使用相同原始消息 ID 仍分别收到、回复；频道引用 / @ / 子频道链接的前缀往返；频道私信的创建 / 发送 / 删除与 C2C 分流；资源查询 / 管理 / 原始 API 路由；按钮事件被动回复；同一个注册指令在群聊和频道执行且忽略自己发的频道消息；本地 Satori WebSocket 的 READY 只有一个 `qq` login，群聊和频道事件共用它，外部 `message.create` 能按带前缀的频道 ID 回复。
-- `examples/plugins/echo` 会先去掉开头对 bot 的 @：官方 bot 在群里只收得到 @ 它的消息
+- `test/fixtures/plugins/echo` 会先去掉开头对 bot 的 @：官方 bot 在群里只收得到 @ 它的消息
 - 不登录 QQ 的 WebUI 端到端验证照 [plugin-system.md](plugin-system.md) 的方法即可。用假 AppID 启用会真的请求腾讯的 token 接口，返回 `[10004] 机器人不存在`，卡片显示失败原因
 - **真机联调**：一个开放平台机器人加一个测试群。做法：
   - 起一个临时实例（独立目录，`--plugin-dir` 指向一个测试插件，WebUI / Satori 换非默认端口），`plugins.json` 里关掉 `builtin:nt-protocol`、开 `builtin:qq-official`。凭证从别处读进配置，不打印、不进仓库，测完连目录删掉

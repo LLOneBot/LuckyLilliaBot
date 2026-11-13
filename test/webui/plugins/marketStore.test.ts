@@ -165,4 +165,64 @@ describe('market update state', () => {
     expect(store.ctx?.api).toBe(newApi)
     expect(store.updates).toEqual({})
   })
+
+  it('loads the full catalog only when requested, deduplicates requests and resolves preview assets locally', async () => {
+    const response = pending<unknown[]>()
+    api.mockImplementation((path: string) => path.endsWith('/catalog') ? response.promise
+      : Promise.resolve(path.endsWith('/installed') ? installed : available))
+    const unsubscribe = store.subscribe(() => {})
+    await vi.advanceTimersByTimeAsync(0)
+    expect(api.mock.calls.some(([path]) => path.endsWith('/catalog'))).toBe(false)
+    const loading = store.loadCatalog()
+    await store.loadCatalog()
+    expect(store.loadingCatalog).toBe(true)
+    expect(api.mock.calls.filter(([path]) => path.endsWith('/catalog'))).toHaveLength(1)
+    response.resolve([{
+      name: 'example', title: '示例', version: '1.2.3', description: '简介', category: 'tool',
+      author: { name: '作者' }, repository: 'https://github.com/test/example', icon: 'images/icon.png',
+      screenshots: [{ src: 'images/demo.png', caption: '演示' }],
+    }])
+    await loading
+    expect(store.catalog).toEqual([{
+      name: 'example', title: '示例', version: '1.2.3', description: '简介', category: 'tool',
+      author: { name: '作者' }, repository: 'https://github.com/test/example', builtin: undefined,
+      iconUrl: 'https://cdn.jsdelivr.net/npm/example@1.2.3/images/icon.png',
+      screenshots: [{ url: 'https://cdn.jsdelivr.net/npm/example@1.2.3/images/demo.png', caption: '演示' }],
+    }])
+    await store.loadCatalog()
+    expect(api.mock.calls.filter(([path]) => path.endsWith('/catalog'))).toHaveLength(1)
+    expect(api.mock.calls.some(([path]) => path.includes('details'))).toBe(false)
+    unsubscribe()
+  })
+
+  it('clears a failed catalog independently of installed packages and allows an explicit retry', async () => {
+    api.mockImplementation(async (path: string) => path.endsWith('/catalog') ? []
+      : path.endsWith('/installed') ? installed : available)
+    await store.refresh()
+    await store.loadCatalog()
+    api.mockRejectedValueOnce(new Error('catalog offline'))
+    await store.loadCatalog(true)
+    expect(store.catalog).toBeNull()
+    expect(store.catalogError).toBe('catalog offline')
+    expect(store.installed).toEqual(installed)
+    expect(store.installedError).toBe('')
+    expect(store.updates).toEqual(available)
+    await store.loadCatalog(true)
+    expect(store.catalog).toEqual([])
+    expect(store.catalogError).toBe('')
+  })
+
+  it('ignores a catalog response from an old plugin context after changing the source', async () => {
+    const response = pending<unknown[]>()
+    api.mockImplementation(() => response.promise)
+    const first = store.loadCatalog()
+    disconnect()
+    disconnect = store.connect({ api: vi.fn(async () => []) } as unknown as WebUIContext)
+    await store.loadCatalog()
+    response.resolve([{ name: 'obsolete', title: '旧目录', version: '1.0.0' }])
+    await first
+    expect(store.catalog).toEqual([])
+    expect(store.catalogError).toBe('')
+    expect(store.loadingCatalog).toBe(false)
+  })
 })

@@ -49,6 +49,19 @@ describe('renderMarkdown', () => {
     expect(body('foo_bar_baz 和 _斜体_')).toBe('<p>foo_bar_baz 和 <em>斜体</em></p>')
   })
 
+  it.each(['# 插件名称', '插件名称\n==='])('can omit an opening document title when a dialog supplies it: %s', title => {
+    const rendered = renderToStaticMarkup(renderMarkdown(`${title}\n\n说明正文\n\n## 使用方法`, { omitTitle: true }))
+    expect(rendered).not.toContain('<h1')
+    expect(rendered).toContain('说明正文')
+    expect(rendered).toContain('使用方法')
+  })
+
+  it('keeps section headings and headings after other content when omitting the document title', () => {
+    expect(renderToStaticMarkup(renderMarkdown('## 使用方法\n\n# 示例', { omitTitle: true }))).toContain('使用方法')
+    expect(renderToStaticMarkup(renderMarkdown('介绍\n\n# 示例', { omitTitle: true }))).toContain('示例')
+    expect(renderToStaticMarkup(renderMarkdown('```md\n# 代码示例\n```', { omitTitle: true }))).toContain('# 代码示例')
+  })
+
   it('nests lists by indent and keeps an ordered list\'s start', () => {
     expect(body('- 一\n  - 一点一\n- 二\n\n3. 三\n4. 四')).toBe(
       '<ul><li><p>一</p><ul><li><p>一点一</p></li></ul></li><li><p>二</p></li></ul><ol start="3"><li><p>三</p></li><li><p>四</p></li></ol>',

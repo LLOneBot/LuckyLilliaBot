@@ -3,6 +3,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Fiber } from 'cordis'
 import type { PluginStorage } from '@luckylillia/plugin-sdk'
+import { normalizePlatformId } from '../../common/platform'
 
 const BUILTIN_PREFIX = 'builtin:'
 // CON, PRN, AUX, NUL, COM1..9, LPT1..9 cannot be directory names on Windows, extension or not
@@ -24,7 +25,7 @@ export function dataKey(name: string): string {
 
 /** `platform:selfId` as one directory name, `platform+selfId`; what could leave the directory is refused. */
 export function botKey(sid: string): string {
-  const key = sid.replace(':', '+')
+  const key = normalizePlatformId(sid).replace(':', '+')
   if (!/^[\w.~@-]+\+[\w.~@-]+$/.test(key) || key.endsWith('.') || WINDOWS_RESERVED.test(key)) {
     throw new Error(`cannot derive a data directory from bot ${JSON.stringify(sid)}`)
   }
@@ -85,12 +86,17 @@ export class PluginDataDirs {
       const sid = typeof bot === 'string' ? bot : (bot as { sid?: unknown } | undefined)?.sid
       if (typeof sid !== 'string') throw new TypeError(`ctx.storage.dir('bot', bot): expected a bot or its sid`)
       dir = path.join(this.root, dataKey(name), 'bots', botKey(sid))
-      // Older plugins kept QQ data at <package>/<uin>. Reuse it without moving or merging files;
-      // a directory already created through the bot API takes precedence. No login service is needed.
-      const legacyId = /^luckylillia:([0-9]+)$/.exec(sid)?.[1]
-      if (legacyId && !await this.directoryExists(dir)) {
-        const legacy = path.join(this.root, dataKey(name), legacyId)
-        if (await this.directoryExists(legacy)) dir = legacy
+      // Reuse existing NTQQ data in place: the canonical bot directory, then the old platform
+      // directory, then the original numeric QQ directory. Never move or merge user files.
+      const normalizedSid = normalizePlatformId(sid)
+      if (normalizedSid.startsWith('ntqq:') && !await this.directoryExists(dir)) {
+        const selfId = normalizedSid.slice('ntqq:'.length)
+        const legacyBot = path.join(this.root, dataKey(name), 'bots', `luckylillia+${selfId}`)
+        if (await this.directoryExists(legacyBot)) dir = legacyBot
+        else if (/^[0-9]+$/.test(selfId)) {
+          const legacy = path.join(this.root, dataKey(name), selfId)
+          if (await this.directoryExists(legacy)) dir = legacy
+        }
       }
     } else {
       throw new TypeError(`ctx.storage.dir(): unknown scope ${JSON.stringify(scope)}, expected 'global' or 'bot'`)

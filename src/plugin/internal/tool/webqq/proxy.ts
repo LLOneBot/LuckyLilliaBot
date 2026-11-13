@@ -5,6 +5,8 @@ import { existsSync } from 'node:fs'
 import { access, readFile, unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { decodeSilk } from '@/common/utils/audio'
+import { getFFmpegAddon, isFFmpegUnavailableError } from '@/common/utils/ffmpeg'
+import { isSilk, isWav } from '@/common/utils/audioFormat'
 import { Hono } from 'hono'
 
 export function createProxyRoutes(ctx: Context): Hono {
@@ -132,6 +134,8 @@ export function createProxyRoutes(ctx: Context): Hono {
 
   // 转成浏览器能播的格式
   router.get('/audio-proxy', async (c) => {
+    let downloadedPath: string | undefined
+    let convertedPath: string | undefined
     try {
       const fileUuid = c.req.query('fileUuid')
       const filePath = c.req.query('filePath')
@@ -178,29 +182,45 @@ export function createProxyRoutes(ctx: Context): Hono {
         const audioBuffer = Buffer.from(await response.arrayBuffer())
         const tempDir = os.tmpdir()
         audioFilePath = path.join(tempDir, `ptt_${randomUUID()}.silk`)
+        downloadedPath = audioFilePath
         await writeFile(audioFilePath, audioBuffer)
       }
 
+      if (!audioFilePath) {
+        return c.json({ success: false, message: '语音文件不存在' }, 404)
+      }
+
       try {
-        const mp3Path = await decodeSilk(ctx, audioFilePath, 'mp3')
-        const mp3Buffer = await readFile(mp3Path)
-
-        if (audioFilePath.includes(os.tmpdir())) {
-          unlink(audioFilePath).catch(() => { })
+        let wavBuffer = await readFile(audioFilePath)
+        if (isSilk(wavBuffer)) {
+          // SILK 播放需要原生插件解码；缺少插件时下方返回安装提示。
+          convertedPath = await decodeSilk(ctx, audioFilePath, 'wav')
+          wavBuffer = await readFile(convertedPath)
+        } else if (!isWav(wavBuffer)) {
+          // 群语音也可能是 AMR 等格式，交给可选的媒体服务。
+          convertedPath = path.join(os.tmpdir(), `ptt_${randomUUID()}.wav`)
+          await getFFmpegAddon().transcodeAudio(audioFilePath, convertedPath, { format: 'wav' })
+          wavBuffer = await readFile(convertedPath)
         }
-        unlink(mp3Path).catch(() => { })
 
-        c.header('Content-Type', 'audio/mpeg')
+        c.header('Content-Type', 'audio/wav')
         c.header('Cache-Control', 'public, max-age=86400')
         c.header('Access-Control-Allow-Origin', '*')
-        return c.body(mp3Buffer)
+        return c.body(wavBuffer)
       } catch (decodeError) {
-        ctx.logger.error('silk 解码失败:', decodeError)
+        if (isFFmpegUnavailableError(decodeError)) {
+          return c.json({ success: false, code: decodeError.code, message: decodeError.message }, 503)
+        }
+        ctx.logger.error('语音解码失败:', decodeError)
         return c.json({ success: false, message: '语音解码失败', error: String(decodeError) }, 500)
       }
     } catch (e) {
       ctx.logger.error('语音代理失败:', e)
       return c.json({ success: false, message: '语音代理失败', error: (e as Error).message }, 500)
+    } finally {
+      // 仅清理本次创建的文件，不能删除调用者提供的本地语音。
+      await Promise.all([downloadedPath, convertedPath].filter((file): file is string => !!file)
+        .map(file => unlink(file).catch(() => {})))
     }
   })
 
